@@ -66,6 +66,9 @@ func Init(d *Deps) {
 	clubRepo = repository.NewClubRepo(db)
 	paymentRepo = repository.NewPaymentRepo(db)
 	inviteCodeRepo = repository.NewInviteCodeRepo(db)
+
+	// 注入文件安全模块默认 DB(水印/加密/上链存证)
+	utils.SetFileSecurityDB(db)
 }
 
 // readDBOr 主库兜底:未配置只读库时使用主库

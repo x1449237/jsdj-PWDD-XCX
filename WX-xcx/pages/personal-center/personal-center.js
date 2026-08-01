@@ -221,6 +221,11 @@ Page({
       this.onLogin();
       return;
     }
+    // 增加开关检查，关闭时拦截跳转
+    if (!this.data.clubJoinOpen) {
+      wx.showToast({ title: '俱乐部入驻功能暂未开放', icon: 'none' });
+      return;
+    }
     wx.navigateTo({
       url: '/pages/club/join/join'
     });

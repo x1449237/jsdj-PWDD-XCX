@@ -57,6 +57,106 @@ func (h *AdminAuditHandler) RejectClub(c *gin.Context) {
 	utils.Success(c, gin.H{"msg": "ok"})
 }
 
+// FreezeClub 冻结俱乐部(级联禁用功能)
+// POST /api/v1/admin/clubs/:id/freeze
+func (h *AdminAuditHandler) FreezeClub(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	var req rejectClubRequest
+	_ = c.ShouldBindJSON(&req)
+	if err := service.AdminFreezeClub(clubID, req.Reason); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// CancelClub 安全注销俱乐部
+// POST /api/v1/admin/clubs/:id/cancel
+func (h *AdminAuditHandler) CancelClub(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	var req rejectClubRequest
+	_ = c.ShouldBindJSON(&req)
+	if err := service.AdminCancelClub(clubID, req.Reason); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// HideVBadge 平台手动隐藏俱乐部 V 标
+// POST /api/v1/admin/clubs/:id/vbadge/hide
+func (h *AdminAuditHandler) HideVBadge(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	if err := service.AdminHideVBadge(clubID); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// RestoreVBadge 平台恢复被手动隐藏的俱乐部 V 标
+// POST /api/v1/admin/clubs/:id/vbadge/restore
+func (h *AdminAuditHandler) RestoreVBadge(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	if err := service.AdminRestoreVBadge(clubID); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// AuditClubsFiltered 俱乐部审核列表(多条件筛选)
+// GET /api/v1/admin/clubs/audit-filter
+func (h *AdminAuditHandler) AuditClubsFiltered(c *gin.Context) {
+	page, pageSize := getPage(c)
+	f := service.ClubAuditFilter{
+		Status:        parseInt8Query(c, "status", -1),
+		Type:          parseInt8Query(c, "type", -1),
+		VBadgeType:    parseInt8Query(c, "v_badge_type", -1),
+		DepositStatus: parseInt8Query(c, "deposit_status", -1),
+		Keyword:       c.Query("keyword"),
+	}
+	list, total, err := service.AdminAuditClubsFiltered(page, pageSize, f)
+	if err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.SuccessWithTotal(c, list, total)
+}
+
+// GetClubChangeLogs 俱乐部资料修改日志(入驻/资料变更审计溯源)
+// GET /api/v1/admin/clubs/:id/change-logs
+func (h *AdminAuditHandler) GetClubChangeLogs(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	page, pageSize := getPage(c)
+	list, total, err := service.AdminGetClubChangeLogs(clubID, page, pageSize)
+	if err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.SuccessWithTotal(c, list, total)
+}
+
+// ReviewFineRule 平台审核罚款规则备案
+// POST /api/v1/admin/fine-rules/:id/review
+func (h *AdminAuditHandler) ReviewFineRule(c *gin.Context) {
+	ruleID := parseInt64Path(c, "id")
+	reviewerID := getCurrentUserID(c)
+	var req struct {
+		Approve bool   `json:"approve"`
+		Note    string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	if err := service.AdminReviewFineRule(ruleID, reviewerID, req.Approve, req.Note); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
 // AuditPlayers 打手审核列表
 // GET /api/v1/admin/players/audit
 func (h *AdminAuditHandler) AuditPlayers(c *gin.Context) {

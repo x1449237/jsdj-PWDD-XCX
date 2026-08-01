@@ -30,6 +30,8 @@ type OperationLog struct {
 	Content      json.RawMessage `gorm:"column:content;type:json" json:"content"`                                      // 操作内容
 	IP           string          `gorm:"column:ip;size:64;not null;default:''" json:"ip"`                             // IP地址
 	DeviceInfo   string          `gorm:"column:device_info;size:255;not null;default:''" json:"device_info"`          // 设备信息
+	Result       string          `gorm:"column:result;index:idx_result;size:16;not null;default:'success'" json:"result"` // 操作结果 success/fail
+	Module       string          `gorm:"column:module;index:idx_module;size:32;not null;default:''" json:"module"`    // 业务模块 club_join/deposit/vbadge 等
 	CreatedAt    *time.Time      `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
 }
 

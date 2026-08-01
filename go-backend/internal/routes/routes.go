@@ -109,7 +109,18 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	{
 		clubs.GET("", clubH.GetClubList)
 		clubs.GET("/:id", clubH.GetClubDetail)
+		// 入驻开关查询(公开，前端入驻页打开时先查询)
+		clubs.GET("/join-switch", clubH.CheckClubSwitch)
 		clubs.POST("/join-click", authReq, clubH.RecordClubJoinClick)
+
+		// 入驻流程(需登录)
+		clubs.POST("/abbr", authReq, clubH.GenerateAbbr)
+		clubs.POST("/upload-pdf", authReq, clubH.UploadPDF)
+		clubs.POST("/registrations/personal", authReq, clubH.SubmitPersonal)
+		clubs.POST("/registrations/enterprise", authReq, clubH.SubmitEnterprise)
+		clubs.POST("/draft", authReq, clubH.SaveDraft)
+		clubs.GET("/draft", authReq, clubH.GetDraft)
+		clubs.GET("/seal-remind", authReq, clubH.GetSealRemind)
 	}
 
 	// ---------------- 用户侧(需登录) ----------------
@@ -264,8 +275,15 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 
 		// 审核(俱乐部/打手/分销商/派单员/管理端账号)
 		admin.GET("/clubs/audit", adminAuditH.AuditClubs)
+		admin.GET("/clubs/audit-filter", adminAuditH.AuditClubsFiltered)
 		admin.POST("/clubs/:id/approve", adminAuditH.ApproveClub)
 		admin.POST("/clubs/:id/reject", adminAuditH.RejectClub)
+		admin.POST("/clubs/:id/freeze", adminAuditH.FreezeClub)
+		admin.POST("/clubs/:id/cancel", adminAuditH.CancelClub)
+		admin.POST("/clubs/:id/vbadge/hide", adminAuditH.HideVBadge)
+		admin.POST("/clubs/:id/vbadge/restore", adminAuditH.RestoreVBadge)
+		admin.GET("/clubs/:id/change-logs", adminAuditH.GetClubChangeLogs)
+		admin.POST("/fine-rules/:id/review", adminAuditH.ReviewFineRule)
 		admin.GET("/players/audit", adminAuditH.AuditPlayers)
 		admin.POST("/players/:id/approve", adminAuditH.ApprovePlayer)
 		admin.POST("/players/:id/reject", adminAuditH.RejectPlayer)
@@ -294,6 +312,11 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		admin.POST("/deposits/:club_id/confirm", adminFinanceH.ConfirmDeposit)
 		admin.POST("/deposits/:club_id/refund", adminFinanceH.RefundDeposit)
 		admin.PUT("/deposits/config", adminFinanceH.UpdateDepositConfig)
+
+		// 对公小额打款验证(企业入驻)
+		admin.GET("/corporate-transfers", adminFinanceH.TransferList)
+		admin.POST("/corporate-transfers", adminFinanceH.GenerateTransfer)
+		admin.POST("/corporate-transfers/:id/verify", adminFinanceH.VerifyTransfer)
 
 		// 申诉/售后
 		admin.GET("/appeals", adminAppealH.GetAppeals)
@@ -413,6 +436,14 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		shop.GET("/groups/:id/members", shopH.GetGroupMembers)
 		shop.POST("/groups/:id/messages", shopH.SendGroupMessage)
 		shop.PUT("/groups/:id/announcement", shopH.PublishAnnouncement)
+		shop.GET("/groups/:id/announcement/stats", shopH.GetAnnouncementReadStats)
+		shop.POST("/groups/:id/announcement/read", shopH.MarkAnnouncementRead)
+
+		// 抽成比例 + 罚款规则
+		shop.PUT("/club/commission", shopH.UpdateCommissionRate)
+		shop.GET("/fine-rules", shopH.ListFineRules)
+		shop.POST("/fine-rules", shopH.CreateFineRule)
+		shop.POST("/fine-rules/:id/revoke", shopH.RevokeFineRule)
 
 		// 风控
 		shop.GET("/risk/users", shopH.GetRiskUsers)

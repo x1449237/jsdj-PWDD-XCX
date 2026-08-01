@@ -125,3 +125,50 @@ func RevokePlatformGoldV(userID int64) error {
 		Where("user_id = ? AND badge_type = ? AND club_id = 0", userID, model.VBadgeTypeGold).
 		Updates(map[string]interface{}{"status": 0, "updated_at": nowTimePtr()}).Error
 }
+
+// AdminHideVBadge 平台手动隐藏俱乐部 V 标
+// 设置 clubs.v_badge_type=0 + user_v_badges.status=2(手动隐藏)
+// 与撤销(置 0)的区别：隐藏可恢复，且保留原始蓝/绿类型在历史记录中可追溯
+func AdminHideVBadge(clubID int64) error {
+	if clubID <= 0 {
+		return errors.New("俱乐部ID无效")
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		club := &model.Club{}
+		if err := tx.First(club, clubID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("俱乐部不存在")
+			}
+			return err
+		}
+		// 隐藏俱乐部 V 标(置 0 表示前台不可见)
+		if err := tx.Model(club).Updates(map[string]interface{}{
+			"v_badge_type": int8(0),
+			"updated_at":   nowTimePtr(),
+		}).Error; err != nil {
+			return err
+		}
+		// 成员 V 标记为手动隐藏(2)
+		return tx.Model(&model.UserVBadge{}).
+			Where("club_id = ? AND badge_type IN ? AND status = ?", clubID,
+				[]string{model.VBadgeTypeBlue, model.VBadgeTypeGreen}, model.VBadgeStatusActive).
+			Updates(map[string]interface{}{"status": model.VBadgeStatusHidden, "updated_at": nowTimePtr()}).Error
+	})
+}
+
+// AdminRestoreVBadge 平台恢复被手动隐藏的俱乐部 V 标
+// 重新点亮 V 标，依据俱乐部类型恢复蓝/绿 V
+func AdminRestoreVBadge(clubID int64) error {
+	if clubID <= 0 {
+		return errors.New("俱乐部ID无效")
+	}
+	c, err := clubRepo.FindByID(clubID)
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	// 复用 GrantClubVBadge 完成重新点亮
+	return GrantClubVBadge(clubID, int64(c.Type))
+}

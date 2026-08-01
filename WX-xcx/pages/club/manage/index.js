@@ -33,6 +33,7 @@ Page({
         { id: 'members', name: '成员管理', icon: 'team', path: '/pages/club/manage/members?id=' + this.data.clubId, roles: ['founder', 'manager'] },
         { id: 'internal-order', name: '内部订单', icon: 'order', path: '/pages/club/manage/internal-order?id=' + this.data.clubId, roles: ['founder', 'manager', 'member'] },
         { id: 'coupon', name: '优惠券管理', icon: 'coupon', path: '/pages/club/manage/coupon?id=' + this.data.clubId, roles: ['founder', 'manager'] },
+        { id: 'fine-rules', name: '罚款规则', icon: 'chart', path: '/pages/club/manage/fine-rules?id=' + this.data.clubId, roles: ['founder', 'manager'] },
         { id: 'dashboard', name: '数据看板', icon: 'chart', path: '/pages/club/manage/dashboard?id=' + this.data.clubId, roles: ['founder', 'manager'] },
         { id: 'dynamic', name: '动态墙', icon: 'image', path: '/pages/club/dynamic/list?id=' + this.data.clubId, roles: ['founder', 'manager', 'member'] },
       ];

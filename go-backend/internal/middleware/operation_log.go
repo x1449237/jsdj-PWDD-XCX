@@ -12,7 +12,7 @@ import (
 )
 
 // OperationLogMiddleware 操作日志记录中间件
-// 异步记录管理端操作行为到 operation_logs 表，含操作人、动作、对象、IP、设备信息
+// 异步记录管理端操作行为到 operation_logs 表，含操作人、动作、对象、IP、设备信息、结果、模块
 type OperationLogMiddleware struct {
 	db     *gorm.DB
 	logger *zap.Logger
@@ -23,15 +23,27 @@ func NewOperationLogMiddleware(db *gorm.DB, logger *zap.Logger) *OperationLogMid
 	return &OperationLogMiddleware{db: db, logger: logger}
 }
 
-// OperationLog 操作日志记录(异步写入)
+// ContextKeyOpLogResult 操作结果在 gin.Context 中的键(success/fail)
+const ContextKeyOpLogResult = "op_log_result"
+
+// ContextKeyOpLogModule 操作模块在 gin.Context 中的键(club_join/deposit/vbadge 等)
+const ContextKeyOpLogModule = "op_log_module"
+
+// OperationLog 操作日志记录(异步写入，模块为空)
 // action 为操作动作标识，targetType 为操作对象类型
 func (m *OperationLogMiddleware) OperationLog(action, targetType string) gin.HandlerFunc {
+	return m.OperationLogWithModule(action, targetType, "")
+}
+
+// OperationLogWithModule 操作日志记录(异步写入，带业务模块标识)
+// module 用于细化业务域，如 club_join/deposit/vbadge/club_fine/transfer 等
+func (m *OperationLogMiddleware) OperationLogWithModule(action, targetType, module string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 先执行业务
 		c.Next()
 
 		// 异步记录日志，不阻塞响应
-		go func(c *gin.Context, action, targetType string) {
+		go func(c *gin.Context, action, targetType, module string) {
 			operatorID := utils.GetCurrentUserID(c)
 			if operatorID == 0 {
 				return
@@ -56,6 +68,25 @@ func (m *OperationLogMiddleware) OperationLog(action, targetType string) gin.Han
 
 			content, _ := json.Marshal(c.Request.URL.Query())
 
+			// 操作结果：默认 success，handler 可通过 context 覆盖为 fail
+			result := "success"
+			if v, exists := c.Get(ContextKeyOpLogResult); exists {
+				if r, ok := v.(string); ok && r != "" {
+					result = r
+				}
+			}
+			// 模块优先取 handler 注入的 context 值
+			if v, exists := c.Get(ContextKeyOpLogModule); exists {
+				if mod, ok := v.(string); ok && mod != "" {
+					module = mod
+				}
+			}
+
+			// HTTP 状态码 >= 400 视为失败
+			if c.Writer.Status() >= 400 {
+				result = "fail"
+			}
+
 			log := &model.OperationLog{
 				OperatorID:   operatorID,
 				OperatorType: ut,
@@ -65,6 +96,8 @@ func (m *OperationLogMiddleware) OperationLog(action, targetType string) gin.Han
 				Content:      content,
 				IP:           c.ClientIP(),
 				DeviceInfo:   c.GetHeader("X-Device-Info"),
+				Result:       result,
+				Module:       module,
 				CreatedAt:    nowPtr(),
 			}
 
@@ -74,7 +107,7 @@ func (m *OperationLogMiddleware) OperationLog(action, targetType string) gin.Han
 					zap.String("action", action),
 					zap.Error(err))
 			}
-		}(c.Copy(), action, targetType)
+		}(c.Copy(), action, targetType, module)
 	}
 }
 

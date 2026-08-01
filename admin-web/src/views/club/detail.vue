@@ -117,8 +117,49 @@
           </el-table>
         </div>
 
+        <!-- 入驻附件管理 -->
+        <div class="section">
+          <h3 class="section-title">入驻附件</h3>
+          <div style="margin-bottom: 12px; text-align: right">
+            <el-button type="success" size="small" @click="exportAttachments" :loading="attExporting">
+              导出附件列表（带水印）
+            </el-button>
+          </div>
+          <el-table :data="club.attachments || []" size="small" border empty-text="暂无附件">
+            <el-table-column label="附件类型" width="120">
+              <template #default="{ row }">
+                <el-tag size="small" :type="attTypeTag(row.type)">{{ attTypeLabel(row.type) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="file_name" label="文件名" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="upload_time" label="上传时间" width="170" />
+            <el-table-column prop="file_hash" label="文件哈希(SHA256)" width="220" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="mono">{{ row.file_hash || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="evidence_id" label="上链存证ID" width="200" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="mono">{{ row.evidence_id || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="160" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" size="small" link @click="downloadAttachment(row)">下载</el-button>
+                <el-button type="success" size="small" link @click="exportAttachment(row)">导出</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
         <!-- 操作按钮 -->
         <div class="section" style="text-align: center; padding-top: 20px">
+          <el-button
+            v-if="club.is_active && !club.vbadge_hidden"
+            type="warning" @click="handleHideVBadge">隐藏V标</el-button>
+          <el-button
+            v-if="club.vbadge_hidden"
+            type="success" @click="handleRestoreVBadge">恢复V标</el-button>
           <template v-if="club.club_status === 'active'">
             <el-button type="warning" @click="handleFreeze">冻结俱乐部</el-button>
             <el-button type="danger" @click="handleCancel('closed')">停业</el-button>
@@ -147,7 +188,8 @@ export default {
   data() {
     return {
       loading: false,
-      club: null
+      club: null,
+      attExporting: false
     }
   },
   mounted() {
@@ -194,6 +236,88 @@ export default {
         ElMessage.success(`已${label}`)
         this.fetchDetail()
       } catch (e) { /* cancel */ }
+    },
+    async handleHideVBadge() {
+      try {
+        await ElMessageBox.confirm(
+          `确定隐藏俱乐部"${this.club.club_name}"的V标吗？`,
+          '隐藏V标确认',
+          { type: 'warning', confirmButtonText: '确认隐藏' }
+        )
+        await request.post(`/club/${this.club.id}/hide-vbadge`, {})
+        ElMessage.success('V标已隐藏')
+        this.fetchDetail()
+      } catch (e) { /* cancel */ }
+    },
+    async handleRestoreVBadge() {
+      try {
+        await ElMessageBox.confirm(
+          `确定恢复俱乐部"${this.club.club_name}"的V标吗？`,
+          '恢复V标确认',
+          { type: 'success', confirmButtonText: '确认恢复' }
+        )
+        await request.post(`/club/${this.club.id}/restore-vbadge`, {})
+        ElMessage.success('V标已恢复')
+        this.fetchDetail()
+      } catch (e) { /* cancel */ }
+    },
+    attTypeLabel(type) {
+      const map = { contract: '入驻合同', business_license: '营业执照', id_card_front: '身份证正面', id_card_back: '身份证反面', agent_authorization: '代办授权书', liveness: '活体认证' }
+      return map[type] || type || '-'
+    },
+    attTypeTag(type) {
+      const map = { contract: 'primary', business_license: 'success', id_card_front: 'warning', id_card_back: 'warning', agent_authorization: 'info', liveness: 'info' }
+      return map[type] || 'info'
+    },
+    async downloadAttachment(row) {
+      try {
+        const blob = await request.get('/club/attachment/download', { club_id: this.club.id, attachment_id: row.id, file_hash: row.file_hash })
+        // 后端走加密解密接口返回文件流
+        const url = window.URL.createObjectURL(new Blob([blob]))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = row.file_name || `attachment_${row.id}`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } catch (e) {
+        ElMessage.error('下载失败')
+      }
+    },
+    async exportAttachment(row) {
+      try {
+        const blob = await request.get('/club/attachment/export', { club_id: this.club.id, attachment_id: row.id })
+        const url = window.URL.createObjectURL(new Blob([blob]))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${row.file_name || 'attachment'}_带水印.pdf`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } catch (e) {
+        ElMessage.error('导出失败')
+      }
+    },
+    async exportAttachments() {
+      this.attExporting = true
+      try {
+        const blob = await request.get('/club/attachment/export', { club_id: this.club.id, all: 1 })
+        const url = window.URL.createObjectURL(new Blob([blob]))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `俱乐部${this.club.id}_附件清单_带水印.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        ElMessage.success('导出成功')
+      } catch (e) {
+        ElMessage.error('导出失败')
+      } finally {
+        this.attExporting = false
+      }
     }
   }
 }
@@ -215,5 +339,11 @@ export default {
   margin-bottom: 12px;
   padding-left: 8px;
   border-left: 3px solid #409eff;
+}
+
+.mono {
+  font-family: Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #606266;
 }
 </style>

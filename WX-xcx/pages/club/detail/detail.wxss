@@ -200,6 +200,26 @@
 }
 .announcement-item:last-child { border-bottom: none; }
 
+.announcement-item.is-unread .announcement-title {
+  color: #303133;
+  font-weight: 600;
+}
+
+.announcement-item.is-read .announcement-title {
+  color: #909399;
+  font-weight: 500;
+}
+
+.announcement-unread-dot {
+  position: absolute;
+  top: 24rpx;
+  right: 0;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #f56c6c;
+}
+
 .announcement-tag {
   display: inline-block;
   padding: 4rpx 12rpx;
@@ -224,9 +244,20 @@
   margin-bottom: 8rpx;
 }
 
+.announcement-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .announcement-time {
   font-size: 22rpx;
   color: #c0c4cc;
+}
+
+.announcement-read-stat {
+  font-size: 22rpx;
+  color: #909399;
 }
 
 .coupon-list {

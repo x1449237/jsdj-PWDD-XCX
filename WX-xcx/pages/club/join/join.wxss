@@ -113,6 +113,99 @@
   box-sizing: border-box;
 }
 
+/* B3/B5/B9 通用提示文字 */
+.form-tip {
+  font-size: 22rpx;
+  color: #999999;
+  margin-top: 4rpx;
+  margin-bottom: 4rpx;
+}
+.form-tip.required {
+  color: #e74c3c;
+}
+.required-star {
+  color: #e74c3c;
+  font-weight: bold;
+}
+.tip-ok { color: #52c41a; }
+.tip-err { color: #e74c3c; }
+
+/* 草稿过期提示 */
+.draft-expired-tip {
+  margin: 16rpx 32rpx 0;
+  padding: 16rpx 20rpx;
+  background-color: #fff7e6;
+  border: 1rpx solid #ffd591;
+  border-radius: 8rpx;
+  color: #d46b08;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+/* B2：备选缩写 */
+.abbr-alternatives {
+  background-color: #f0f4ff;
+  border-radius: 8rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+}
+.abbr-alt-title {
+  font-size: 26rpx;
+  color: #0f3460;
+  margin-bottom: 12rpx;
+}
+.abbr-alt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.abbr-alt-item {
+  padding: 10rpx 24rpx;
+  background-color: #ffffff;
+  border: 1rpx solid #0f3460;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #0f3460;
+  letter-spacing: 2rpx;
+}
+
+/* B7：办理方式单选 */
+.radio-row {
+  display: flex;
+  gap: 16rpx;
+}
+.radio-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  background-color: #ffffff;
+  border: 2rpx solid #cccccc;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  color: #666666;
+}
+.radio-item.active {
+  background-color: #0f3460;
+  border-color: #0f3460;
+  color: #ffffff;
+}
+
+/* B9：合同盖章提示 */
+.contract-stamp-tip {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #e74c3c;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* 底部按钮置灰 */
+.footer-btn.next.disabled {
+  background: #cccccc;
+  color: #999999;
+}
+
 /* 缩写 */
 .abbr-section {
   background-color: #f0f4ff;

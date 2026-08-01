@@ -1,11 +1,13 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 
 	"gorm.io/gorm"
 
 	"github.com/jisan/e-sports-platform/internal/model"
+	"github.com/jisan/e-sports-platform/internal/utils"
 )
 
 // GetClubList 俱乐部列表(已审核通过)
@@ -31,9 +33,96 @@ func ShopGetClubInfo(clubID int64) (*model.Club, error) {
 }
 
 // ShopUpdateClubInfo 内置管理端更新俱乐部信息
+// - 如修改俱乐部名称，触发缩写重新生成+查重，新缩写冲突则名称修改失败
+// - 所有修改记录写入 club_info_change_logs
 func ShopUpdateClubInfo(clubID int64, fields map[string]interface{}) error {
-	fields["updated_at"] = nowTimePtr()
-	return clubRepo.Update(clubID, fields)
+	c, err := clubRepo.FindByID(clubID)
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	operatorID := int64(0)
+	if op, ok := fields["__operator_id"]; ok {
+		if v, ok2 := op.(int64); ok2 {
+			operatorID = v
+		}
+		delete(fields, "__operator_id")
+	}
+
+	now := nowTimePtr()
+	changeLogs := make([]*model.ClubInfoChangeLog, 0, len(fields))
+
+	// 名称变更:触发缩写重新生成 + 查重
+	if newName, ok := fields["name"].(string); ok && newName != "" && newName != c.Name {
+		newAbbr := utils.GenerateAbbreviation(newName)
+		if newAbbr == "" {
+			return errors.New("俱乐部名称无法生成有效缩写")
+		}
+		// 查重:排除当前俱乐部自身
+		var cnt int64
+		if err := db.Model(&model.Club{}).
+			Where("abbreviation = ? AND id <> ?", newAbbr, clubID).
+			Count(&cnt).Error; err != nil {
+			return err
+		}
+		if cnt > 0 {
+			return errors.New("新名称生成的缩写与已有俱乐部冲突，名称修改失败")
+		}
+		// 同步更新缩写
+		fields["abbreviation"] = newAbbr
+		changeLogs = append(changeLogs, &model.ClubInfoChangeLog{
+			ClubID: clubID, Field: "name", OldValue: c.Name, NewValue: newName,
+			OperatorID: operatorID, CreatedAt: now,
+		})
+		changeLogs = append(changeLogs, &model.ClubInfoChangeLog{
+			ClubID: clubID, Field: "abbreviation", OldValue: c.Abbreviation, NewValue: newAbbr,
+			OperatorID: operatorID, CreatedAt: now,
+		})
+	}
+
+	// 其余字段变更记录
+	fieldValueMap := map[string]string{
+		"logo":         c.Logo,
+		"intro":        c.Description,
+		"description":  c.Description,
+		"background":   c.Background,
+		"contact_phone":   c.ContactPhone,
+		"contact_wechat":  c.ContactWechat,
+		"contact_qq":      c.ContactQQ,
+		"business_hours":  c.BusinessHours,
+	}
+	for field, newVal := range fields {
+		if field == "name" || field == "abbreviation" || field == "updated_at" {
+			continue
+		}
+		oldVal, tracked := fieldValueMap[field]
+		if !tracked {
+			continue
+		}
+		newValStr, _ := newVal.(string)
+		if newValStr == oldVal {
+			continue
+		}
+		changeLogs = append(changeLogs, &model.ClubInfoChangeLog{
+			ClubID: clubID, Field: field, OldValue: oldVal, NewValue: newValStr,
+			OperatorID: operatorID, CreatedAt: now,
+		})
+	}
+
+	fields["updated_at"] = now
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Club{}).Where("id = ?", clubID).Updates(fields).Error; err != nil {
+			return err
+		}
+		for _, l := range changeLogs {
+			if err := tx.Create(l).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // ShopGetApplications 俱乐部入会申请列表
@@ -195,6 +284,11 @@ func ShopApproveGamer(clubID, gamerID int64) error {
 }
 
 // ShopRemoveGamer 移除打手
+// - 成员置为已移除(status=0)
+// - 自动退出俱乐部所有群聊(group_chat_members)
+// - 断开售后 IM:关闭该打手作为处理方的进行中售后会话
+// - 清除用户 club_id 绑定并移除打手角色位
+// - 推送 WebSocket 通知给被移除用户
 func ShopRemoveGamer(clubID, gamerID int64) error {
 	m, err := clubRepo.FindMember(clubID, gamerID)
 	if err != nil {
@@ -206,7 +300,43 @@ func ShopRemoveGamer(clubID, gamerID int64) error {
 	if m.Role == model.ClubMemberRoleFounder {
 		return errors.New("不可移除创始人")
 	}
-	return clubRepo.UpdateMember(m.ID, map[string]interface{}{"status": 0, "updated_at": nowTimePtr()})
+	now := nowTimePtr()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 1. 成员置为已移除
+		if err := tx.Model(&model.ClubMember{}).Where("id = ?", m.ID).
+			Updates(map[string]interface{}{"status": 0, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		// 2. 退出俱乐部所有群聊
+		if err := tx.Where("user_id = ? AND group_id IN (?)",
+			gamerID, tx.Model(&model.GroupChat{}).Select("id").Where("club_id = ?", clubID)).
+			Delete(&model.GroupChatMember{}).Error; err != nil {
+			return err
+		}
+		// 3. 断开售后 IM:关闭该打手关联的进行中售后会话
+		//    售后会话通过订单关联打手,关闭 status=1 -> 2
+		if err := tx.Model(&model.AfterSaleSession{}).
+			Where("club_id = ? AND status = ? AND order_id IN (?)",
+				clubID, 1,
+				tx.Model(&model.Order{}).Select("id").Where("club_id = ? AND player_id = ?", clubID, gamerID)).
+			Updates(map[string]interface{}{"status": 2, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		// 4. 清除用户 club_id 绑定并移除打手角色位
+		return tx.Model(&model.User{}).Where("id = ?", gamerID).
+			Updates(map[string]interface{}{
+				"club_id":    0,
+				"role":        gorm.Expr("role & ~?", model.RolePlayer),
+				"updated_at": now,
+			}).Error
+	})
+	if err != nil {
+		return err
+	}
+	// 5. 推送通知给被移除用户(站内消息 + WebSocket)
+	_ = AdminSendNotification(gamerID, "club", "您已被移出俱乐部",
+		"您已被移出该俱乐部,相关群聊与售后会话已自动断开。", model.NotificationCategorySystem)
+	return nil
 }
 
 // ShopGetGamerEvaluations 打手评价列表
@@ -303,8 +433,20 @@ func ShopGetGroups(clubID int64) ([]model.GroupChat, error) {
 	return chatRepo.ListGroups(clubID)
 }
 
+// maxClubGroups 俱乐部群聊数量上限(防滥用)
+const maxClubGroups = 10
+
 // ShopCreateGroup 创建群聊
+// - 限制单俱乐部群聊数量上限(maxClubGroups)
 func ShopCreateGroup(clubID, creatorID int64, groupName, groupType, categoryType string) (*model.GroupChat, error) {
+	// 群聊数量上限校验
+	var cnt int64
+	if err := db.Model(&model.GroupChat{}).Where("club_id = ? AND status = 1", clubID).Count(&cnt).Error; err != nil {
+		return nil, err
+	}
+	if cnt >= maxClubGroups {
+		return nil, errors.New("群聊数量已达上限，无法继续创建")
+	}
 	g := &model.GroupChat{
 		GroupName:    groupName,
 		GroupType:    groupType,
@@ -330,7 +472,15 @@ func ShopGetGroupMembers(groupID int64) ([]model.GroupChatMember, error) {
 }
 
 // ShopSendGroupMessage 群发消息
+// - 群聊内容防代练 + 敏感词风控扫描
 func ShopSendGroupMessage(groupID, senderID int64, msgType, content, mediaURL string) (*model.GroupChatMessage, error) {
+	if content != "" {
+		// 防代练检测
+		hit, _, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeAnnouncement, senderID, content)
+		if abErr == nil && hit {
+			return nil, errors.New("群消息包含违规关键词，发送失败")
+		}
+	}
 	m := &model.GroupChatMessage{
 		GroupID:  groupID,
 		SenderID: senderID,
@@ -358,6 +508,150 @@ func ShopPublishAnnouncement(groupID int64, announcement string) error {
 		}
 	}
 	return chatRepo.UpdateGroupAnnouncement(groupID, announcement)
+}
+
+// ShopMarkAnnouncementRead 标记公告已读(写入 announcement_read_logs,幂等)
+func ShopMarkAnnouncementRead(groupID, userID int64) error {
+	var cnt int64
+	if err := db.Model(&model.AnnouncementReadLog{}).
+		Where("announcement_id = ? AND user_id = ?", groupID, userID).Count(&cnt).Error; err != nil {
+		return err
+	}
+	if cnt > 0 {
+		return nil // 已记录,幂等
+	}
+	now := nowTimePtr()
+	return db.Create(&model.AnnouncementReadLog{
+		AnnouncementID: groupID, UserID: userID,
+		ReadAt: now, CreatedAt: now,
+	}).Error
+}
+
+// ShopGetAnnouncementReadStats 公告已读统计(已读数 / 群成员总数)
+func ShopGetAnnouncementReadStats(groupID int64) (map[string]interface{}, error) {
+	var members []model.GroupChatMember
+	if err := db.Where("group_id = ?", groupID).Find(&members).Error; err != nil {
+		return nil, err
+	}
+	total := int64(len(members))
+	if total == 0 {
+		return map[string]interface{}{"read_count": int64(0), "total_members": int64(0), "unread_count": int64(0)}, nil
+	}
+	memberIDs := make([]int64, 0, len(members))
+	for _, m := range members {
+		memberIDs = append(memberIDs, m.UserID)
+	}
+	var readCnt int64
+	if err := db.Model(&model.AnnouncementReadLog{}).
+		Where("announcement_id = ? AND user_id IN ?", groupID, memberIDs).Count(&readCnt).Error; err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"read_count":    readCnt,
+		"total_members": total,
+		"unread_count":  total - readCnt,
+	}, nil
+}
+
+// ShopUpdateCommissionRate 更新创始人抽成比例(0-100)
+func ShopUpdateCommissionRate(clubID int64, rate int8) error {
+	if rate < 0 || rate > 100 {
+		return errors.New("抽成比例必须在 0-100 之间")
+	}
+	return clubRepo.Update(clubID, map[string]interface{}{
+		"commission_rate": rate,
+		"updated_at":      nowTimePtr(),
+	})
+}
+
+// ShopCreateFineRule 创建俱乐部内部罚款规则(需平台备案审核)
+// 规则创建后状态为 active,同时写入备案审核记录(待平台审核)
+func ShopCreateFineRule(clubID, createdBy int64, name, description string, amount int64) (*model.ClubFineRule, error) {
+	if name == "" {
+		return nil, errors.New("规则名称不能为空")
+	}
+	if amount < 0 {
+		return nil, errors.New("罚款金额不能为负")
+	}
+	now := nowTimePtr()
+	rule := &model.ClubFineRule{
+		ClubID:      clubID,
+		Name:        name,
+		Description: description,
+		Amount:      amount,
+		Status:      model.ClubFineRuleStatusActive,
+		CreatedBy:   createdBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(rule).Error; err != nil {
+			return err
+		}
+		// 写入平台备案审核记录(待审核)
+		return tx.Create(&model.ClubFineRuleReview{
+			RuleID:       rule.ID,
+			ClubID:       clubID,
+			ReviewStatus: model.ClubFineRuleReviewPending,
+			CreatedAt:    now,
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+// ShopListFineRules 俱乐部罚款规则列表(支持状态过滤)
+func ShopListFineRules(clubID int64, status string) ([]model.ClubFineRule, error) {
+	var list []model.ClubFineRule
+	q := db.Model(&model.ClubFineRule{}).Where("club_id = ?", clubID)
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	err := q.Order("id DESC").Find(&list).Error
+	return list, err
+}
+
+// ShopRevokeFineRule 下架罚款规则(status=revoked)
+func ShopRevokeFineRule(clubID, ruleID int64) error {
+	res := db.Model(&model.ClubFineRule{}).
+		Where("id = ? AND club_id = ?", ruleID, clubID).
+		Updates(map[string]interface{}{"status": model.ClubFineRuleStatusRevoked, "updated_at": nowTimePtr()})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("罚款规则不存在或无权操作")
+	}
+	return nil
+}
+
+// AdminReviewFineRule 平台审核罚款规则备案(approved/revoked)
+func AdminReviewFineRule(ruleID, reviewerID int64, approve bool, note string) error {
+	status := model.ClubFineRuleReviewRevoked
+	if approve {
+		status = model.ClubFineRuleReviewApproved
+	}
+	now := nowTimePtr()
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.ClubFineRuleReview{}).
+			Where("rule_id = ? AND review_status = ?", ruleID, model.ClubFineRuleReviewPending).
+			Updates(map[string]interface{}{
+				"review_status": status,
+				"reviewer_id":   reviewerID,
+				"review_note":   note,
+				"reviewed_at":   now,
+			}).Error; err != nil {
+			return err
+		}
+		// 驳回(下架)则同步下架罚款规则
+		if !approve {
+			return tx.Model(&model.ClubFineRule{}).Where("id = ?", ruleID).
+				Updates(map[string]interface{}{"status": model.ClubFineRuleStatusRevoked, "updated_at": now}).Error
+		}
+		return nil
+	})
 }
 
 // ShopGetRiskUsers 俱乐部风控用户(简化:本俱乐部低信用分用户)
@@ -392,6 +686,56 @@ func AdminAuditClubs(page, pageSize int, status int8, keyword string) ([]model.C
 	return clubRepo.List(page, pageSize, status, keyword)
 }
 
+// ClubAuditFilter 俱乐部审核多条件筛选
+type ClubAuditFilter struct {
+	Status        int8  // -1 全部
+	Type          int8  // -1 全部 1企业 2个人
+	VBadgeType    int8  // -1 全部 0无 1蓝V 2绿V
+	DepositStatus int8  // -1 全部
+	Keyword       string
+}
+
+// AdminAuditClubsFiltered 平台俱乐部审核列表(多条件筛选)
+// 支持按 状态/类型/V标/保证金状态/关键词 组合筛选
+func AdminAuditClubsFiltered(page, pageSize int, f ClubAuditFilter) ([]model.Club, int64, error) {
+	var list []model.Club
+	var total int64
+	q := db.Model(&model.Club{})
+	if f.Status >= 0 {
+		q = q.Where("status = ?", f.Status)
+	}
+	if f.Type > 0 {
+		q = q.Where("type = ?", f.Type)
+	}
+	if f.VBadgeType >= 0 {
+		q = q.Where("v_badge_type = ?", f.VBadgeType)
+	}
+	if f.DepositStatus >= 0 {
+		q = q.Where("deposit_status = ?", f.DepositStatus)
+	}
+	if f.Keyword != "" {
+		like := "%" + f.Keyword + "%"
+		q = q.Where("name LIKE ? OR abbreviation LIKE ?", like, like)
+	}
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := q.Scopes(Paginate2(page, pageSize)).Order("id DESC").Find(&list).Error
+	return list, total, err
+}
+
+// AdminGetClubChangeLogs 俱乐部资料修改日志(入驻/资料变更审计溯源)
+func AdminGetClubChangeLogs(clubID int64, page, pageSize int) ([]model.ClubInfoChangeLog, int64, error) {
+	var list []model.ClubInfoChangeLog
+	var total int64
+	q := db.Model(&model.ClubInfoChangeLog{}).Where("club_id = ?", clubID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := q.Scopes(Paginate2(page, pageSize)).Order("id DESC").Find(&list).Error
+	return list, total, err
+}
+
 // AdminApproveClub 审核通过俱乐部 + 点亮 V 标
 func AdminApproveClub(clubID, adminID int64) error {
 	if err := clubRepo.Update(clubID, map[string]interface{}{
@@ -410,11 +754,25 @@ func AdminApproveClub(clubID, adminID int64) error {
 }
 
 // AdminRejectClub 驳回俱乐部 + 撤销 V 标
+// 驳回次数 reject_count++，达到 3 次时设置 locked_until = NOW() + 7 天
 func AdminRejectClub(clubID int64, reason string) error {
-	if err := clubRepo.Update(clubID, map[string]interface{}{
-		"status":     model.ClubStatusRejected,
-		"updated_at": nowTimePtr(),
-	}); err != nil {
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	now := nowTimePtr()
+	fields := map[string]interface{}{
+		"status":        model.ClubStatusRejected,
+		"reject_reason": reason,
+		"reject_count":  c.RejectCount + 1,
+		"updated_at":    now,
+	}
+	// 驳回次数达到 3 次，锁定 7 天禁止再次提交入驻
+	if c.RejectCount+1 >= 3 {
+		locked := now.AddDate(0, 0, 7)
+		fields["locked_until"] = locked
+	}
+	if err := clubRepo.Update(clubID, fields); err != nil {
 		return err
 	}
 	_ = RevokeClubVBadge(clubID)
@@ -422,12 +780,41 @@ func AdminRejectClub(clubID int64, reason string) error {
 	return nil
 }
 
-// AdminFreezeClub 冻结俱乐部 + 撤销 V 标
+// AdminFreezeClub 冻结俱乐部
+// - 俱乐部状态置为冻结
+// - 撤销 V 标
+// - 级联禁用:解散所有群聊(status=0)、禁用内置管理端账号、进行中售后会话标记关闭
 func AdminFreezeClub(clubID int64, reason string) error {
-	if err := clubRepo.Update(clubID, map[string]interface{}{
-		"status":     model.ClubStatusFrozen,
-		"updated_at": nowTimePtr(),
-	}); err != nil {
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	if c.Status == model.ClubStatusCanceled {
+		return errors.New("俱乐部已注销,不可冻结")
+	}
+	now := nowTimePtr()
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 1. 俱乐部置为冻结
+		if err := tx.Model(&model.Club{}).Where("id = ?", clubID).
+			Updates(map[string]interface{}{"status": model.ClubStatusFrozen, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		// 2. 解散所有群聊
+		if err := tx.Model(&model.GroupChat{}).Where("club_id = ?", clubID).
+			Updates(map[string]interface{}{"status": 0, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		// 3. 禁用内置管理端账号
+		if err := tx.Model(&model.ShopAdminAccount{}).Where("club_id = ? AND status = 1", clubID).
+			Updates(map[string]interface{}{"status": 0, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		// 4. 关闭进行中售后会话
+		return tx.Model(&model.AfterSaleSession{}).
+			Where("club_id = ? AND status = 1", clubID).
+			Updates(map[string]interface{}{"status": 2, "updated_at": now}).Error
+	})
+	if err != nil {
 		return err
 	}
 	_ = RevokeClubVBadge(clubID)
@@ -450,17 +837,98 @@ func AdminUnfreezeClub(clubID int64) error {
 	return nil
 }
 
-// AdminCancelClub 注销俱乐部 + 撤销 V 标
+// AdminCancelClub 注销俱乐部(安全注销)
+// - 前置条件:无进行中订单(待接单/已接单/进行中/待验收)
+// - 缩写封存:写入 club_abbreviations,该缩写此后不可被其他俱乐部复用
+// - 资料归档:俱乐部资料 JSON 加密(AES-256) + SHA-256 哈希 + 上链存证,写入 club_archives
+// - 状态置为注销 + is_archived=1 + 撤销 V 标
 func AdminCancelClub(clubID int64, reason string) error {
-	if err := clubRepo.Update(clubID, map[string]interface{}{
-		"status":     model.ClubStatusCanceled,
-		"updated_at": nowTimePtr(),
-	}); err != nil {
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	if c.Status == model.ClubStatusCanceled {
+		return errors.New("俱乐部已注销")
+	}
+	// 前置条件:无进行中订单
+	var pendingCnt int64
+	if err := db.Model(&model.Order{}).
+		Where("club_id = ? AND status IN ?", clubID, []int8{
+			model.OrderStatusPending, model.OrderStatusAccepted,
+			model.OrderStatusInProgress, model.OrderStatusToVerify,
+		}).Count(&pendingCnt).Error; err != nil {
 		return err
 	}
+	if pendingCnt > 0 {
+		return errors.New("存在进行中订单,不可注销")
+	}
+	now := nowTimePtr()
+	// 1. 缩写封存 + 状态注销
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 封存缩写(若尚未封存)
+		var abbrCnt int64
+		_ = tx.Model(&model.ClubAbbreviation{}).Where("abbreviation = ?", c.Abbreviation).Count(&abbrCnt).Error
+		if abbrCnt == 0 && c.Abbreviation != "" {
+			if err := tx.Create(&model.ClubAbbreviation{
+				Abbreviation: c.Abbreviation, ClubID: clubID,
+				AbandonedAt: now, CreatedAt: now,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		// 状态置为注销 + 归档标记
+		return tx.Model(&model.Club{}).Where("id = ?", clubID).
+			Updates(map[string]interface{}{
+				"status":      model.ClubStatusCanceled,
+				"is_archived": int8(1),
+				"updated_at":  now,
+			}).Error
+	})
+	if err != nil {
+		return err
+	}
+	// 2. 资料归档:JSON 加密 + 哈希 + 上链存证
+	archiveClubData(c, reason)
+	// 3. 撤销 V 标
 	_ = RevokeClubVBadge(clubID)
-	_ = reason
 	return nil
+}
+
+// archiveClubData 将俱乐部资料归档加密并上链存证
+// 失败不阻断注销主流程(已通过事务完成状态变更)
+func archiveClubData(c *model.Club, reason string) {
+	if c == nil || db == nil {
+		return
+	}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return
+	}
+	encKey := utils.PadKey(cfg.JWT.Secret)
+	encrypted, encErr := utils.EncryptFile(data, encKey)
+	hash := utils.GenerateFileHash(data)
+	rec := &model.ClubArchive{
+		ClubID:      c.ID,
+		ArchiveData: data,
+		Encrypted:   encErr == nil,
+		FileHash:    hash,
+		ArchivedAt:  nowTimePtr(),
+		CreatedAt:   nowTimePtr(),
+	}
+	if encErr == nil {
+		// 加密成功则用密文覆盖归档内容,并上链存证
+		rec.ArchiveData = json.RawMessage(encrypted)
+		txID, bcErr := utils.UploadToBlockchain(hash, map[string]string{
+			"file_type": "club_archive",
+			"ref_type":  "club",
+			"ref_id":    itoa(c.ID),
+			"reason":    reason,
+		})
+		if bcErr == nil {
+			rec.BlockchainTxID = txID
+		}
+	}
+	_ = db.Create(rec).Error
 }
 
 // hashPwd 哈希密码(封装 utils.HashPassword)

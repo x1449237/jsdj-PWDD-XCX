@@ -332,6 +332,18 @@ const routes = [
         meta: { title: '对公打款验证', icon: 'BankCard', group: 'club' }
       },
       {
+        path: 'club/transfer-ledger',
+        name: 'ClubTransferLedger',
+        component: () => import('@/views/club/transfer-ledger.vue'),
+        meta: { title: '小额打款台账', icon: 'Wallet', group: 'club' }
+      },
+      {
+        path: 'club/fine-rules',
+        name: 'ClubFineRules',
+        component: () => import('@/views/club/fine-rules.vue'),
+        meta: { title: '罚款规则备案', icon: 'DocumentChecked', group: 'club' }
+      },
+      {
         path: 'arbitration/case-list',
         name: 'ArbitrationCaseList',
         component: () => import('@/views/arbitration/case-list.vue'),

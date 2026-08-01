@@ -1,0 +1,107 @@
+<view class="page">
+  <!-- 状态筛选 -->
+  <scroll-view class="status-tabs" scroll-x>
+    <view class="tab-item {{status === '' ? 'active' : ''}}" bindtap="onStatusChange" data-status="">全部</view>
+    <view class="tab-item {{status === 'pending' ? 'active' : ''}}" bindtap="onStatusChange" data-status="pending">待审核</view>
+    <view class="tab-item {{status === 'approved' ? 'active' : ''}}" bindtap="onStatusChange" data-status="approved">已通过</view>
+    <view class="tab-item {{status === 'rejected' ? 'active' : ''}}" bindtap="onStatusChange" data-status="rejected">已驳回</view>
+    <view class="tab-item {{status === 'revoked' ? 'active' : ''}}" bindtap="onStatusChange" data-status="revoked">已下架</view>
+  </scroll-view>
+
+  <!-- 规则列表 -->
+  <view class="rule-list">
+    <view class="rule-card" wx:for="{{list}}" wx:key="id" bindtap="onDetail" data-id="{{item.id}}">
+      <view class="rule-header">
+        <view class="rule-name">{{item.rule_name}}</view>
+        <view class="rule-status" style="color: {{statusColorMap[item.status]}}">{{statusMap[item.status]}}</view>
+      </view>
+      <view class="rule-amount">罚款：¥{{item.amount_yuan}}</view>
+      <view class="rule-scene">适用场景：{{item.scene}}</view>
+      <view class="rule-time">提交时间：{{item.create_time}}</view>
+      <view class="rule-audit-remark" wx:if="{{item.status === 'rejected' && item.audit_remark}}">
+        驳回原因：{{item.audit_remark}}
+      </view>
+    </view>
+  </view>
+
+  <view class="load-more" wx:if="{{list.length > 0}}">
+    <text wx:if="{{noMore}}">没有更多了</text>
+    <text wx:elif="{{loading}}">加载中...</text>
+  </view>
+
+  <view class="empty" wx:if="{{list.length === 0 && !loading}}">
+    <text>暂无罚款规则</text>
+  </view>
+
+  <!-- 新建按钮 -->
+  <view class="float-btn" bindtap="onOpenCreate">+ 新建规则</view>
+</view>
+
+<!-- 新建/编辑弹窗 -->
+<view class="modal-mask" wx:if="{{formVisible}}" bindtap="onCloseForm">
+  <view class="modal-content" catchtap="">
+    <view class="modal-title">{{form.id ? '编辑罚款规则' : '新建罚款规则'}}</view>
+    <view class="modal-tip">罚款规则需提交平台备案审核，审核通过后对成员生效。</view>
+    <view class="form-group">
+      <view class="form-label">规则名称 <text class="required">*</text></view>
+      <input class="form-input" placeholder="如：迟到罚款" value="{{form.rule_name}}" bindinput="onFormInput" data-field="rule_name" />
+    </view>
+    <view class="form-group">
+      <view class="form-label">罚款金额(元) <text class="required">*</text></view>
+      <input class="form-input" type="digit" placeholder="请输入金额" value="{{form.amount}}" bindinput="onFormInput" data-field="amount" />
+    </view>
+    <view class="form-group">
+      <view class="form-label">适用场景 <text class="required">*</text></view>
+      <input class="form-input" placeholder="如：约单迟到15分钟以上" value="{{form.scene}}" bindinput="onFormInput" data-field="scene" />
+    </view>
+    <view class="form-group">
+      <view class="form-label">规则正文</view>
+      <textarea class="form-textarea" placeholder="请输入详细规则说明（选填）" value="{{form.content}}" bindinput="onFormInput" data-field="content" maxlength="500" />
+    </view>
+    <view class="modal-footer">
+      <button class="btn-cancel" bindtap="onCloseForm">取消</button>
+      <button class="btn-submit" loading="{{formLoading}}" disabled="{{formLoading}}" bindtap="onSubmitForm">提交</button>
+    </view>
+  </view>
+</view>
+
+<!-- 详情弹窗 -->
+<view class="modal-mask" wx:if="{{detailVisible}}" bindtap="onCloseDetail">
+  <view class="modal-content" catchtap="">
+    <view class="modal-title">罚款规则详情</view>
+    <view class="detail-row">
+      <text class="detail-label">规则名称</text>
+      <text class="detail-value">{{detail.rule_name}}</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">罚款金额</text>
+      <text class="detail-value">¥{{detail.amount_yuan}}</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">适用场景</text>
+      <text class="detail-value">{{detail.scene}}</text>
+    </view>
+    <view class="detail-row" wx:if="{{detail.content}}">
+      <text class="detail-label">规则正文</text>
+      <text class="detail-value">{{detail.content}}</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">状态</text>
+      <text class="detail-value" style="color: {{detail.status_color}}">{{detail.status_text}}</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">提交时间</text>
+      <text class="detail-value">{{detail.create_time}}</text>
+    </view>
+    <view class="detail-row" wx:if="{{detail.audit_remark}}">
+      <text class="detail-label">审核备注</text>
+      <text class="detail-value">{{detail.audit_remark}}</text>
+    </view>
+
+    <view class="modal-footer">
+      <button class="btn-cancel" bindtap="onCloseDetail">关闭</button>
+      <button class="btn-edit" wx:if="{{detail.status === 'pending' || detail.status === 'rejected'}}" bindtap="onEditFromDetail">编辑</button>
+      <button class="btn-revoke" wx:if="{{detail.status === 'approved'}}" bindtap="onRevoke" data-id="{{detail.id}}">下架</button>
+    </view>
+  </view>
+</view>

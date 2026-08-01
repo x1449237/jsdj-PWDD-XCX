@@ -2536,4 +2536,237 @@ INSERT INTO system_configs (`key`, `value`, `description`, `updated_at`) VALUES
 ('guardian_monthly_exempt_limit', '3', '监护人每月豁免次数', NOW()),
 ('after_sale_keyword_intervention', '1', '售后关键词自动介入开关', NOW());
 
+-- ============================================================
+-- 俱乐部入驻流程相关迁移(板块一/二/三)
+-- ============================================================
+
+-- 1) clubs 表新增字段：入驻驳回次数 / 入驻锁定截止 / 创始人抽成 / 注销归档标记
+ALTER TABLE `clubs`
+  ADD COLUMN `reject_count` INT NOT NULL DEFAULT 0 COMMENT '入驻驳回次数' AFTER `total_orders`,
+  ADD COLUMN `locked_until` DATETIME NULL DEFAULT NULL COMMENT '入驻锁定截止时间(驳回3次后锁定7天)' AFTER `reject_count`,
+  ADD COLUMN `commission_rate` TINYINT NOT NULL DEFAULT 0 COMMENT '创始人抽成比例(0-100)' AFTER `locked_until`,
+  ADD COLUMN `is_archived` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已注销归档 0否 1是' AFTER `commission_rate`,
+  ADD KEY `idx_is_archived` (`is_archived`);
+
+-- 2) 入驻相关系统配置
+INSERT INTO system_configs (`key`, `value`, `description`, `updated_at`) VALUES
+('club_join_switch', '1', '俱乐部入驻开关 0=关闭 1=开启', NOW()),
+('club_personal_deposit', '50000', '个人俱乐部保证金阈值(分)', NOW()),
+('club_enterprise_deposit', '500000', '企业俱乐部保证金阈值(分)', NOW()),
+('club_join_reject_lock_count', '3', '入驻驳回锁定阈值(次)', NOW()),
+('club_join_lock_days', '7', '入驻锁定天数(驳回阈值后)', NOW()),
+('legal_person_face_valid_hours', '72', '法人活体认证有效期(小时)', NOW()),
+('corporate_transfer_expire_hours', '48', '对公打款验证有效期(小时)', NOW()),
+('corporate_transfer_max_fail_count', '5', '对公打款验证最大失败次数', NOW()),
+('corporate_transfer_lock_days', '15', '对公打款失败锁定天数', NOW()),
+('club_draft_expire_days', '7', '俱乐部入驻草稿有效期(天)', NOW());
+
+-- 3) 俱乐部保证金扣款记录表(板块一)
+DROP TABLE IF EXISTS `club_deposit_deductions`;
+CREATE TABLE `club_deposit_deductions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '扣除金额(分)',
+  `type` VARCHAR(32) NOT NULL DEFAULT 'fine' COMMENT '类型 fine=罚款 compensation=赔偿',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '扣款原因',
+  `operator_id` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部保证金扣款记录表';
+
+-- 4) 俱乐部入驻草稿表(板块二,7天有效期)
+DROP TABLE IF EXISTS `club_join_drafts`;
+CREATE TABLE `club_join_drafts` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `draft_data` JSON COMMENT '草稿数据(JSON)',
+  `expire_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_id` (`user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_expire_at` (`expire_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部入驻草稿表';
+
+-- 5) 法人活体认证表(板块三,72小时有效期)
+DROP TABLE IF EXISTS `legal_person_face_verifies`;
+CREATE TABLE `legal_person_face_verifies` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `legal_person_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '法人姓名',
+  `legal_person_id_card` VARCHAR(18) NOT NULL DEFAULT '' COMMENT '法人身份证号',
+  `verify_token` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '活体认证 token',
+  `verify_at` DATETIME NULL DEFAULT NULL COMMENT '验证时间',
+  `expire_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间(verify_at + 72h)',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/passed/failed/expired',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_expire_at` (`expire_at`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='法人活体认证表';
+
+-- 6) 对公小额打款验证表(板块三,48小时有效期,5次失败锁定15天)
+DROP TABLE IF EXISTS `corporate_transfer_verifies`;
+CREATE TABLE `corporate_transfer_verifies` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `bank_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '开户行',
+  `bank_account` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '银行账号',
+  `account_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '账户名',
+  `verify_amount` DECIMAL(4,1) NOT NULL DEFAULT 0.0 COMMENT '验证金额(0.0-0.9，1位小数)',
+  `generated_at` DATETIME NULL DEFAULT NULL COMMENT '生成打款时间',
+  `expire_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间(generated_at + 48h)',
+  `verify_count` INT NOT NULL DEFAULT 0 COMMENT '已用验证次数',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/verified/failed/expired',
+  `locked_until` DATETIME NULL DEFAULT NULL COMMENT '锁定时间(失败次数达上限后 15 天内禁止提交)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_expire_at` (`expire_at`),
+  KEY `idx_status` (`status`),
+  KEY `idx_locked_until` (`locked_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对公小额打款验证表';
+
+-- ============================================================
+-- 俱乐部入驻后管理 / IM联动 / 安全注销相关迁移(板块四/五/六/七)
+-- ============================================================
+
+-- 7) operation_logs 表新增字段：操作结果 + 业务模块
+ALTER TABLE `operation_logs`
+  ADD COLUMN `result` VARCHAR(16) NOT NULL DEFAULT 'success' COMMENT '操作结果 success/fail' AFTER `action`,
+  ADD COLUMN `module` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '业务模块 club_join/deposit/vbadge 等' AFTER `result`,
+  ADD KEY `idx_result` (`result`),
+  ADD KEY `idx_module` (`module`);
+
+-- 8) 俱乐部资料修改日志表(板块四,资料变更审计溯源)
+DROP TABLE IF EXISTS `club_info_change_logs`;
+CREATE TABLE `club_info_change_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `field` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '修改字段名',
+  `old_value` TEXT COMMENT '旧值',
+  `new_value` TEXT COMMENT '新值',
+  `operator_id` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部资料修改日志表';
+
+-- 9) 俱乐部内部罚款规则表(板块四)
+DROP TABLE IF EXISTS `club_fine_rules`;
+CREATE TABLE `club_fine_rules` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '规则名称',
+  `description` TEXT COMMENT '规则描述',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '罚款金额(分)',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '状态 active/revoked',
+  `has_unpaid` TINYINT NOT NULL DEFAULT 0 COMMENT '是否存在未赔付罚款 0否 1是',
+  `created_by` BIGINT NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部内部罚款规则表';
+
+-- 10) 罚款规则平台备案审核表(板块四)
+DROP TABLE IF EXISTS `club_fine_rule_reviews`;
+CREATE TABLE `club_fine_rule_reviews` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `rule_id` BIGINT NOT NULL DEFAULT 0 COMMENT '罚款规则ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `review_status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '审核状态 pending/approved/revoked',
+  `reviewer_id` BIGINT NOT NULL DEFAULT 0 COMMENT '审核人ID',
+  `review_note` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '审核备注',
+  `reviewed_at` DATETIME NULL DEFAULT NULL COMMENT '审核时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_rule_id` (`rule_id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_review_status` (`review_status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='罚款规则平台备案审核表';
+
+-- 11) 群公告已读日志表(板块四)
+DROP TABLE IF EXISTS `announcement_read_logs`;
+CREATE TABLE `announcement_read_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `announcement_id` BIGINT NOT NULL DEFAULT 0 COMMENT '公告ID(对应 group_chats.id)',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `read_at` DATETIME NULL DEFAULT NULL COMMENT '阅读时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_announcement_user` (`announcement_id`, `user_id`),
+  KEY `idx_announcement_id` (`announcement_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群公告已读日志表';
+
+-- 12) 俱乐部注销资料归档表(板块七,加密+上链存证)
+DROP TABLE IF EXISTS `club_archives`;
+CREATE TABLE `club_archives` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `archive_data` JSON COMMENT '归档资料 JSON(加密后密文)',
+  `encrypted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已加密 0否 1是',
+  `file_hash` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '加密后哈希(SHA-256)',
+  `blockchain_tx_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '上链交易ID',
+  `archived_at` DATETIME NULL DEFAULT NULL COMMENT '归档时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_file_hash` (`file_hash`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部注销资料归档表';
+
+-- 13) 文件上链存证记录表(板块五,水印/加密/上链)
+DROP TABLE IF EXISTS `file_blockchain_records`;
+CREATE TABLE `file_blockchain_records` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `file_hash` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '文件 SHA-256 哈希',
+  `file_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '文件类型',
+  `ref_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关联类型 club_join/club_archive',
+  `ref_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联ID',
+  `oss_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'OSS 存储地址',
+  `watermark_text` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '水印文本',
+  `blockchain_tx_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '上链交易ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_file_hash` (`file_hash`),
+  KEY `idx_ref_type` (`ref_type`),
+  KEY `idx_ref_id` (`ref_id`),
+  KEY `idx_blockchain_tx_id` (`blockchain_tx_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件上链存证记录表';
+
+-- 14) 企业对公小额打款记录台账表(板块五)
+DROP TABLE IF EXISTS `corporate_transfer_records`;
+CREATE TABLE `corporate_transfer_records` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `verify_id` BIGINT NOT NULL DEFAULT 0 COMMENT '验证流程ID',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '打款金额(分)',
+  `direction` VARCHAR(16) NOT NULL DEFAULT 'out' COMMENT '方向 out/refund',
+  `bank_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '开户行',
+  `bank_account` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '银行账号',
+  `transfer_at` DATETIME NULL DEFAULT NULL COMMENT '打款时间',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/success/failed',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_verify_id` (`verify_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='企业对公小额打款记录台账表';
+
 SET FOREIGN_KEY_CHECKS = 1;

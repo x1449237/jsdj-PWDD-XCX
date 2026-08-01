@@ -653,3 +653,92 @@ func (h *ShopHandler) RevokeInviteCode(c *gin.Context) {
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
 }
+
+// UpdateCommissionRate 更新创始人抽成比例
+// PUT /api/v1/shop/club/commission
+func (h *ShopHandler) UpdateCommissionRate(c *gin.Context) {
+	clubID := getClubID(c)
+	var req struct {
+		Rate int8 `json:"rate"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	if err := service.ShopUpdateCommissionRate(clubID, req.Rate); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// CreateFineRule 创建罚款规则
+// POST /api/v1/shop/fine-rules
+func (h *ShopHandler) CreateFineRule(c *gin.Context) {
+	clubID := getClubID(c)
+	creatorID := getCurrentUserID(c)
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Amount      int64  `json:"amount"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	rule, err := service.ShopCreateFineRule(clubID, creatorID, req.Name, req.Description, req.Amount)
+	if err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, rule)
+}
+
+// ListFineRules 罚款规则列表
+// GET /api/v1/shop/fine-rules
+func (h *ShopHandler) ListFineRules(c *gin.Context) {
+	clubID := getClubID(c)
+	status := c.Query("status")
+	list, err := service.ShopListFineRules(clubID, status)
+	if err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.Success(c, list)
+}
+
+// RevokeFineRule 下架罚款规则
+// POST /api/v1/shop/fine-rules/:id/revoke
+func (h *ShopHandler) RevokeFineRule(c *gin.Context) {
+	ruleID := parseInt64Path(c, "id")
+	clubID := getClubID(c)
+	if err := service.ShopRevokeFineRule(clubID, ruleID); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
+// GetAnnouncementReadStats 公告已读统计
+// GET /api/v1/shop/groups/:id/announcement/stats
+func (h *ShopHandler) GetAnnouncementReadStats(c *gin.Context) {
+	groupID := parseInt64Path(c, "id")
+	stats, err := service.ShopGetAnnouncementReadStats(groupID)
+	if err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.Success(c, stats)
+}
+
+// MarkAnnouncementRead 标记公告已读
+// POST /api/v1/shop/groups/:id/announcement/read
+func (h *ShopHandler) MarkAnnouncementRead(c *gin.Context) {
+	groupID := parseInt64Path(c, "id")
+	userID := getCurrentUserID(c)
+	if err := service.ShopMarkAnnouncementRead(groupID, userID); err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}

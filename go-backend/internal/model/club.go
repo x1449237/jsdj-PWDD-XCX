@@ -22,6 +22,10 @@ type Club struct {
 	BusinessHours  string     `gorm:"column:business_hours;size:64;not null;default:''" json:"business_hours"`  // 营业时间
 	Rating         float64    `gorm:"column:rating;type:decimal(2,1);not null;default:5.0" json:"rating"`       // 评分
 	TotalOrders    int        `gorm:"column:total_orders;not null;default:0" json:"total_orders"`               // 总订单数
+	RejectCount    int        `gorm:"column:reject_count;not null;default:0" json:"reject_count"`               // 入驻驳回次数
+	LockedUntil    *time.Time `gorm:"column:locked_until" json:"locked_until"`                                 // 入驻锁定截止时间(驳回3次后锁定7天)
+	CommissionRate int8       `gorm:"column:commission_rate;not null;default:0" json:"commission_rate"`         // 创始人抽成比例(0-100)
+	IsArchived     int8       `gorm:"column:is_archived;not null;default:0" json:"is_archived"`                 // 是否已注销归档 0否 1是
 	CreatedAt      *time.Time `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -38,6 +42,12 @@ const (
 	ClubStatusRejected  int8 = 2 // 驳回
 	ClubStatusFrozen    int8 = 3 // 冻结
 	ClubStatusCanceled  int8 = 4 // 注销
+)
+
+// 俱乐部类型常量
+const (
+	ClubTypeEnterprise int8 = 1 // 企业
+	ClubTypePersonal   int8 = 2 // 个人
 )
 
 // ClubMember 俱乐部成员表

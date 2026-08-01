@@ -11,7 +11,9 @@ Page({
       { key: 'coupon', label: '优惠券' },
       { key: 'dynamic', label: '动态墙' },
       { key: 'branch', label: '分店' }
-    ]
+    ],
+    // B10：公告已读统计 - 已上报已读的公告ID集合
+    readAnnouncementIds: {}
   },
 
   onLoad(options) {
@@ -26,6 +28,8 @@ Page({
         id: this.data.clubId
       });
       this.setData({ club: res.data, loading: false });
+      // B10：进入公告Tab时自动上报首条置顶公告已读
+      this.autoReportFirstAnnouncement();
     } catch (e) {
       wx.showToast({ title: '加载失败', icon: 'none' });
       this.setData({ loading: false });
@@ -35,6 +39,70 @@ Page({
   onTabChange(e) {
     const key = e.currentTarget.dataset.key;
     this.setData({ activeTab: key });
+    // B10：切换到公告Tab时自动上报首条未读公告
+    if (key === 'announcement') {
+      this.autoReportFirstAnnouncement();
+    }
+  },
+
+  // B10：自动上报首条未读公告已读
+  autoReportFirstAnnouncement() {
+    const announcements = (this.data.club && this.data.club.announcements) || [];
+    if (announcements.length === 0) return;
+    const first = announcements[0];
+    if (!first || !first.id) return;
+    if (this.data.readAnnouncementIds[first.id]) return;
+    this.reportAnnouncementRead(first.id);
+  },
+
+  // B10：上报公告已读 + 同步已读/未读统计
+  async reportAnnouncementRead(announcementId) {
+    if (!announcementId || this.data.readAnnouncementIds[announcementId]) return;
+    try {
+      const res = await request.post('/club/announcement/read', {
+        club_id: this.data.clubId,
+        announcement_id: announcementId
+      });
+      // 标记本地已读
+      const readMap = Object.assign({}, this.data.readAnnouncementIds);
+      readMap[announcementId] = true;
+      this.setData({ readAnnouncementIds: readMap });
+
+      // 同步更新本地公告已读统计
+      const club = this.data.club;
+      if (club && club.announcements) {
+        const announcements = club.announcements.map(item => {
+          if (item.id === announcementId) {
+            return Object.assign({}, item, {
+              has_read: true,
+              read_count: (item.read_count || 0) + 1
+            });
+          }
+          return item;
+        });
+        this.setData({ 'club.announcements': announcements });
+      }
+
+      // 后端可能返回最新统计，优先使用
+      if (res && res.data && res.data.read_count !== undefined) {
+        const announcements = (this.data.club.announcements || []).map(item => {
+          if (item.id === announcementId) {
+            return Object.assign({}, item, { read_count: res.data.read_count });
+          }
+          return item;
+        });
+        this.setData({ 'club.announcements': announcements });
+      }
+    } catch (e) {
+      // 静默失败，不影响阅读体验
+    }
+  },
+
+  // B10：点击公告项上报已读
+  onAnnouncementTap(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    this.reportAnnouncementRead(id);
   },
 
   goManage() {

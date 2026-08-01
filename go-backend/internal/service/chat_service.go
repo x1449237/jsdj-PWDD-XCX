@@ -54,6 +54,15 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 	if in.MsgType == "" {
 		in.MsgType = model.MsgTypeText
 	}
+	// 语音消息时长校验:MP3 最大 60 秒
+	if in.MsgType == model.MsgTypeVoice {
+		if in.Duration <= 0 {
+			return nil, errors.New("语音消息时长不能为空")
+		}
+		if in.Duration > 60 {
+			return nil, errors.New("语音消息时长不能超过 60 秒")
+		}
+	}
 	// 防代练检测(聊天消息)
 	if in.Content != "" {
 		hit, patterns, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeChat, userID, in.Content)
@@ -154,6 +163,7 @@ func pushChatMessage(userID int64, m *model.ChatMessage) error {
 }
 
 // RevokeMessage 撤回消息(2 分钟内)
+// - 高风险消息(risk_level>=3,命中敏感词)禁止撤回,以保留审计证据
 func RevokeMessage(messageID, userID int64) error {
 	m, err := chatRepo.FindMessage(messageID)
 	if err != nil {
@@ -167,6 +177,10 @@ func RevokeMessage(messageID, userID int64) error {
 	}
 	if m.IsRevoked == 1 {
 		return errors.New("消息已撤回")
+	}
+	// 命中敏感词的高风险消息禁止撤回(留存审计)
+	if m.RiskLevel >= 3 {
+		return errors.New("该消息含敏感内容,已被风控留存,不可撤回")
 	}
 	// 2 分钟时效校验
 	if m.CreatedAt != nil && time.Since(*m.CreatedAt) > 2*time.Minute {
@@ -193,6 +207,7 @@ func UploadChatFile(sessionID, uploaderID int64, fileURL, fileName string, fileS
 }
 
 // RequestIntervention 用户请求平台介入(售后会话)
+// - 首次创建售后会话时推送通知给俱乐部创始人/内置管理端
 func RequestIntervention(sessionID, userID int64, reason string) error {
 	s, err := chatRepo.FindSessionByID(sessionID)
 	if err != nil {
@@ -203,6 +218,7 @@ func RequestIntervention(sessionID, userID int64, reason string) error {
 	}
 	// 升级为售后会话(若未关联)
 	var as model.AfterSaleSession
+	newlyCreated := false
 	if err := db.Where("order_id = ?", s.RefID).First(&as).Error; err == nil {
 		_ = db.Model(&as).Updates(map[string]interface{}{
 			"intervention_status": model.AfterSaleInterventionPending,
@@ -214,11 +230,14 @@ func RequestIntervention(sessionID, userID int64, reason string) error {
 		if o != nil {
 			clubID = o.ClubID
 		}
-		_ = db.Create(&model.AfterSaleSession{
+		as = model.AfterSaleSession{
 			OrderID: s.RefID, UserID: userID, ClubID: clubID,
 			Status: 1, InterventionStatus: model.AfterSaleInterventionPending,
 			InterventionType: "manual", CreatedAt: nowTimePtr(), UpdatedAt: nowTimePtr(),
-		}).Error
+		}
+		if err := db.Create(&as).Error; err == nil {
+			newlyCreated = true
+		}
 	}
 	// 记录平台介入日志
 	_ = db.Create(&model.PlatformInterventionLog{
@@ -226,6 +245,14 @@ func RequestIntervention(sessionID, userID int64, reason string) error {
 		TriggerType: model.InterventionTriggerManual, HandlerID: userID,
 		Result: reason, CreatedAt: nowTimePtr(),
 	}).Error
+	// 首次创建售后会话:推送通知给俱乐部创始人/管理端
+	if newlyCreated && as.ClubID > 0 {
+		c, _ := clubRepo.FindByID(as.ClubID)
+		if c != nil && c.FounderUID > 0 {
+			_ = AdminSendNotification(c.FounderUID, "after_sale", "新售后申请介入",
+				"您有新的售后会话申请平台介入,请及时处理。", model.NotificationCategoryPending)
+		}
+	}
 	return nil
 }
 

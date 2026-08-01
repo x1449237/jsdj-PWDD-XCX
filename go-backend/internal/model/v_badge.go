@@ -26,3 +26,10 @@ const (
 	VBadgeTypeGreen = "green" // 绿V(个人)
 	VBadgeTypeGold  = "gold"  // 金V(平台)
 )
+
+// V标状态常量
+const (
+	VBadgeStatusActive  int8 = 1 // 有效
+	VBadgeStatusInvalid int8 = 0 // 失效(撤销/驳回/冻结/注销)
+	VBadgeStatusHidden  int8 = 2 // 手动隐藏
+)

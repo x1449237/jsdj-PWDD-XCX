@@ -30,7 +30,12 @@ Page({
   async checkSwitch() {
     try {
       const res = await request.get('/club/check_switch');
-      this.setData({ clubJoinOpen: res.data?.club_join_open === true });
+      const isOpen = res.data?.club_join_open === true;
+      this.setData({ clubJoinOpen: isOpen });
+      // 关闭时不仅 toast 提示，还要隐藏所有入驻入口按钮（wxml 已用 wx:if 控制）
+      if (!isOpen) {
+        wx.showToast({ title: '俱乐部入驻功能暂未开放', icon: 'none' });
+      }
     } catch (e) {
       // 忽略
     }

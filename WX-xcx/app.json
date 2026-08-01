@@ -25,6 +25,7 @@
     "pages/club/manage/internal-order",
     "pages/club/manage/coupon",
     "pages/club/manage/dashboard",
+    "pages/club/manage/fine-rules",
     "pages/club/dynamic/list",
     "pages/club/dynamic/publish",
     "pages/profit-share/list",

@@ -1,0 +1,238 @@
+.page {
+  min-height: 100vh;
+  background: #f5f6fa;
+  padding-bottom: 140rpx;
+}
+
+.status-tabs {
+  display: flex;
+  white-space: nowrap;
+  padding: 20rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+
+.tab-item {
+  display: inline-block;
+  padding: 12rpx 30rpx;
+  margin-right: 20rpx;
+  font-size: 26rpx;
+  color: #606266;
+  border-radius: 30rpx;
+  background: #f0f2f5;
+}
+
+.tab-item.active {
+  background: #409EFF;
+  color: #fff;
+}
+
+.rule-list {
+  padding: 20rpx;
+}
+
+.rule-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.rule-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #303133;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.rule-status {
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.rule-amount {
+  font-size: 28rpx;
+  color: #f56c6c;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+
+.rule-scene {
+  font-size: 26rpx;
+  color: #606266;
+  margin-bottom: 8rpx;
+}
+
+.rule-time {
+  font-size: 22rpx;
+  color: #c0c4cc;
+}
+
+.rule-audit-remark {
+  font-size: 24rpx;
+  color: #f56c6c;
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed #f0f2f5;
+}
+
+.load-more, .empty {
+  text-align: center;
+  padding: 40rpx;
+  color: #909399;
+  font-size: 26rpx;
+}
+
+.float-btn {
+  position: fixed;
+  right: 40rpx;
+  bottom: 60rpx;
+  width: 200rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #409EFF, #66b1ff);
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 44rpx;
+  box-shadow: 0 4rpx 20rpx rgba(64, 158, 255, 0.4);
+  z-index: 10;
+}
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  width: 88%;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #303133;
+  text-align: center;
+  margin-bottom: 12rpx;
+}
+
+.modal-tip {
+  font-size: 22rpx;
+  color: #909399;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: #606266;
+  margin-bottom: 12rpx;
+}
+
+.required {
+  color: #f56c6c;
+}
+
+.form-input {
+  height: 80rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #303133;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 160rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #303133;
+  box-sizing: border-box;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.modal-footer button {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 28rpx;
+  border-radius: 40rpx;
+}
+
+.btn-cancel {
+  background: #f0f2f5;
+  color: #606266;
+}
+
+.btn-submit {
+  background: #409EFF;
+  color: #fff;
+}
+
+.btn-edit {
+  background: #e6a23c;
+  color: #fff;
+}
+
+.btn-revoke {
+  background: #f56c6c;
+  color: #fff;
+}
+
+/* 详情 */
+.detail-row {
+  display: flex;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f7fa;
+  font-size: 26rpx;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  width: 160rpx;
+  color: #909399;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  flex: 1;
+  color: #303133;
+  word-break: break-all;
+}

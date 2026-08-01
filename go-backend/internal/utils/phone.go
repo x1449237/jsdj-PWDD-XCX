@@ -60,6 +60,16 @@ func MaskBankCard(card string) string {
 	return card[:4] + strings.Repeat("*", len(card)-8) + card[len(card)-4:]
 }
 
+// MaskBankAccount 对公账户脱敏: 保留前4后4，中间以 **** 替换
+// 长度不足 9 位时退化为 MaskBankCard 行为(保留前4后4)
+func MaskBankAccount(account string) string {
+	if len(account) <= 8 {
+		// 长度不足，按银行卡脱敏处理
+		return MaskBankCard(account)
+	}
+	return account[:4] + "****" + account[len(account)-4:]
+}
+
 // MaskMiddle 通用中间脱敏: 保留前后各 keep 位，中间以 * 替换
 func MaskMiddle(s string, keep int) (string, error) {
 	if keep < 0 {

@@ -57,11 +57,21 @@
     <view class="tab-content">
       <view class="tab-pane" wx:if="{{activeTab === 'announcement'}}">
         <view class="announcement-list" wx:if="{{club.announcements && club.announcements.length > 0}}">
-          <view class="announcement-item" wx:for="{{club.announcements}}" wx:key="id">
+          <view
+            class="announcement-item {{item.has_read ? 'is-read' : 'is-unread'}}"
+            wx:for="{{club.announcements}}"
+            wx:key="id"
+            bindtap="onAnnouncementTap"
+            data-id="{{item.id}}"
+          >
             <view class="announcement-tag" wx:if="{{item.is_top}}">置顶</view>
+            <view class="announcement-unread-dot" wx:if="{{!item.has_read}}"></view>
             <view class="announcement-title">{{item.title}}</view>
             <view class="announcement-content" wx:if="{{item.content}}">{{item.content}}</view>
-            <view class="announcement-time">{{item.create_time}}</view>
+            <view class="announcement-meta">
+              <text class="announcement-time">{{item.create_time}}</text>
+              <text class="announcement-read-stat" wx:if="{{item.read_count !== undefined}}">已读 {{item.read_count}}{{item.total_count ? '/' + item.total_count : ''}}</text>
+            </view>
           </view>
         </view>
         <view class="empty-tab" wx:else>暂无公告</view>
