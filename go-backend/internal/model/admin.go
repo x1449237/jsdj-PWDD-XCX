@@ -49,6 +49,7 @@ func (AdminPasswordHistory) TableName() string {
 type AdminWebauthn struct {
 	ID           int64      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 	AdminID      int64      `gorm:"column:admin_id;index:idx_admin_id;not null;default:0" json:"admin_id"`      // 管理员ID
+	UID          int64      `gorm:"column:uid;index:idx_uid;not null;default:0" json:"uid"`                    // 普通用户ID(用户WebAuthn)
 	CredentialID string     `gorm:"column:credential_id;uniqueIndex:uk_credential_id;size:255;not null;default:''" json:"credential_id"` // 凭证ID
 	PublicKey    string     `gorm:"column:public_key;type:text" json:"public_key"`                             // 公钥
 	DeviceInfo   string     `gorm:"column:device_info;size:255;not null;default:''" json:"device_info"`        // 设备信息

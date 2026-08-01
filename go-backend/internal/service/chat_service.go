@@ -54,6 +54,15 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 	if in.MsgType == "" {
 		in.MsgType = model.MsgTypeText
 	}
+	// 防代练检测(聊天消息)
+	if in.Content != "" {
+		hit, patterns, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeChat, userID, in.Content)
+		if abErr == nil && hit {
+			// 命中拦截消息 + 双方提示
+			_ = patterns
+			return nil, errors.New("消息包含违规关键词，已被拦截")
+		}
+	}
 	// 敏感词与售后关键词风控扫描
 	riskLevel := scanMessageRisk(in.Content)
 
@@ -75,17 +84,53 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 		return nil, err
 	}
 
-	// WebSocket 推送给会话其他参与者
+	// WebSocket 推送给会话所有参与者（所有 session_type 全量覆盖）
 	if hub != nil {
 		s, _ := chatRepo.FindSessionByID(in.SessionID)
-		if s != nil && s.SessionType == model.SessionTypeOrder {
-			o, _ := orderRepo.FindByID(s.RefID)
-			if o != nil {
-				peerID := o.UserID
-				if peerID == userID {
-					peerID = o.PlayerID
+		if s != nil {
+			switch s.SessionType {
+			case model.SessionTypeOrder:
+				o, _ := orderRepo.FindByID(s.RefID)
+				if o != nil {
+					peerID := o.UserID
+					if peerID == userID {
+						peerID = o.PlayerID
+					}
+					if peerID > 0 {
+						_ = pushChatMessage(peerID, m)
+					}
 				}
-				_ = pushChatMessage(peerID, m)
+			case model.SessionTypeAfterSale:
+				// 售后会话：推送给订单相关成员(user/player) + 客服(若有)
+				o, _ := orderRepo.FindByID(s.RefID)
+				if o != nil {
+					if o.UserID > 0 && o.UserID != userID {
+						_ = pushChatMessage(o.UserID, m)
+					}
+					if o.PlayerID > 0 && o.PlayerID != userID {
+						_ = pushChatMessage(o.PlayerID, m)
+					}
+				}
+				// 客服/平台处理人（简化：所有管理员在线用户也可配置，此处仅推 session 明确成员）
+			case model.SessionTypeGroupInternal, model.SessionTypeGroupCategory:
+				// 群聊：遍历群成员，对在线成员调用 hub.SendToUser
+				members, _ := chatRepo.ListGroupMembers(s.RefID)
+				for _, mb := range members {
+					if mb.UserID > 0 && mb.UserID != userID {
+						_ = pushChatMessage(mb.UserID, m)
+					}
+				}
+			default:
+				// 未知会话类型兜底:通过 refID 关联订单找对端（无 owner 字段直接跳过）
+				o, _ := orderRepo.FindByID(s.RefID)
+				if o != nil {
+					if o.UserID > 0 && o.UserID != userID {
+						_ = pushChatMessage(o.UserID, m)
+					}
+					if o.PlayerID > 0 && o.PlayerID != userID {
+						_ = pushChatMessage(o.PlayerID, m)
+					}
+				}
 			}
 		}
 	}

@@ -129,6 +129,7 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		userAPI.GET("/orders", orderH.GetOrderList)
 		userAPI.GET("/orders/:id", orderH.GetOrderDetail)
 		userAPI.POST("/orders/:id/cancel", orderH.CancelOrder)
+		userAPI.POST("/orders/:id/confirm", orderH.ConfirmOrderAcceptance)
 		userAPI.POST("/orders/:id/appeal", orderH.SubmitAppeal)
 		userAPI.POST("/orders/:id/evaluation", orderH.SubmitEvaluation)
 		userAPI.POST("/orders/:id/reward", orderH.SendReward)

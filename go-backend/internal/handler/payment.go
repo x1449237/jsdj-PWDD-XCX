@@ -27,12 +27,12 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	p, err := service.CreatePayment(req.OrderID, req.Amount, req.PayMethod)
+	result, err := service.CreatePayment(req.OrderID, req.Amount, req.PayMethod)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
-	utils.Success(c, p)
+	utils.Success(c, result)
 }
 
 // WxPayCallback 微信支付回调

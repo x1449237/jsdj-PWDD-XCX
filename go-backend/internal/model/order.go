@@ -42,6 +42,7 @@ const (
 	OrderStatusCompleted   int8 = 4  // 已完成
 	OrderStatusToSettle    int8 = 5  // 待结算
 	OrderStatusSettled     int8 = 6  // 已结算
+	OrderStatusTeamPending int8 = 7  // 车队匹配中(等待满员)
 	OrderStatusTimeout     int8 = 10 // 超时取消
 	OrderStatusVerifyFail  int8 = 11 // 大额验证失败
 	OrderStatusRefunded    int8 = 12 // 已退款

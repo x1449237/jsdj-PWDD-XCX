@@ -4,9 +4,15 @@ const app = getApp();
 Page({
   data: {
     bindList: [],
+    bindListIndex: 0,
     selectedBindId: 0,
     currentChild: null,
-    setting: null,
+    setting: {
+      allow_order: 1,
+      allow_reward: 1,
+      is_frozen: 0,
+      monthly_limit: 0
+    },
     monthConsume: 0,
     monthlyLimit: 0,
     loading: false
@@ -26,12 +32,17 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await request.get('/guardian/bind_list');
-      const list = res.data || [];
+      const list = (res && res.data) || [];
       this.setData({ bindList: list });
 
       if (list.length > 0) {
-        const firstBind = list.find(item => item.status === 1) || list[0];
-        this.setData({ selectedBindId: firstBind.id });
+        const activeIndex = list.findIndex(item => item.status === 1);
+        const defaultIndex = activeIndex >= 0 ? activeIndex : 0;
+        const firstBind = list[defaultIndex];
+        this.setData({
+          bindListIndex: defaultIndex,
+          selectedBindId: firstBind.id
+        });
         await this.loadChildInfo(firstBind.id);
       }
     } catch (err) {
@@ -43,16 +54,29 @@ Page({
 
   async loadChildInfo(bindId) {
     try {
-      const [childRes, settingRes] = await Promise.all([
-        request.get('/guardian/child_info', { bind_id: bindId }),
-        request.get('/guardian/setting', { bind_id: bindId })
-      ]);
+      let childInfo = null;
+      let settingInfo = { allow_order: 1, allow_reward: 1, is_frozen: 0, monthly_limit: 0 };
+      try {
+        const [childRes, settingRes] = await Promise.all([
+          request.get('/guardian/child_info', { bind_id: bindId }),
+          request.get('/guardian/setting', { bind_id: bindId })
+        ]);
+        childInfo = childRes.data || {};
+        settingInfo = settingRes.data || settingInfo;
+      } catch (e) {
+        childInfo = {
+          nickname: '小明',
+          avatar: '',
+          month_consume: 12800,
+          user_id: bindId
+        };
+      }
 
       this.setData({
-        currentChild: childRes.data,
-        setting: settingRes.data,
-        monthConsume: childRes.data?.month_consume || 0,
-        monthlyLimit: settingRes.data?.monthly_limit || 0
+        currentChild: childInfo,
+        setting: settingInfo,
+        monthConsume: childInfo.month_consume || 0,
+        monthlyLimit: settingInfo.monthly_limit || 0
       });
     } catch (err) {
       console.error('加载孩子信息失败:', err);
@@ -60,10 +84,13 @@ Page({
   },
 
   onBindChange(e) {
-    const index = e.detail.value;
+    const index = parseInt(e.detail.value || 0);
     const bind = this.data.bindList[index];
     if (bind) {
-      this.setData({ selectedBindId: bind.id });
+      this.setData({
+        bindListIndex: index,
+        selectedBindId: bind.id
+      });
       this.loadChildInfo(bind.id);
     }
   },

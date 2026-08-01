@@ -5,6 +5,14 @@
       <div>
         <el-button :icon="ArrowLeft" @click="$router.back()">返回</el-button>
         <el-button
+          v-if="canAccept"
+          type="success"
+          :icon="Check"
+          @click="handleAccept"
+        >
+          确认验收
+        </el-button>
+        <el-button
           v-if="orderInfo.status"
           type="warning"
           :icon="Switch"
@@ -266,8 +274,9 @@
 
 <script>
 import request from '@/utils/request'
-import { ArrowLeft, Switch, RefreshLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Switch, RefreshLeft, Check } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
 export default {
   name: 'OrderDetail',
@@ -276,13 +285,16 @@ export default {
       ArrowLeft,
       Switch,
       RefreshLeft,
+      Check,
       loading: false,
+      acceptLoading: false,
       orderId: null,
       orderInfo: {},
       statusOptions: [
         { value: 'created', label: '已创建' },
         { value: 'accepted', label: '已接单' },
         { value: 'processing', label: '进行中' },
+        { value: 3, label: '待验收' },
         { value: 'completed', label: '已完成' },
         { value: 'settled', label: '已结算' },
         { value: 'refunded', label: '已退款' },
@@ -311,6 +323,14 @@ export default {
     }
   },
   computed: {
+    canAccept() {
+      const status = this.orderInfo.status
+      if (status !== 3 && status !== 'pending_accept' && status !== '待验收') return false
+      const authStore = useAuthStore()
+      const isAdmin = authStore.roles && authStore.roles.some(r => r === 'admin' || r === 'super_admin')
+      const isOrderUser = this.orderInfo.userId === authStore.adminInfo?.id || this.orderInfo.user_id === authStore.adminInfo?.id
+      return isAdmin || isOrderUser
+    },
     canRefund() {
       const status = this.orderInfo.status
       return status && status !== 'refunded' && status !== 'cancelled'
@@ -400,6 +420,36 @@ export default {
         this.refundLoading = false
       }
     },
+    async handleAccept() {
+      try {
+        await ElMessageBox.confirm(
+          '确认该订单服务已完成？验收后订单将进入T+3结算流程。',
+          '确认验收',
+          { confirmButtonText: '确认验收', cancelButtonText: '取消', type: 'warning' }
+        )
+      } catch (e) {
+        return
+      }
+      this.acceptLoading = true
+      try {
+        const authStore = useAuthStore()
+        const isAdmin = authStore.roles && authStore.roles.some(r => r === 'admin' || r === 'super_admin')
+        if (isAdmin) {
+          await request.post(`/admin/orders/${this.orderId}/status`, {
+            targetStatus: 'completed',
+            reason: '管理员确认验收'
+          })
+        } else {
+          await request.post(`/orders/${this.orderId}/confirm`)
+        }
+        ElMessage.success('验收成功，订单进入T+3结算')
+        this.fetchDetail()
+      } catch (err) {
+        ElMessage.error(err.message || '验收失败')
+      } finally {
+        this.acceptLoading = false
+      }
+    },
     maskPhone(phone) {
       if (!phone) return '-'
       return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
@@ -409,6 +459,9 @@ export default {
         created: 'info',
         accepted: 'warning',
         processing: 'warning',
+        3: 'warning',
+        pending_accept: 'warning',
+        '待验收': 'warning',
         completed: 'success',
         settled: '',
         refunded: 'danger',
@@ -421,6 +474,8 @@ export default {
         created: '已创建',
         accepted: '已接单',
         processing: '进行中',
+        3: '待验收',
+        pending_accept: '待验收',
         completed: '已完成',
         settled: '已结算',
         refunded: '已退款',

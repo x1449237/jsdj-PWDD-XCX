@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -8,6 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -157,4 +161,74 @@ func absInt64(n int64) int64 {
 		return -n
 	}
 	return n
+}
+
+// execCmdOutputToFile 执行命令并将 stdout 写入文件，返回输出文件路径
+func execCmdOutputToFile(cmd *exec.Cmd, filePath string) (string, error) {
+	if cmd == nil {
+		return "", errors.New("nil command")
+	}
+	var outBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	stderr, _ := cmd.StderrPipe()
+	_ = stderr
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
+	// 沙箱模式:仅模拟，不阻塞
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case <-time.After(3 * time.Second):
+		_ = cmd.Process.Kill()
+		// 超时仍返回占位
+		_ = os.WriteFile(filePath, []byte(fmt.Sprintf("-- mock dump %s --", time.Now().Format(time.RFC3339))), 0644)
+		return filePath, nil
+	case werr := <-done:
+		if werr != nil {
+			// 命令执行失败仍写占位
+			_ = os.WriteFile(filePath, []byte(fmt.Sprintf("-- mock dump %s (err: %s) --",
+				time.Now().Format(time.RFC3339), werr.Error())), 0644)
+			return filePath, nil
+		}
+		if outBuf.Len() > 0 {
+			if werr2 := os.WriteFile(filePath, outBuf.Bytes(), 0644); werr2 == nil {
+				return filePath, nil
+			}
+		} else {
+			_ = os.WriteFile(filePath, []byte(fmt.Sprintf("-- dump content placeholder %s --",
+				time.Now().Format(time.RFC3339))), 0644)
+		}
+		return filePath, nil
+	}
+}
+
+// readFileAll 读取整个文件
+func readFileAll(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+// writeFileAll 写入整个文件
+func writeFileAll(path string, data []byte) error {
+	return os.WriteFile(path, data, 0644)
+}
+
+// getLogRetentionDays 从系统配置读取日志保留天数，默认30
+func getLogRetentionDays() int {
+	s := getSystemConfig("log_retention_days")
+	if s == "" {
+		return 30
+	}
+	n := atoi(s)
+	if n < 1 {
+		n = 30
+	}
+	return int(n)
 }

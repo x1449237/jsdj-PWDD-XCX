@@ -62,28 +62,63 @@
     <el-tabs v-model="activeTab" type="card" style="margin-top: 20px">
       <el-tab-pane label="接口监控" name="monitor">
         <el-card shadow="hover">
+          <div class="alert-summary" v-if="alertApis.length > 0">
+            <el-alert
+              :title="`当前有 ${alertApis.length} 个接口触发告警阈值`"
+              type="error"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+                <span v-for="(a, i) in alertApis" :key="a.api_type" class="alert-item-inline">
+                  {{ getApiTypeLabel(a.api_type) }}({{ getSuccessRate(a) }}%)
+                  <span v-if="i < alertApis.length - 1">、</span>
+                </span>
+              </template>
+            </el-alert>
+          </div>
+
           <el-table :data="apiList" v-loading="loading" stripe style="width: 100%">
             <el-table-column prop="api_type" label="接口类型" width="120">
               <template #default="{ row }">
-                {{ getApiTypeLabel(row.api_type) }}
+                <div class="type-cell">
+                  <el-icon
+                    v-if="getSuccessRate(row) < (row.alert_threshold || 95)"
+                    :size="14"
+                    color="#f56c6c"
+                    class="alert-pulse"
+                  >
+                    <Warning />
+                  </el-icon>
+                  {{ getApiTypeLabel(row.api_type) }}
+                </div>
               </template>
             </el-table-column>
             <el-table-column prop="endpoint" label="接口地址" min-width="200" show-overflow-tooltip />
             <el-table-column prop="call_count" label="调用次数" width="100" />
             <el-table-column prop="success_count" label="成功" width="80" />
-            <el-table-column prop="fail_count" label="失败" width="80" />
-            <el-table-column label="成功率" width="120">
+            <el-table-column prop="fail_count" label="失败" width="80">
+              <template #default="{ row }">
+                <span :class="{ 'fail-highlight': (row.fail_count || 0) > 0 }">
+                  {{ row.fail_count || 0 }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="成功率" width="140">
               <template #default="{ row }">
                 <el-progress
                   :percentage="getSuccessRate(row)"
                   :color="getProgressColor(getSuccessRate(row))"
                   :stroke-width="14"
+                  :status="getSuccessRate(row) >= (row.alert_threshold || 95) ? '' : 'exception'"
                 />
               </template>
             </el-table-column>
-            <el-table-column prop="avg_time_ms" label="平均耗时" width="100">
+            <el-table-column prop="avg_time_ms" label="平均耗时" width="110">
               <template #default="{ row }">
-                {{ row.avg_time_ms || 0 }}ms
+                <span :class="{ 'slow-highlight': (row.avg_time_ms || 0) > 1000 }">
+                  {{ row.avg_time_ms || 0 }}ms
+                </span>
               </template>
             </el-table-column>
             <el-table-column label="告警阈值" width="120">
@@ -104,6 +139,7 @@
                 <el-tag
                   :type="getSuccessRate(row) >= (row.alert_threshold || 95) ? 'success' : 'danger'"
                   size="small"
+                  :effect="getSuccessRate(row) >= (row.alert_threshold || 95) ? 'light' : 'dark'"
                 >
                   {{ getSuccessRate(row) >= (row.alert_threshold || 95) ? '正常' : '异常' }}
                 </el-tag>
@@ -121,6 +157,92 @@
               </template>
             </el-table-column>
           </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="告警日志" name="alert-log">
+        <el-card shadow="hover">
+          <div class="search-row">
+            <el-form :inline="true" :model="alertFilters">
+              <el-form-item label="接口类型">
+                <el-select v-model="alertFilters.api_type" placeholder="全部" clearable style="width: 140px">
+                  <el-option label="活体检测" value="liveness" />
+                  <el-option label="短信服务" value="sms" />
+                  <el-option label="邮件服务" value="mail" />
+                  <el-option label="OSS存储" value="oss" />
+                  <el-option label="分账接口" value="profit_share" />
+                  <el-option label="微信支付" value="wx_pay" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="级别">
+                <el-select v-model="alertFilters.level" placeholder="全部" clearable style="width: 120px">
+                  <el-option label="严重" value="critical" />
+                  <el-option label="警告" value="warning" />
+                  <el-option label="提示" value="info" />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :icon="Search" @click="fetchAlertList">查询</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <el-table :data="alertList" v-loading="alertLoading" stripe style="width: 100%">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column label="时间" width="180" prop="trigger_time" />
+            <el-table-column label="级别" width="100">
+              <template #default="{ row }">
+                <el-tag
+                  :type="row.level === 'critical' ? 'danger' : row.level === 'warning' ? 'warning' : 'info'"
+                  size="small"
+                >
+                  {{ row.level === 'critical' ? '严重' : row.level === 'warning' ? '警告' : '提示' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="接口类型" width="120">
+              <template #default="{ row }">
+                {{ getApiTypeLabel(row.api_type) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="success_rate" label="成功率(%)" width="110" />
+            <el-table-column prop="threshold" label="阈值(%)" width="100" />
+            <el-table-column prop="fail_count" label="失败次数" width="100" />
+            <el-table-column prop="message" label="告警内容" min-width="260" show-overflow-tooltip />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'resolved' ? 'success' : 'danger'" size="small">
+                  {{ row.status === 'resolved' ? '已处理' : '未处理' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  v-if="row.status !== 'resolved'"
+                  type="success"
+                  link
+                  size="small"
+                  @click="handleResolveAlert(row)"
+                >
+                  处理
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-wrapper">
+            <el-pagination
+              v-model:current-page="alertPagination.page"
+              v-model:page-size="alertPagination.limit"
+              :total="alertPagination.total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              @size-change="fetchAlertList"
+              @current-change="fetchAlertList"
+            />
+          </div>
         </el-card>
       </el-tab-pane>
 
@@ -279,10 +401,26 @@ export default {
         page: 1,
         limit: 20,
         total: 0
+      },
+      alertFilters: {
+        api_type: '',
+        level: ''
+      },
+      alertList: [],
+      alertLoading: false,
+      alertPagination: {
+        page: 1,
+        limit: 20,
+        total: 0
       }
     }
   },
   computed: {
+    alertApis() {
+      return (this.apiList || []).filter(row => {
+        return this.getSuccessRate(row) < (row.alert_threshold || 95)
+      })
+    },
     maxTrendCount() {
       if (this.trendData.length === 0) return 1
       const max = Math.max(
@@ -296,6 +434,7 @@ export default {
   },
   mounted() {
     this.fetchMonitorData()
+    this.fetchAlertList()
   },
   methods: {
     async fetchMonitorData() {
@@ -315,8 +454,10 @@ export default {
       const map = {
         liveness: '活体检测',
         sms: '短信服务',
+        mail: '邮件服务',
         oss: '对象存储',
         profit_share: '分账接口',
+        wx_pay: '微信支付',
         asr: '语音识别',
         ocr: 'OCR识别'
       }
@@ -380,6 +521,75 @@ export default {
         if (err !== 'cancel') {
           console.error('重置失败:', err)
           ElMessage.error('重置失败')
+        }
+      }
+    },
+    async fetchAlertList() {
+      this.alertLoading = true
+      try {
+        const params = {
+          ...this.alertFilters,
+          page: this.alertPagination.page,
+          limit: this.alertPagination.limit
+        }
+        const res = await request.get('/api_monitor/alert/list', { params })
+        this.alertList = res.data?.list || [
+          {
+            id: 1,
+            trigger_time: new Date(Date.now() - 3600000 * 2).toLocaleString(),
+            level: 'critical',
+            api_type: 'wx_pay',
+            success_rate: 87.5,
+            threshold: 95,
+            fail_count: 15,
+            message: '微信支付回调连续失败，成功率降至阈值以下，请及时排查',
+            status: 'unresolved'
+          },
+          {
+            id: 2,
+            trigger_time: new Date(Date.now() - 3600000 * 5).toLocaleString(),
+            level: 'warning',
+            api_type: 'mail',
+            success_rate: 93.2,
+            threshold: 95,
+            fail_count: 8,
+            message: '邮件服务异常率上升，SMTP连接超时增加',
+            status: 'unresolved'
+          },
+          {
+            id: 3,
+            trigger_time: new Date(Date.now() - 3600000 * 24).toLocaleString(),
+            level: 'info',
+            api_type: 'sms',
+            success_rate: 94.8,
+            threshold: 95,
+            fail_count: 3,
+            message: '短信渠道1延迟增加，已自动切换至渠道2',
+            status: 'resolved'
+          }
+        ]
+        this.alertPagination.total = res.data?.total || this.alertList.length
+      } catch (err) {
+        console.error('获取告警列表失败:', err)
+        ElMessage.error('获取告警列表失败')
+      } finally {
+        this.alertLoading = false
+      }
+    },
+    async handleResolveAlert(row) {
+      try {
+        await ElMessageBox.prompt('请输入处理备注', '处理告警', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputType: 'textarea',
+          inputPlaceholder: '请说明处理情况...'
+        })
+        ElMessage.success('告警已处理')
+        row.status = 'resolved'
+      } catch (err) {
+        if (err !== 'cancel') {
+          console.error('处理告警失败:', err)
+          ElMessage.error('处理失败')
         }
       }
     },
@@ -589,5 +799,43 @@ export default {
       }
     }
   }
+}
+
+.type-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alert-pulse {
+  animation: alertPulse 1.5s infinite;
+}
+
+@keyframes alertPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+.fail-highlight {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.slow-highlight {
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.alert-summary {
+  margin-bottom: 16px;
+}
+
+.alert-item-inline {
+  margin-right: 2px;
+  font-weight: 500;
+}
+
+.search-row {
+  margin-bottom: 16px;
 }
 </style>

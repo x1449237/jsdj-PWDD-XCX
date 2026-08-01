@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -102,13 +105,14 @@ func SubmitRealname(userID int64, realName, idCard string) error {
 	return nil
 }
 
-// FaceVerify 活体检测校验(模拟:返回成功并写入会话ID)
+// FaceVerify 活体检测校验
+// 1. 7天缓存:通过的 7天内复用(realname_caches表)
+// 2. 频控:每天5次(face_verify_rate_limits表 + Redis)
+// 3. 调用腾讯云/阿里云标准SDK(注释给出示例代码结构)，沙箱模拟通过率
 func FaceVerify(userID int64, sessionID string) (string, error) {
 	if sessionID == "" {
 		return "", errors.New("活体会话ID不能为空")
 	}
-	// 实际项目应调用腾讯云/阿里云活体检测接口
-	// 此处校验身份证已实名后通过
 	u, err := userRepo.FindByID(userID)
 	if err != nil {
 		return "", err
@@ -119,7 +123,136 @@ func FaceVerify(userID int64, sessionID string) (string, error) {
 	if u.IsRealname == 0 {
 		return "", errors.New("请先完成实名认证")
 	}
-	// 返回会话ID供订单大额验证使用
+	now := time.Now()
+	today0 := startOfToday()
+	tomorrow0 := today0.Add(24 * time.Hour)
+
+	// Step 1. 检查 7 天缓存(realname_caches 表:status=pass + expire > now)
+	cacheKeyStr := fmt.Sprintf("face_verify:%d", userID)
+	// 先查 Redis 快速命中
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if redis != nil {
+		v, rerr := redis.Get(ctx, cacheKey(cacheKeyStr))
+		if rerr == nil && v == "pass" {
+			_ = userRepo.Update(userID, map[string]interface{}{
+				"face_session_id": sessionID,
+				"face_verified_at": now,
+			})
+			return sessionID, nil
+		}
+	}
+	// 查 DB realname_caches
+	var cached model.RealnameCache
+	found := false
+	err = db.Where("uid = ? AND verify_type = ? AND status = ? AND expire_at > ?",
+		userID, "face", "pass", now).Order("id DESC").First(&cached).Error
+	if err == nil {
+		found = true
+	}
+	if found {
+		// 命中缓存：写 Redis 快速缓存并返回
+		if redis != nil {
+			_ = redis.Set(ctx, cacheKey(cacheKeyStr), "pass", 24*time.Hour)
+		}
+		_ = userRepo.Update(userID, map[string]interface{}{
+			"face_session_id":   sessionID,
+			"face_verified_at":  now,
+		})
+		return sessionID, nil
+	}
+
+	// Step 2. 频控:每天最多 5 次(Redis 计数 + DB 记录)
+	rateLimitKey := cacheKey(fmt.Sprintf("face_verify:ratelimit:%d:%s", userID, today0.Format("2006-01-02")))
+	var todayUsed int
+	if redis != nil {
+		v, rerr := redis.Get(ctx, rateLimitKey)
+		if rerr == nil && v != "" {
+			todayUsed = int(atoi(v))
+		}
+	}
+	if todayUsed <= 0 {
+		// 从 DB face_verify_rate_limits 兜底
+		var cnt int64
+		_ = db.Model(&model.FaceVerifyRateLimit{}).
+			Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, today0, tomorrow0).
+			Count(&cnt).Error
+		todayUsed = int(cnt)
+	}
+	if todayUsed >= 5 {
+		return "", errors.New("今日活体检测次数已达上限(5次)，请明日再试")
+	}
+
+	// Step 3. 写 DB 频控记录 + Redis 计数
+	_ = db.Create(&model.FaceVerifyRateLimit{
+		UserID:    userID,
+		IP:        "face-api",
+		Count:     1,
+		Date:      today0.Format("2006-01-02"),
+		CreatedAt: &now,
+		UpdatedAt: &now,
+	})
+	if redis != nil {
+		_ = redis.Set(ctx, rateLimitKey, fmt.Sprintf("%d", todayUsed+1),
+			time.Until(tomorrow0))
+	}
+
+	// Step 4. 调用第三方SDK(腾讯云/阿里云 FaceCompare/LiveDetectFour)
+	// ——腾讯云 SDK 示例结构——
+	// import (
+	//   "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	//   faceid "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/faceid/v20180301"
+	// )
+	// cred := common.NewCredential(SecretId, SecretKey)
+	// cpf := profile.NewClientProfile()
+	// client, _ := faceid.NewClient(cred, "ap-beijing", cpf)
+	// req := faceid.NewLivenessCompareRequest()
+	// req.SessionId = common.StringPtr(sessionID)
+	// resp, err := client.LivenessCompare(req)
+	// passed := resp.Response != nil && *resp.Response.Sim >= 70
+	// ——阿里云 SDK 示例结构——
+	// import facebody20191230 "github.com/alibabacloud-go/facebody-20191230/v4/client"
+	// client, _ = facebody20191230.NewClient(...)
+	// req := &facebody20191230.ExecuteServerSideVerificationRequest{SceneId:tea.Int64(1)}
+	// passed := result passed
+	passed := false
+	verifyMsg := "沙箱模拟通过"
+	// 沙箱模式:sessionID 以 "fail_" 前缀=失败 否则 95%概率通过
+	if len(sessionID) >= 5 && sessionID[:5] == "fail_" {
+		passed = false
+		verifyMsg = "沙箱模拟失败(命中fail_前缀)"
+	} else {
+		// 用 crypto/rand 模拟 95% 通过率
+		var b [1]byte
+		_, _ = rand.Read(b[:])
+		passed = int(b[0])%100 < 95
+		if !passed {
+			verifyMsg = "沙箱模拟随机不通过(5%)"
+		}
+	}
+	if !passed {
+		return "", errors.New("活体检测失败: " + verifyMsg)
+	}
+
+	// Step 5. 写入 realname_caches 缓存 7 天
+	expireAt := now.AddDate(0, 0, 7)
+	_ = db.Create(&model.RealnameCache{
+		UserID:         userID,
+		LastVerifyTime: &now,
+		ExpireTime:     &expireAt,
+		VerifySession:  sessionID,
+		CreatedAt:      &now,
+		UpdatedAt:      &now,
+	})
+	if redis != nil {
+		_ = redis.Set(ctx, cacheKey(cacheKeyStr), "pass", 24*time.Hour)
+	}
+
+	// Step 6. 更新用户表
+	_ = userRepo.Update(userID, map[string]interface{}{
+		"face_session_id":  sessionID,
+		"face_verified_at": now,
+	})
 	return sessionID, nil
 }
 
@@ -229,4 +362,70 @@ func userLastLoginTime(userID int64) time.Time {
 		return *u.UpdatedAt
 	}
 	return time.Time{}
+}
+
+// UpdateCreditScore 信用分变更：写入 credit_log 并更新 users.credit_score
+// 信用分范围 0-150；delta 为正时加分、为负时扣分；ref_id 关联订单/评价等引用ID
+func UpdateCreditScore(uid int64, delta int, reason string, refID int64) error {
+	if uid <= 0 {
+		return errors.New("用户ID不能为空")
+	}
+	if delta == 0 {
+		return nil
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		// 先读取当前信用分（for update 简化为 SELECT + UPDATE）
+		var before int
+		u := &model.User{}
+		if err := tx.Select("id, credit_score").Where("id = ?", uid).First(u).Error; err != nil {
+			return err
+		}
+		before = u.CreditScore
+		// 计算更新后值，保证在 [0, 150] 内
+		after := before + delta
+		if after < 0 {
+			after = 0
+		}
+		if after > 150 {
+			after = 150
+		}
+		// 更新 users 表
+		if err := tx.Model(&model.User{}).Where("id = ?", uid).
+			Updates(map[string]interface{}{
+				"credit_score": after,
+				"updated_at":   nowTimePtr(),
+			}).Error; err != nil {
+			return err
+		}
+		// 写流水 credit_log
+		if err := tx.Create(&model.CreditLog{
+			UID:       uid,
+			Delta:     delta,
+			After:     after,
+			Reason:    reason,
+			RefID:     refID,
+			CreatedAt: nowTimePtr(),
+		}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// IncrPlayerRejectCount 玩家拒单计数，超过3次扣信用分 -5
+func IncrPlayerRejectCount(playerID int64) (int, error) {
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+	key := cacheKey("reject_cnt:" + itoa(playerID) + ":" + time.Now().Format("2006-01-02"))
+	cntStr, _ := redis.Get(ctx, key)
+	cnt := 0
+	if cntStr != "" {
+		fmt.Sscanf(cntStr, "%d", &cnt)
+	}
+	cnt++
+	_ = redis.Set(ctx, key, itoa(int64(cnt)), 26*time.Hour)
+	if cnt > 3 {
+		_ = UpdateCreditScore(playerID, -5, "打手当日累计拒单超过3次", 0)
+	}
+	return cnt, nil
 }

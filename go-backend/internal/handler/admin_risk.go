@@ -69,7 +69,8 @@ func (h *AdminRiskHandler) HandleRiskAlert(c *gin.Context) {
 // GET /api/v1/admin/up-master/certs
 func (h *AdminRiskHandler) GetUpMasterCerts(c *gin.Context) {
 	page, pageSize := getPage(c)
-	list, total, err := service.AdminGetUpMasterCerts(page, pageSize)
+	status := parseInt8Query(c, "status", -1)
+	list, total, err := service.AdminGetUpMasterCerts(page, pageSize, status)
 	if err != nil {
 		utils.Fail(c, utils.CodeServerError, err.Error())
 		return
@@ -81,7 +82,15 @@ func (h *AdminRiskHandler) GetUpMasterCerts(c *gin.Context) {
 // POST /api/v1/admin/up-master/:id/approve
 func (h *AdminRiskHandler) ApproveUpMaster(c *gin.Context) {
 	id := parseInt64Path(c, "id")
-	if err := service.AdminApproveUpMaster(id); err != nil {
+	adminID := getCurrentUserID(c)
+	var req struct {
+		Tier int `json:"tier"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.Tier <= 0 {
+		req.Tier = 1
+	}
+	if err := service.AdminApproveUpMaster(id, adminID, req.Tier); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -92,7 +101,15 @@ func (h *AdminRiskHandler) ApproveUpMaster(c *gin.Context) {
 // POST /api/v1/admin/up-master/:id/revoke
 func (h *AdminRiskHandler) RevokeUpMaster(c *gin.Context) {
 	id := parseInt64Path(c, "id")
-	if err := service.AdminRevokeUpMaster(id); err != nil {
+	adminID := getCurrentUserID(c)
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.Reason == "" {
+		req.Reason = "平台撤销"
+	}
+	if err := service.AdminRevokeUpMaster(id, adminID, req.Reason); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}

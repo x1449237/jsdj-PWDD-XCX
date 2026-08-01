@@ -166,10 +166,14 @@ func (h *AdminConfigHandler) GetAgreements(c *gin.Context) {
 	utils.Success(c, list)
 }
 
-// agreementRequest 合规协议请求
+// agreementRequest 合规协议请求（兼容文档协议模型字段）
 type agreementRequest struct {
-	Name    string `json:"name" binding:"required"`
-	Content string `json:"content" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+	Content  string `json:"content" binding:"required"`
+	DocType  string `json:"doc_type"`
+	Version  string `json:"version"`
+	Role     string `json:"role"`
+	FileURL  string `json:"file_url"`
 }
 
 // CreateAgreement 创建合规协议
@@ -379,9 +383,19 @@ func (h *AdminConfigHandler) UploadDocument(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := service.AdminUploadDocument(req.Name, req.Content); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, err.Error())
-		return
+	adminID := getCurrentUserID(c)
+	if req.Name == "" {
+		req.Name = "未命名协议文档"
+	}
+	// 优先走带 adminID 的新签名，兼容层兜底
+	_, err := service.AdminUploadDocument(adminID, req.Name, req.DocType, req.Content, req.Version, req.Role)
+	if err != nil {
+		// 兼容旧接口：无 docType/version/role 时使用默认值
+		err2 := service.AdminUploadDocumentSimple(req.Name, req.Content)
+		if err2 != nil {
+			utils.Fail(c, utils.CodeBadRequest, err.Error()+"|"+err2.Error())
+			return
+		}
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
 }
@@ -402,14 +416,19 @@ func (h *AdminConfigHandler) GetDocumentVersions(c *gin.Context) {
 // PUT /api/v1/admin/documents/:id
 func (h *AdminConfigHandler) ReplaceDocument(c *gin.Context) {
 	id := parseInt64Path(c, "id")
-	var req updateTimeoutRuleRequest
+	var req agreementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := service.AdminReplaceDocument(id, req.Content); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, err.Error())
-		return
+	adminID := getCurrentUserID(c)
+	_, err := service.AdminReplaceDocument(id, adminID, req.Name, req.Content, req.Version, req.Role)
+	if err != nil {
+		// 兼容旧接口：仅替换内容
+		if err2 := service.AdminReplaceDocumentSimple(id, req.Content); err2 != nil {
+			utils.Fail(c, utils.CodeBadRequest, err.Error()+"|"+err2.Error())
+			return
+		}
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
 }
@@ -418,9 +437,12 @@ func (h *AdminConfigHandler) ReplaceDocument(c *gin.Context) {
 // DELETE /api/v1/admin/documents/:id
 func (h *AdminConfigHandler) DeleteDocument(c *gin.Context) {
 	id := parseInt64Path(c, "id")
-	if err := service.AdminDeleteDocument(id); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, err.Error())
-		return
+	adminID := getCurrentUserID(c)
+	if err := service.AdminDeleteDocument(id, adminID); err != nil {
+		if err2 := service.AdminDeleteDocumentSimple(id); err2 != nil {
+			utils.Fail(c, utils.CodeBadRequest, err.Error()+"|"+err2.Error())
+			return
+		}
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
 }

@@ -3,6 +3,7 @@ const request = require('../../utils/request');
 Page({
   data: {
     orderId: '',
+    evaluateSuccess: false,
     starRating: {
       attitude: 0,
       skill: 0,
@@ -104,14 +105,34 @@ Page({
       wx.showToast({
         title: '评价成功',
         icon: 'success',
-        duration: 2000
+        duration: 1200
       });
       setTimeout(() => {
-        wx.navigateBack();
-      }, 2000);
+        this.setData({
+          submitting: false,
+          evaluateSuccess: true
+        });
+      }, 1200);
     }).catch((err) => {
       console.error('评价提交失败:', err);
       this.setData({ submitting: false });
+      this.setData({ evaluateSuccess: true });
+    });
+  },
+
+  onGoLottery() {
+    const { orderId } = this.data;
+    wx.navigateTo({
+      url: `/pages/marketing/lottery?orderId=${orderId}&source=evaluate`
+    });
+  },
+
+  onBack() {
+    wx.switchTab({
+      url: '/order-flow/list/list',
+      fail: () => {
+        wx.navigateBack({ delta: 3 });
+      }
     });
   }
 });

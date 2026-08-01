@@ -1,114 +1,149 @@
 <view class="evaluate-page">
-  <!-- 冷静期提示 -->
-  <view class="cooling-tip" wx:if="{{inCoolingPeriod}}">
-    <text class="cooling-icon">⏳</text>
-    <view class="cooling-content">
-      <text class="cooling-title">24小时冷静期</text>
-      <text class="cooling-desc">订单完成后24小时内可进行评价，当前剩余 {{coolingRemaining}}，请理性评价。</text>
-    </view>
-  </view>
+  <!-- 评价成功 - 抽奖入口 -->
+  <block wx:if="{{evaluateSuccess}}">
+    <view class="success-wrap">
+      <view class="success-card">
+        <view class="success-icon-circle">
+          <text class="success-icon">✓</text>
+        </view>
+        <view class="success-title">评价成功</view>
+        <view class="success-subtitle">感谢您的反馈，为打手送上一颗小星星⭐</view>
 
-  <!-- 星级评分 -->
-  <view class="section">
-    <view class="section-title">星级评分</view>
-    <view class="star-section">
-      <view class="star-row">
-        <text class="star-label">服务态度</text>
-        <view class="star-list">
-          <text
-            wx:for="{{[1,2,3,4,5]}}"
-            wx:key="*this"
-            class="star {{item <= starRating.attitude ? 'star-active' : ''}}"
-            bindtap="onStarTap"
-            data-type="attitude"
-            data-value="{{item}}"
-          >★</text>
+        <view class="lottery-entry" bindtap="onGoLottery">
+          <view class="lottery-left">
+            <view class="lottery-title-row">
+              <text class="lottery-icon">🎡</text>
+              <text class="lottery-title">订单完成，参与抽奖</text>
+              <text class="lottery-badge">新</text>
+            </view>
+            <view class="lottery-prizes">
+              <text>最高可抽：</text>
+              <text class="prize-name">免单券 × 50元优惠券</text>
+            </view>
+          </view>
+          <view class="lottery-btn">
+            立即抽奖 ›
+          </view>
         </view>
       </view>
-      <view class="star-row">
-        <text class="star-label">技术水平</text>
-        <view class="star-list">
-          <text
-            wx:for="{{[1,2,3,4,5]}}"
-            wx:key="*this"
-            class="star {{item <= starRating.skill ? 'star-active' : ''}}"
-            bindtap="onStarTap"
-            data-type="skill"
-            data-value="{{item}}"
-          >★</text>
-        </view>
+
+      <button class="back-btn" bindtap="onBack">返回订单列表</button>
+    </view>
+  </block>
+
+  <!-- 评价表单 -->
+  <block wx:else>
+    <!-- 冷静期提示 -->
+    <view class="cooling-tip" wx:if="{{inCoolingPeriod}}">
+      <text class="cooling-icon">⏳</text>
+      <view class="cooling-content">
+        <text class="cooling-title">24小时冷静期</text>
+        <text class="cooling-desc">订单完成后24小时内可进行评价，当前剩余 {{coolingRemaining}}，请理性评价。</text>
       </view>
-      <view class="star-row">
-        <text class="star-label">沟通效率</text>
-        <view class="star-list">
-          <text
-            wx:for="{{[1,2,3,4,5]}}"
-            wx:key="*this"
-            class="star {{item <= starRating.communication ? 'star-active' : ''}}"
-            bindtap="onStarTap"
-            data-type="communication"
-            data-value="{{item}}"
-          >★</text>
+    </view>
+
+    <!-- 星级评分 -->
+    <view class="section">
+      <view class="section-title">星级评分</view>
+      <view class="star-section">
+        <view class="star-row">
+          <text class="star-label">服务态度</text>
+          <view class="star-list">
+            <text
+              wx:for="{{[1,2,3,4,5]}}"
+              wx:key="*this"
+              class="star {{item <= starRating.attitude ? 'star-active' : ''}}"
+              bindtap="onStarTap"
+              data-type="attitude"
+              data-value="{{item}}"
+            >★</text>
+          </view>
+        </view>
+        <view class="star-row">
+          <text class="star-label">技术水平</text>
+          <view class="star-list">
+            <text
+              wx:for="{{[1,2,3,4,5]}}"
+              wx:key="*this"
+              class="star {{item <= starRating.skill ? 'star-active' : ''}}"
+              bindtap="onStarTap"
+              data-type="skill"
+              data-value="{{item}}"
+            >★</text>
+          </view>
+        </view>
+        <view class="star-row">
+          <text class="star-label">沟通效率</text>
+          <view class="star-list">
+            <text
+              wx:for="{{[1,2,3,4,5]}}"
+              wx:key="*this"
+              class="star {{item <= starRating.communication ? 'star-active' : ''}}"
+              bindtap="onStarTap"
+              data-type="communication"
+              data-value="{{item}}"
+            >★</text>
+          </view>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 评价内容 -->
-  <view class="section">
-    <view class="section-title">评价内容</view>
-    <view class="content-section">
-      <textarea
-        class="content-input"
-        placeholder="分享您的服务体验，帮助更多用户选择..."
-        placeholder-class="placeholder"
-        value="{{content}}"
-        bindinput="onContentInput"
-        maxlength="500"
-        auto-height
-      />
-      <text class="char-count">{{content.length || 0}}/500</text>
+    <!-- 评价内容 -->
+    <view class="section">
+      <view class="section-title">评价内容</view>
+      <view class="content-section">
+        <textarea
+          class="content-input"
+          placeholder="分享您的服务体验，帮助更多用户选择..."
+          placeholder-class="placeholder"
+          value="{{content}}"
+          bindinput="onContentInput"
+          maxlength="500"
+          auto-height
+        />
+        <text class="char-count">{{content.length || 0}}/500</text>
+      </view>
     </view>
-  </view>
 
-  <!-- 标签选择 -->
-  <view class="section">
-    <view class="section-title">标签</view>
-    <view class="tag-section">
-      <view
-        wx:for="{{tagList}}"
-        wx:key="*this"
-        class="eval-tag {{selectedTags.indexOf(item) > -1 ? 'tag-selected' : ''}}"
-        bindtap="onTagTap"
-        data-tag="{{item}}"
+    <!-- 标签选择 -->
+    <view class="section">
+      <view class="section-title">标签</view>
+      <view class="tag-section">
+        <view
+          wx:for="{{tagList}}"
+          wx:key="*this"
+          class="eval-tag {{selectedTags.indexOf(item) > -1 ? 'tag-selected' : ''}}"
+          bindtap="onTagTap"
+          data-tag="{{item}}"
+        >
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 匿名选项 -->
+    <view class="section">
+      <view class="anonymous-row">
+        <text class="anonymous-label">匿名评价</text>
+        <switch
+          class="anonymous-switch"
+          checked="{{isAnonymous}}"
+          bindchange="onToggleAnonymous"
+          color="#e94560"
+        />
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="submit-section">
+      <button
+        class="submit-btn {{submitting ? 'btn-disabled' : ''}}"
+        bindtap="onSubmit"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
       >
-        {{item}}
-      </view>
+        提交评价
+      </button>
     </view>
-  </view>
-
-  <!-- 匿名选项 -->
-  <view class="section">
-    <view class="anonymous-row">
-      <text class="anonymous-label">匿名评价</text>
-      <switch
-        class="anonymous-switch"
-        checked="{{isAnonymous}}"
-        bindchange="onToggleAnonymous"
-        color="#e94560"
-      />
-    </view>
-  </view>
-
-  <!-- 提交按钮 -->
-  <view class="submit-section">
-    <button
-      class="submit-btn {{submitting ? 'btn-disabled' : ''}}"
-      bindtap="onSubmit"
-      loading="{{submitting}}"
-      disabled="{{submitting}}"
-    >
-      提交评价
-    </button>
-  </view>
+  </block>
 </view>

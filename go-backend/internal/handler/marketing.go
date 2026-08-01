@@ -84,7 +84,8 @@ func (h *MarketingHandler) DrawLottery(c *gin.Context) {
 		return
 	}
 	userID := getCurrentUserID(c)
-	res, err := service.DrawLottery(userID, req.ActivityID)
+	drawIP := c.ClientIP()
+	res, err := service.DrawLottery(userID, req.ActivityID, drawIP)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return

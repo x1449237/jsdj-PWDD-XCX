@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -12,12 +13,13 @@ import (
 
 // CreateOrderInput 创建订单入参
 type CreateOrderInput struct {
-	Type            int8   `json:"type"`             // 订单类型
-	ClubID          int64  `json:"club_id"`           // 俱乐部ID
-	ServiceID       int64  `json:"service_id"`        // 服务项目ID
-	Amount          int64  `json:"amount"`            // 金额(分)
-	TeamCount       int    `json:"team_count"`        // 车队人数
-	AppointmentTime *time.Time `json:"appointment_time"` // 预约时间
+	Type            int8       `json:"type"`
+	ClubID          int64      `json:"club_id"`
+	ServiceID       int64      `json:"service_id"`
+	Amount          int64      `json:"amount"`
+	TeamCount       int        `json:"team_count"`
+	Description     string     `json:"description"`
+	AppointmentTime *time.Time `json:"appointment_time"`
 }
 
 // CreateOrder 用户创建订单
@@ -25,6 +27,13 @@ type CreateOrderInput struct {
 func CreateOrder(userID int64, in *CreateOrderInput) (*model.Order, error) {
 	if in.Amount <= 0 {
 		return nil, errors.New("订单金额必须大于 0")
+	}
+	// 防代练检测(订单描述)
+	if in.Description != "" {
+		hit, _, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeOrderDesc, userID, in.Description)
+		if abErr == nil && hit {
+			return nil, errors.New("订单描述包含违规关键词，请修改后重试")
+		}
 	}
 	// 用户校验
 	u, err := userRepo.FindByID(userID)
@@ -54,24 +63,33 @@ func CreateOrder(userID int64, in *CreateOrderInput) (*model.Order, error) {
 	}
 
 	o := &model.Order{
-		OrderNo:        genOrderNo(),
-		Type:           in.Type,
-		UserID:         userID,
-		ClubID:         clubID,
-		ServiceID:      in.ServiceID,
-		Amount:         in.Amount,
-		Status:         model.OrderStatusPending,
-		PayStatus:      0,
-		TeamCount:      in.TeamCount,
+		OrderNo:         genOrderNo(),
+		Type:            in.Type,
+		UserID:          userID,
+		ClubID:          clubID,
+		ServiceID:       in.ServiceID,
+		Amount:          in.Amount,
+		Status:          model.OrderStatusPending,
+		PayStatus:       0,
+		TeamCount:       in.TeamCount,
 		AppointmentTime: in.AppointmentTime,
-		IsMinorOrder:   u.IsMinor,
-		CreatedAt:      nowTimePtr(),
-		UpdatedAt:      nowTimePtr(),
+		IsMinorOrder:    u.IsMinor,
+		CreatedAt:       nowTimePtr(),
+		UpdatedAt:       nowTimePtr(),
 	}
 	if o.Type == 0 {
 		o.Type = model.OrderTypeInstant
 	}
-	if o.TeamCount <= 0 {
+	// 车队订单：TeamCount 校验 min=2 max=5；初始 status=team_pending 以便抢单中心展示
+	if o.Type == model.OrderTypeTeam {
+		if o.TeamCount < 2 {
+			o.TeamCount = 2
+		}
+		if o.TeamCount > 5 {
+			o.TeamCount = 5
+		}
+		o.Status = model.OrderStatusTeamPending
+	} else if o.TeamCount <= 0 {
 		o.TeamCount = 1
 	}
 	if err := orderRepo.Create(o); err != nil {
@@ -87,6 +105,11 @@ func CreateOrder(userID int64, in *CreateOrderInput) (*model.Order, error) {
 		Reason:       "用户下单",
 		CreatedAt:    nowTimePtr(),
 	})
+	if queueC != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = queueC.EnqueueOrderTimeoutCloseByOrderNo(ctx, o.OrderNo, 10*time.Minute)
+	}
 	return o, nil
 }
 
@@ -124,6 +147,54 @@ func GetOrderDetail(orderID, userID int64, isAdmin bool) (*model.Order, error) {
 	if !isAdmin && o.UserID != userID && o.PlayerID != userID {
 		return nil, errors.New("无权查看该订单")
 	}
+	return o, nil
+}
+
+// UserConfirmAcceptance 用户验收订单(待验收 -> 待结算)
+// 验收通过后 72 小时自动结算
+func UserConfirmAcceptance(orderID, userID int64) (*model.Order, error) {
+	o, err := orderRepo.FindByID(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if o == nil {
+		return nil, errors.New("订单不存在")
+	}
+	if o.UserID != userID {
+		return nil, errors.New("无权操作该订单")
+	}
+	if o.Status != model.OrderStatusToVerify {
+		return nil, errors.New("当前订单状态不可验收，仅待验收订单可操作")
+	}
+	now := nowTimePtr()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Order{}).Where("id = ?", orderID).
+			Updates(map[string]interface{}{
+				"status":     model.OrderStatusToSettle,
+				"updated_at": now,
+			}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&model.OrderStatusLog{
+			OrderID:      orderID,
+			FromStatus:   model.OrderStatusToVerify,
+			ToStatus:     model.OrderStatusToSettle,
+			OperatorID:   userID,
+			OperatorType: "user",
+			Reason:       "用户验收通过，进入待结算",
+			CreatedAt:    now,
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	if queueC != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = queueC.EnqueueOrderSettleDelayed(ctx, orderID, 72*time.Hour)
+	}
+	o.Status = model.OrderStatusToSettle
+	NotifyOrderStatusChanged(o)
 	return o, nil
 }
 

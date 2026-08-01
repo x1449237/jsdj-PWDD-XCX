@@ -6,13 +6,104 @@
   </view>
 
   <view class="login-body">
+    <!-- 分角色协议签署 -->
+    <view class="agreement-card">
+      <view class="role-tabs">
+        <view
+          wx:for="{{roleTabs}}"
+          wx:key="key"
+          class="role-tab {{activeRoleTab === item.key ? 'role-tab-active' : ''}}"
+          data-key="{{item.key}}"
+          bindtap="onSwitchRoleTab"
+        >
+          <text>{{item.label}}</text>
+          <text class="role-required" wx:if="{{item.required}}">*必签</text>
+        </view>
+      </view>
+
+      <!-- 用户 -->
+      <view wx:if="{{activeRoleTab === 'player'}}" class="agreement-list">
+        <view class="agreement-row" bindtap="onToggleAgreementItem" data-field="agreeAgreementPlayer">
+          <view class="checkbox {{agreeAgreementPlayer ? 'checked' : ''}}">
+            <image wx:if="{{agreeAgreementPlayer}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
+          </view>
+          <text class="agreement-text">
+            已阅读并同意
+            <text class="link" catchtap="onShowAgreement" data-type="service" data-doc="agreement_player">《用户服务协议》</text>
+          </text>
+          <text class="signed-tag" wx:if="{{hasSignedCache.agreeAgreementPlayer}}">已签署</text>
+        </view>
+        <view class="agreement-row" bindtap="onToggleAgreementItem" data-field="agreePrivacy">
+          <view class="checkbox {{agreePrivacy ? 'checked' : ''}}">
+            <image wx:if="{{agreePrivacy}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
+          </view>
+          <text class="agreement-text">
+            已阅读并同意
+            <text class="link" catchtap="onShowAgreement" data-type="privacy" data-doc="agreement_privacy">《隐私政策》</text>
+          </text>
+          <text class="signed-tag" wx:if="{{hasSignedCache.agreePrivacy}}">已签署</text>
+        </view>
+      </view>
+
+      <!-- 打手 -->
+      <view wx:if="{{activeRoleTab === 'booster'}}" class="agreement-list">
+        <view class="agreement-row" bindtap="onToggleAgreementItem" data-field="agreeAgreementBooster">
+          <view class="checkbox {{agreeAgreementBooster ? 'checked' : ''}}">
+            <image wx:if="{{agreeAgreementBooster}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
+          </view>
+          <text class="agreement-text">
+            已阅读并同意
+            <text class="link" catchtap="onShowAgreement" data-type="booster" data-doc="agreement_booster">《打手入驻/接单协议》</text>
+          </text>
+          <text class="signed-tag signed-opt" wx:if="{{hasSignedCache.agreeAgreementBooster}}">已签署</text>
+        </view>
+        <view class="agreement-tip">
+          本协议为入驻打手独立协议，勾选即同意遵守接单规则、保证金结算等条款。
+        </view>
+      </view>
+
+      <!-- 分销商 -->
+      <view wx:if="{{activeRoleTab === 'distributor'}}" class="agreement-list">
+        <view class="agreement-row" bindtap="onToggleAgreementItem" data-field="agreeDistributor">
+          <view class="checkbox {{agreeDistributor ? 'checked' : ''}}">
+            <image wx:if="{{agreeDistributor}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
+          </view>
+          <text class="agreement-text">
+            已阅读并同意
+            <text class="link" catchtap="onShowAgreement" data-type="distributor" data-doc="agreement_distributor">《分销商推广协议》</text>
+          </text>
+          <text class="signed-tag signed-opt" wx:if="{{hasSignedCache.agreeDistributor}}">已签署</text>
+        </view>
+        <view class="agreement-tip">
+          本协议为推广分销商独立协议，涵盖分润结算、返佣、税务等条款。
+        </view>
+      </view>
+
+      <!-- 俱乐部 -->
+      <view wx:if="{{activeRoleTab === 'club'}}" class="agreement-list">
+        <view class="agreement-row" bindtap="onToggleAgreementItem" data-field="agreeAgreementClub">
+          <view class="checkbox {{agreeAgreementClub ? 'checked' : ''}}">
+            <image wx:if="{{agreeAgreementClub}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
+          </view>
+          <text class="agreement-text">
+            已阅读并同意
+            <text class="link" catchtap="onShowAgreement" data-type="club" data-doc="agreement_club">《俱乐部合作入驻协议》</text>
+          </text>
+          <text class="signed-tag signed-opt" wx:if="{{hasSignedCache.agreeAgreementClub}}">已签署</text>
+        </view>
+        <view class="agreement-tip">
+          本协议为俱乐部合作方独立协议，涵盖资源分配、保证金、分成等条款。
+        </view>
+      </view>
+    </view>
+
     <view class="login-form">
       <button
         class="wechat-login-btn"
         open-type="getPhoneNumber"
         bindgetphonenumber="onGetPhoneNumber"
         loading="{{loading}}"
-        disabled="{{!agreed}}"
+        disabled="{{!agreed || loading}}"
       >
         <image class="wechat-icon" src="/assets/icons/wechat.png" mode="aspectFit"></image>
         <text>微信一键登录</text>
@@ -25,7 +116,7 @@
           <image wx:if="{{agreed}}" class="check-icon" src="/assets/icons/check.png" mode="aspectFit"></image>
         </view>
         <text class="agreement-text">
-          我已阅读并同意
+          用户端已勾选
           <text class="link" catchtap="onShowAgreement" data-type="service">《用户服务协议》</text>
           和
           <text class="link" catchtap="onShowAgreement" data-type="privacy">《隐私政策》</text>
@@ -86,6 +177,9 @@
 
           4. 信息共享
           未经您的同意，我们不会将您的信息分享给第三方。
+
+          三、其他协议
+          打手入驻协议、分销商推广协议、俱乐部入驻协议可在登录后切换对应角色查看。
         </text>
       </scroll-view>
     </view>

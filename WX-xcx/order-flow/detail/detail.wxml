@@ -151,10 +151,10 @@
   <view class="action-section">
     <button
       wx:if="{{orderInfo.status === 3}}"
-      class="action-btn btn-confirm"
-      bindtap="onConfirmComplete"
+      class="action-btn btn-confirm btn-accept"
+      bindtap="onHandleAccept"
     >
-      确认完成
+      服务完成，确认验收
     </button>
     <button
       wx:if="{{orderInfo.status === 4}}"

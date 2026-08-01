@@ -1,15 +1,63 @@
 .group-buy-page {
   min-height: 100vh;
-  background-color: #f5f5f5;
-  padding-bottom: 40rpx;
+  background-color: #f5f6fa;
+  padding-bottom: 60rpx;
+}
+
+.top-banner {
+  background: linear-gradient(135deg, #ff6b6b 0%, #e94560 50%, #d63851 100%);
+  padding: 60rpx 40rpx 80rpx;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.top-banner::before {
+  content: '';
+  position: absolute;
+  top: -60rpx;
+  right: -40rpx;
+  width: 240rpx;
+  height: 240rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+.top-banner::after {
+  content: '';
+  position: absolute;
+  bottom: -80rpx;
+  left: -20rpx;
+  width: 180rpx;
+  height: 180rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+}
+
+.banner-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  margin-bottom: 10rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.banner-subtitle {
+  font-size: 28rpx;
+  opacity: 0.92;
+  position: relative;
+  z-index: 1;
 }
 
 .tab-bar {
   display: flex;
   background: #fff;
+  margin: -40rpx 24rpx 0;
   padding: 0 30rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 30rpx rgba(233, 69, 96, 0.08);
   position: sticky;
-  top: 0;
+  top: 10rpx;
   z-index: 10;
 }
 
@@ -20,102 +68,214 @@
   font-size: 28rpx;
   color: #666;
   position: relative;
+  transition: all 0.25s;
 }
 
 .tab-item.active {
   color: #e94560;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 30rpx;
 }
 
 .tab-line {
   position: absolute;
-  bottom: 0;
+  bottom: 10rpx;
   left: 50%;
   transform: translateX(-50%);
-  width: 60rpx;
+  width: 56rpx;
   height: 6rpx;
-  background: #e94560;
-  border-radius: 3rpx;
+  background: linear-gradient(90deg, #e94560, #ff6b6b);
+  border-radius: 6rpx;
 }
 
 .activity-list,
 .group-list {
-  padding: 20rpx 30rpx;
+  padding: 24rpx 24rpx 0;
 }
 
 .activity-card {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  border-radius: 20rpx;
+  padding: 32rpx 28rpx;
+  margin-bottom: 24rpx;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
+}
+
+.discount-badge {
+  position: absolute;
+  top: 0;
+  right: 28rpx;
+  background: linear-gradient(135deg, #ff9a44, #fc6076);
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 6rpx 18rpx;
+  border-radius: 0 0 12rpx 12rpx;
+  box-shadow: 0 4rpx 12rpx rgba(252, 96, 118, 0.25);
 }
 
 .activity-info {
   flex: 1;
+  padding-right: 20rpx;
 }
 
 .activity-name {
   font-size: 32rpx;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16rpx;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 12rpx;
+  line-height: 1.35;
+}
+
+.activity-service {
+  margin-bottom: 14rpx;
+}
+
+.service-tag {
+  display: inline-block;
+  font-size: 22rpx;
+  color: #e94560;
+  background: #fff1f3;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
 }
 
 .activity-price {
   display: flex;
   align-items: baseline;
-  margin-bottom: 12rpx;
+  margin-bottom: 14rpx;
+}
+
+.currency {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #e94560;
 }
 
 .group-price {
-  font-size: 40rpx;
-  font-weight: bold;
+  font-size: 44rpx;
+  font-weight: 800;
   color: #e94560;
+  margin-right: 14rpx;
 }
 
 .original-price {
   font-size: 26rpx;
-  color: #999;
+  color: #b0b3b8;
   text-decoration: line-through;
-  margin-left: 16rpx;
+}
+
+.save-tag {
+  font-size: 22rpx;
+  color: #fff;
+  background: linear-gradient(90deg, #ff9a44, #fc6076);
+  padding: 3rpx 12rpx;
+  border-radius: 8rpx;
+  margin-left: auto;
 }
 
 .activity-meta {
   font-size: 24rpx;
-  color: #999;
+  color: #8a8e99;
+  margin-bottom: 18rpx;
 }
 
 .activity-meta text {
   margin-right: 8rpx;
 }
 
-.activity-action {
-  margin-left: 20rpx;
+.progress-section {
+  margin-top: 6rpx;
 }
 
-.join-btn {
-  width: 160rpx;
-  height: 72rpx;
-  line-height: 72rpx;
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 10rpx;
+}
+
+.progress-text {
+  color: #e94560;
+  font-weight: 500;
+}
+
+.remain-time {
+  color: #8a8e99;
+}
+
+.progress-bar-wrap {
+  height: 12rpx;
+  background: #f0f2f5;
+  border-radius: 10rpx;
+  overflow: hidden;
+}
+
+.progress-bar-wrap.small {
+  height: 10rpx;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #e94560);
+  border-radius: 10rpx;
+  transition: width 0.3s ease;
+  min-width: 2%;
+}
+
+.activity-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+
+.open-group-btn {
+  width: 100%;
+  height: 80rpx;
+  line-height: 80rpx;
   background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
   color: #fff;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 0;
+  box-shadow: 0 6rpx 20rpx rgba(233, 69, 96, 0.2);
+}
+
+.open-group-btn::after {
+  border: none;
+}
+
+.join-existing-btn {
+  width: 100%;
+  height: 72rpx;
+  line-height: 72rpx;
+  background: #fff5f7;
+  color: #e94560;
+  border: 2rpx solid #ffcfd7;
   border-radius: 36rpx;
   font-size: 26rpx;
+  font-weight: 500;
   padding: 0;
 }
 
-.join-btn::after {
+.join-existing-btn::after {
   border: none;
 }
 
 .group-card {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  border-radius: 20rpx;
+  padding: 30rpx 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
 }
 
 .group-header {
@@ -127,8 +287,9 @@
 
 .group-status {
   font-size: 24rpx;
-  padding: 6rpx 16rpx;
+  padding: 6rpx 20rpx;
   border-radius: 20rpx;
+  font-weight: 500;
 }
 
 .group-status.pending {
@@ -137,25 +298,38 @@
 }
 
 .group-status.success {
-  background: #ecfdf5;
-  color: #10b981;
+  background: #e6faf0;
+  color: #059669;
 }
 
 .group-status.failed {
   background: #f3f4f6;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 .group-count {
   font-size: 26rpx;
-  color: #666;
+  color: #4a4e57;
+  font-weight: 600;
 }
 
 .group-name {
   font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16rpx;
+}
+
+.group-progress {
   margin-bottom: 20rpx;
+}
+
+.progress-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #e94560;
+  margin-top: 10rpx;
+  font-weight: 500;
 }
 
 .group-footer {
@@ -163,31 +337,58 @@
   justify-content: space-between;
   align-items: center;
   padding-top: 20rpx;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid #f0f2f5;
 }
 
 .group-footer .group-price {
-  font-size: 32rpx;
+  font-size: 34rpx;
+}
+
+.group-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.share-btn {
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 28rpx;
+  background: linear-gradient(135deg, #4f8cff, #3667e6);
+  color: #fff;
+  font-size: 24rpx;
+  border-radius: 30rpx;
+  box-shadow: 0 4rpx 16rpx rgba(54, 103, 230, 0.2);
+}
+
+.share-btn::after {
+  border: none;
 }
 
 .group-arrow {
   font-size: 26rpx;
-  color: #e94560;
+  color: #8a8e99;
 }
 
 .empty-tip {
-  padding: 100rpx 0;
+  padding: 140rpx 0 80rpx;
   text-align: center;
 }
 
+.empty-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
 .empty-text {
-  color: #999;
+  color: #9ca3af;
   font-size: 28rpx;
 }
 
 .load-more {
   text-align: center;
-  padding: 30rpx 0;
-  color: #999;
+  padding: 36rpx 0;
+  color: #9ca3af;
   font-size: 24rpx;
 }

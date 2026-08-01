@@ -43,6 +43,72 @@
   margin-bottom: 16rpx;
 }
 
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.label-row .label {
+  margin-bottom: 0;
+}
+
+.scan-btn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 8rpx 20rpx;
+  background: #ecf5ff;
+  border-radius: 24rpx;
+}
+
+.scan-icon {
+  font-size: 26rpx;
+}
+
+.scan-text {
+  font-size: 24rpx;
+  color: #409eff;
+}
+
+.quick-child-card {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  margin: 0 0 30rpx;
+  background: #f0f9eb;
+  border: 2rpx solid #e1f3d8;
+  border-radius: 12rpx;
+}
+
+.quick-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #ccc;
+  flex-shrink: 0;
+}
+
+.quick-info {
+  flex: 1;
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.quick-nickname {
+  font-size: 28rpx;
+  color: #303133;
+  font-weight: 600;
+}
+
+.quick-verified {
+  font-size: 22rpx;
+  color: #67c23a;
+}
+
 .input {
   width: 100%;
   height: 88rpx;

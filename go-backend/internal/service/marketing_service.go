@@ -1,12 +1,32 @@
 package service
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/jisan/e-sports-platform/internal/model"
 )
+
+// 奖品类型常量
+const (
+	PrizeTypeCoupon    = "coupon"    // 优惠券
+	PrizeTypeRecharge  = "recharge"  // 充值到余额
+	PrizeTypePoints    = "points"    // 积分
+	PrizeTypeBalance   = "balance"   // 余额(同recharge，保留兼容)
+	PrizeTypeThankYou  = "thankyou"  // 谢谢参与
+)
+
+// DrawLotteryInput 抽奖入参扩展(IP等)
+type DrawLotteryInput struct {
+	ActivityID int64  `json:"activity_id"`
+	DrawIP     string `json:"draw_ip"`
+}
 
 // GetMyCoupons 用户优惠券列表
 func GetMyCoupons(userID int64, status string) ([]model.UserCoupon, error) {
@@ -46,6 +66,20 @@ func Recharge(userID int64, amount int64, activityID int64) (map[string]int64, e
 	if err := userRepo.UpdateBalance(userID, total); err != nil {
 		return nil, err
 	}
+	// 记录充值日志
+	var balBefore int64
+	if u, err := userRepo.FindByID(userID); err == nil && u != nil {
+		balBefore = u.Balance
+	}
+	_ = db.Create(&model.UserRechargeLog{
+		UserID:        userID,
+		Amount:        total,
+		Source:        "recharge",
+		RefID:         activityID,
+		BalanceBefore: balBefore,
+		BalanceAfter:  balBefore + total,
+		CreatedAt:     nowTimePtr(),
+	}).Error
 	return map[string]int64{
 		"amount": amount,
 		"bonus":  bonus,
@@ -62,45 +96,268 @@ func GetLotteryActivities() ([]model.LotteryActivity, error) {
 	return list, err
 }
 
-// DrawLottery 抽奖(简化:随机返回中奖等级)
-func DrawLottery(userID, activityID int64) (map[string]interface{}, error) {
+// cryptoRandIntn 使用 crypto/rand 生成 [0, max) 内的真随机整数
+func cryptoRandIntn(max int64) (int64, error) {
+	if max <= 0 {
+		return 0, errors.New("max must be > 0")
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(max))
+	if err != nil {
+		// 降级:用 crypto/rand 读4字节再取模
+		var b [4]byte
+		if _, err2 := rand.Read(b[:]); err2 != nil {
+			return 0, err
+		}
+		v := int64(binary.LittleEndian.Uint32(b[:]))
+		if v < 0 {
+			v = -v
+		}
+		return v % max, nil
+	}
+	return n.Int64(), nil
+}
+
+// DrawLottery 抽奖(真随机 + 防重 + 扣库存 + 发奖)
+func DrawLottery(userID, activityID int64, drawIP string) (map[string]interface{}, error) {
+	if userID <= 0 {
+		return nil, errors.New("用户未登录")
+	}
+	// 1. 校验活动
 	var act model.LotteryActivity
 	if err := db.First(&act, activityID).Error; err != nil {
 		return nil, errors.New("活动不存在")
 	}
 	if act.Status != 1 {
-		return nil, errors.New("活动未开启")
+		return nil, errors.New("活动未开启或已结束")
 	}
-	// 随机中奖(简化:基于时间戳)
-	n := time.Now().UnixNano() % 100
-	prize := "谢谢参与"
-	switch {
-	case n < 1:
-		prize = "一等奖"
-	case n < 5:
-		prize = "二等奖"
-	case n < 20:
-		prize = "三等奖"
+	now := time.Now()
+	if act.StartAt != nil && act.StartAt.After(now) {
+		return nil, errors.New("活动尚未开始")
 	}
+	if act.EndAt != nil && act.EndAt.Before(now) {
+		return nil, errors.New("活动已结束")
+	}
+
+	// 2. 防重:今日已抽奖次数(按活动+用户)
+	today0 := startOfToday()
+	tomorrow0 := today0.Add(24 * time.Hour)
+	var todayDrawCnt int64
+	err := db.Model(&model.LotteryRecord{}).
+		Where("uid = ? AND activity_id = ? AND created_at >= ? AND created_at < ?",
+			userID, activityID, today0, tomorrow0).
+		Count(&todayDrawCnt).Error
+	_ = err
+
+	// 活动每日最大次数:从活动关联的奖品 daily_max 或 system_config 读取
+	dailyMax := 1
+	maxStr := getSystemConfig(fmt.Sprintf("lottery_daily_max:%d", activityID))
+	if maxStr != "" {
+		if n := atoi(maxStr); n > 0 {
+			dailyMax = int(n)
+		}
+	}
+	// 兜底:查任意奖品的 daily_max
+	var samplePrize model.LotteryPrize
+	if db.Where("activity_id = ? AND status = 1", activityID).Order("id ASC").First(&samplePrize).Error == nil {
+		if samplePrize.DailyMax > 0 {
+			dailyMax = samplePrize.DailyMax
+		}
+	}
+	if todayDrawCnt >= int64(dailyMax) {
+		return nil, fmt.Errorf("今日已达到活动最大抽奖次数(%d次)", dailyMax)
+	}
+
+	// 3. 加载活动奖品(按 Probability 权重抽取)
+	var prizes []model.LotteryPrize
+	err = db.Where("activity_id = ? AND status = 1", activityID).Order("display_order ASC, id ASC").Find(&prizes).Error
+	if err != nil || len(prizes) == 0 {
+		return nil, errors.New("活动奖品未配置")
+	}
+
+	// 计算总权重
+	totalWeight := int64(0)
+	for _, p := range prizes {
+		if p.Probability <= 0 {
+			continue
+		}
+		totalWeight += int64(p.Probability)
+	}
+	var wonPrize *model.LotteryPrize
+	isWon := int8(0)
+	prizeName := "谢谢参与"
+	prizeID := int64(0)
+	if totalWeight > 0 {
+		rn, rerr := cryptoRandIntn(totalWeight)
+		if rerr != nil {
+			// 真随机失败时使用降级:仍用 crypto 读字节构造随机
+			var b [8]byte
+			_, _ = rand.Read(b[:])
+			rn = int64(binary.LittleEndian.Uint64(b[:])) % totalWeight
+			if rn < 0 {
+				rn = -rn
+			}
+		}
+		acc := int64(0)
+		for i := range prizes {
+			if prizes[i].Probability <= 0 {
+				continue
+			}
+			acc += int64(prizes[i].Probability)
+			if rn < acc {
+				wonPrize = &prizes[i]
+				prizeID = prizes[i].ID
+				prizeName = prizes[i].PrizeName
+				break
+			}
+		}
+	}
+	if wonPrize != nil && wonPrize.PrizeType != PrizeTypeThankYou {
+		isWon = 1
+	}
+
+	// 4. 写抽奖记录(无论中奖与否)
+	rec := &model.LotteryRecord{
+		UID:        userID,
+		ActivityID: activityID,
+		PrizeID:    prizeID,
+		DrawIP:     drawIP,
+		IsWon:      isWon,
+		Delivered:  0,
+		CreatedAt:  nowTimePtr(),
+	}
+	if err := db.Create(rec).Error; err != nil {
+		return nil, fmt.Errorf("记录抽奖失败: %w", err)
+	}
+
+	// 5. 中奖时:扣库存 + 发奖(事务)
+	delivered := false
+	var prizeDetail map[string]interface{}
+	if wonPrize != nil && wonPrize.PrizeType != PrizeTypeThankYou {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			// 扣库存(原子)
+			res := tx.Model(&model.LotteryPrize{}).
+				Where("id = ? AND stock > 0", wonPrize.ID).
+				UpdateColumn("stock", gorm.Expr("stock - 1"))
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				return errors.New("奖品库存不足")
+			}
+			// 发奖
+			if derr := deliverPrize(tx, userID, wonPrize, rec.ID); derr != nil {
+				return derr
+			}
+			delivered = true
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		// 标记已发奖
+		if delivered {
+			_ = db.Model(rec).Update("delivered", 1).Error
+		}
+		prizeDetail = map[string]interface{}{
+			"prize_id":   wonPrize.ID,
+			"prize_name": wonPrize.PrizeName,
+			"prize_type": wonPrize.PrizeType,
+			"prize_value": wonPrize.PrizeValue,
+		}
+	} else {
+		prizeDetail = map[string]interface{}{
+			"prize_id":   prizeID,
+			"prize_name": prizeName,
+			"prize_type": PrizeTypeThankYou,
+		}
+	}
+
 	return map[string]interface{}{
 		"activity_id": activityID,
-		"prize":       prize,
+		"record_id":   rec.ID,
+		"is_won":      isWon,
+		"prize":       prizeDetail,
+		"daily_used":  todayDrawCnt + 1,
+		"daily_max":   dailyMax,
 	}, nil
 }
 
-// GetGroupBuyActivities 拼团活动列表(占位:复用抽奖活动表结构)
-func GetGroupBuyActivities() ([]model.LotteryActivity, error) {
-	return GetLotteryActivities()
+// deliverPrize 发奖:按奖品类型写 user_coupon / user_recharge_log / 积分 / 余额
+func deliverPrize(tx *gorm.DB, userID int64, prize *model.LotteryPrize, recID int64) error {
+	if prize == nil {
+		return nil
+	}
+	now := nowTimePtr()
+	switch prize.PrizeType {
+	case PrizeTypeCoupon:
+		// 发券
+		templateID := prize.PrizeValue
+		if templateID <= 0 {
+			// 无模板则跳过
+			return nil
+		}
+		var validDays int
+		var tmpl model.CouponTemplate
+		if tx.First(&tmpl, templateID).Error == nil {
+			validDays = tmpl.ValidDays
+		}
+		var expireAt *time.Time
+		if validDays > 0 {
+			t := time.Now().AddDate(0, 0, validDays)
+			expireAt = &t
+		}
+		uc := &model.UserCoupon{
+			UserID:     userID,
+			TemplateID: templateID,
+			Status:     model.UserCouponStatusUnused,
+			ExpireAt:   expireAt,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		return tx.Create(uc).Error
+	case PrizeTypeRecharge, PrizeTypeBalance:
+		// 余额充值
+		amount := prize.PrizeValue
+		if amount <= 0 {
+			return nil
+		}
+		var balBefore int64
+		var u model.User
+		if err := tx.Where("id = ?", userID).First(&u).Error; err == nil {
+			balBefore = u.Balance
+		}
+		if err := tx.Model(&model.User{}).Where("id = ?", userID).
+			UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+			return err
+		}
+		return tx.Create(&model.UserRechargeLog{
+			UserID:        userID,
+			Amount:        amount,
+			Source:        "lottery",
+			RefID:         recID,
+			BalanceBefore: balBefore,
+			BalanceAfter:  balBefore + amount,
+			CreatedAt:     now,
+		}).Error
+	case PrizeTypePoints:
+		points := int(prize.PrizeValue)
+		if points <= 0 {
+			return nil
+		}
+		return tx.Model(&model.User{}).Where("id = ?", userID).
+			UpdateColumn("points", gorm.Expr("points + ?", points)).Error
+	default:
+		// thankyou 或其他:不发奖
+		return nil
+	}
 }
 
-// JoinGroupBuy 参与拼团
-func JoinGroupBuy(userID, activityID int64) (map[string]interface{}, error) {
-	return map[string]interface{}{
-		"activity_id": activityID,
-		"user_id":     userID,
-		"status":      "joined",
-	}, nil
+// DrawLotteryV1 兼容旧签名(不带drawIP)
+func DrawLotteryV1Compat(userID, activityID int64) (map[string]interface{}, error) {
+	return DrawLottery(userID, activityID, "")
 }
+
+// GetGroupBuyActivities 拼团活动列表（真实实现移至 group_buy_service.go）
 
 // GenerateInviteQRCode 生成用户专属邀请二维码内容
 func GenerateInviteQRCode(userID int64) (string, error) {
@@ -205,14 +462,24 @@ func AdminCreateLotteryActivity(a *model.LotteryActivity) error {
 	return db.Create(a).Error
 }
 
-// AdminGetGroupBuyActivities 拼团活动列表(管理端,复用抽奖表)
-func AdminGetGroupBuyActivities(page, pageSize int) ([]model.LotteryActivity, int64, error) {
-	return AdminGetLotteryActivities(page, pageSize)
+// AdminGetGroupBuyActivities 拼团活动列表(管理端)
+func AdminGetGroupBuyActivities(page, pageSize int) ([]model.GroupBuyActivity, int64, error) {
+	var list []model.GroupBuyActivity
+	var total int64
+	q := db.Model(&model.GroupBuyActivity{})
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := q.Scopes(Paginate2(page, pageSize)).Order("id DESC").Find(&list).Error
+	return list, total, err
 }
 
-// AdminCreateGroupBuyActivity 创建拼团活动(复用)
-func AdminCreateGroupBuyActivity(a *model.LotteryActivity) error {
-	return AdminCreateLotteryActivity(a)
+// AdminCreateGroupBuyActivity 创建拼团活动(真实模型)
+func AdminCreateGroupBuyActivity(a *model.GroupBuyActivity) error {
+	a.Status = model.GroupBuyActivityStatusEnabled
+	a.CreatedAt = nowTimePtr()
+	a.UpdatedAt = nowTimePtr()
+	return db.Create(a).Error
 }
 
 // AdminGetInviteRewardConfig 邀请奖励配置(系统配置项)

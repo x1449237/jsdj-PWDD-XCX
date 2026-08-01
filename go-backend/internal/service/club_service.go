@@ -350,6 +350,13 @@ func ShopSendGroupMessage(groupID, senderID int64, msgType, content, mediaURL st
 
 // ShopPublishAnnouncement 发布群公告
 func ShopPublishAnnouncement(groupID int64, announcement string) error {
+	// 发布公告前防代练检测
+	if announcement != "" {
+		hit, _, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeAnnouncement, 0, announcement)
+		if abErr == nil && hit {
+			return errors.New("公告内容包含违规关键词，发布失败")
+		}
+	}
 	return chatRepo.UpdateGroupAnnouncement(groupID, announcement)
 }
 
@@ -385,20 +392,75 @@ func AdminAuditClubs(page, pageSize int, status int8, keyword string) ([]model.C
 	return clubRepo.List(page, pageSize, status, keyword)
 }
 
-// AdminApproveClub 审核通过俱乐部
+// AdminApproveClub 审核通过俱乐部 + 点亮 V 标
 func AdminApproveClub(clubID, adminID int64) error {
-	return clubRepo.Update(clubID, map[string]interface{}{
+	if err := clubRepo.Update(clubID, map[string]interface{}{
 		"status":     model.ClubStatusApproved,
 		"updated_at": nowTimePtr(),
-	})
+	}); err != nil {
+		return err
+	}
+	// 审核通过后点亮 V 标
+	c, _ := clubRepo.FindByID(clubID)
+	if c != nil {
+		_ = GrantClubVBadge(clubID, int64(c.Type))
+	}
+	_ = adminID
+	return nil
 }
 
-// AdminRejectClub 驳回俱乐部
+// AdminRejectClub 驳回俱乐部 + 撤销 V 标
 func AdminRejectClub(clubID int64, reason string) error {
-	return clubRepo.Update(clubID, map[string]interface{}{
+	if err := clubRepo.Update(clubID, map[string]interface{}{
 		"status":     model.ClubStatusRejected,
 		"updated_at": nowTimePtr(),
-	})
+	}); err != nil {
+		return err
+	}
+	_ = RevokeClubVBadge(clubID)
+	_ = reason
+	return nil
+}
+
+// AdminFreezeClub 冻结俱乐部 + 撤销 V 标
+func AdminFreezeClub(clubID int64, reason string) error {
+	if err := clubRepo.Update(clubID, map[string]interface{}{
+		"status":     model.ClubStatusFrozen,
+		"updated_at": nowTimePtr(),
+	}); err != nil {
+		return err
+	}
+	_ = RevokeClubVBadge(clubID)
+	_ = reason
+	return nil
+}
+
+// AdminUnfreezeClub 解冻俱乐部 + 恢复 V 标
+func AdminUnfreezeClub(clubID int64) error {
+	if err := clubRepo.Update(clubID, map[string]interface{}{
+		"status":     model.ClubStatusApproved,
+		"updated_at": nowTimePtr(),
+	}); err != nil {
+		return err
+	}
+	c, _ := clubRepo.FindByID(clubID)
+	if c != nil {
+		_ = GrantClubVBadge(clubID, int64(c.Type))
+	}
+	return nil
+}
+
+// AdminCancelClub 注销俱乐部 + 撤销 V 标
+func AdminCancelClub(clubID int64, reason string) error {
+	if err := clubRepo.Update(clubID, map[string]interface{}{
+		"status":     model.ClubStatusCanceled,
+		"updated_at": nowTimePtr(),
+	}); err != nil {
+		return err
+	}
+	_ = RevokeClubVBadge(clubID)
+	_ = reason
+	return nil
 }
 
 // hashPwd 哈希密码(封装 utils.HashPassword)

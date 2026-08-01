@@ -1,38 +1,248 @@
 <view class="report-page">
-  <view class="month-selector">
-    <picker mode="date" fields="month" value="{{month}}" bindchange="onMonthChange">
-      <view class="picker-row">
-        <text class="picker-label">选择月份：</text>
-        <text class="picker-value">{{month}}</text>
-        <text class="picker-arrow">›</text>
-      </view>
-    </picker>
+  <view class="page-header">
+    <view class="month-selector">
+      <picker mode="date" fields="month" value="{{month}}" bindchange="onMonthChange">
+        <view class="picker-row">
+          <view class="picker-label-wrap">
+            <text class="picker-icon">📅</text>
+            <text class="picker-value">{{month}}</text>
+          </view>
+          <text class="picker-arrow">切换月份 ›</text>
+        </view>
+      </picker>
+    </view>
   </view>
 
   <view class="summary-card">
-    <view class="summary-title">本月消费汇总</view>
-    <view class="summary-amount">¥{{(totalAmount / 100).toFixed(2)}}</view>
-    <view class="summary-count">共 {{orderCount}} 笔订单</view>
+    <view class="summary-header">
+      <text class="summary-icon">💰</text>
+      <text class="summary-title">本月消费汇总</text>
+    </view>
+    <view class="summary-amount-row">
+      <view class="summary-amount-item">
+        <text class="amount-label">总消费</text>
+        <view class="amount-value-wrap">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-value big">{{((totalAmount || 0) / 100).toFixed(2)}}</text>
+        </view>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-amount-item">
+        <text class="amount-label">订单数</text>
+        <view class="amount-value-wrap">
+          <text class="amount-value">{{orderCount}}</text>
+          <text class="amount-unit">笔</text>
+        </view>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-amount-item">
+        <text class="amount-label">较上月</text>
+        <view class="amount-value-wrap">
+          <text class="amount-value {{compareMoM >= 0 ? 'up' : 'down'}}">
+            {{compareMoM >= 0 ? '+' : ''}}{{compareMoM}}%
+          </text>
+        </view>
+      </view>
+    </view>
   </view>
 
-  <view class="orders-card">
-    <view class="card-title">订单明细</view>
+  <view class="tabs-wrap">
+    <view class="tabs">
+      <view
+        class="tab-item {{activeTab === 0 ? 'active' : ''}}"
+        bindtap="onTabChange"
+        data-index="0"
+      >
+        消费分类
+      </view>
+      <view
+        class="tab-item {{activeTab === 1 ? 'active' : ''}}"
+        bindtap="onTabChange"
+        data-index="1"
+      >
+        订单明细
+      </view>
+      <view
+        class="tab-item {{activeTab === 2 ? 'active' : ''}}"
+        bindtap="onTabChange"
+        data-index="2"
+      >
+        聊天摘要
+      </view>
+    </view>
+  </view>
 
-    <view wx:if="{{orders.length === 0 && !loading}}" class="empty-orders">
-      <view class="empty-text">暂无订单记录</view>
+  <view wx:if="{{activeTab === 0}}" class="tab-content">
+    <view class="category-card" wx:if="{{categoryList.length > 0}}">
+      <view class="section-title">
+        <text class="icon">📊</text>
+        消费分类
+      </view>
+      <view class="category-list">
+        <view
+          wx:for="{{categoryList}}"
+          wx:key="category"
+          class="category-item"
+        >
+          <view class="category-left">
+            <view class="category-icon">{{item.icon}}</view>
+            <view class="category-info">
+              <view class="category-name">{{item.name}}</view>
+              <view class="category-count">{{item.count}} 笔 · {{item.percent}}%</view>
+            </view>
+          </view>
+          <view class="category-right">
+            <text class="category-amount">¥{{item.amount_text}}</text>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <view wx:for="{{orders}}" wx:key="id" class="order-item" data-id="{{item.id}}" bindtap="onOrderTap">
-      <view class="order-header">
-        <view class="order-sn">{{item.order_sn}}</view>
-        <view class="order-status status-{{item.status}}">{{item.status_text}}</view>
+    <view class="trend-card" wx:if="{{dailyTrend.length > 0}}">
+      <view class="section-title">
+        <text class="icon">📈</text>
+        每日消费趋势
       </view>
-      <view class="order-body">
-        <view class="order-game">{{item.game_name}}</view>
-        <view class="order-amount">¥{{(item.paid_amount / 100).toFixed(2)}}</view>
+      <view class="trend-chart">
+        <view class="chart-bars">
+          <view
+            wx:for="{{dailyTrend}}"
+            wx:key="date"
+            class="chart-bar-wrap"
+          >
+            <view
+              class="chart-bar"
+              style="height: {{item.bar_height}}%"
+            ></view>
+          </view>
+        </view>
+        <view class="chart-labels">
+          <text
+            wx:for="{{dailyTrend}}"
+            wx:key="date"
+            class="chart-label"
+          >
+            {{item.label}}
+          </text>
+        </view>
       </view>
-      <view class="order-footer">
-        <view class="order-time">{{item.create_time}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 1}}" class="tab-content">
+    <view class="orders-card">
+      <view wx:if="{{orders.length === 0 && !loading}}" class="empty-orders">
+        <view class="empty-icon">📦</view>
+        <view class="empty-text">当月暂无订单记录</view>
+      </view>
+
+      <view
+        wx:for="{{orders}}"
+        wx:key="id"
+        class="order-item"
+        data-id="{{item.id}}"
+        bindtap="onOrderTap"
+      >
+        <view class="order-row">
+          <view class="order-sn">{{item.order_sn}}</view>
+          <view class="order-status status-{{item.status}}">{{item.status_text}}</view>
+        </view>
+        <view class="order-main">
+          <view class="order-info">
+            <view class="order-game">
+              <text class="game-icon">🎮</text>
+              {{item.game_name || item.service_name || '代练服务'}}
+            </view>
+            <view class="order-desc" wx:if="{{item.rank || item.desc}}">
+              {{item.rank || item.desc || ''}}
+            </view>
+            <view class="order-time">
+              <text class="time-icon">🕐</text>
+              {{item.create_time}}
+            </view>
+          </view>
+          <view class="order-amount">
+            <text class="amount-symbol">¥</text>
+            <text class="amount-value">{{((item.paid_amount || item.amount || 0) / 100).toFixed(2)}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="load-more-tip" wx:if="{{!loading && orders.length > 0 && !hasMoreOrders}}">
+        已加载全部订单
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 2}}" class="tab-content">
+    <view class="chat-card">
+      <view class="card-notice">
+        <text class="notice-icon">🔒</text>
+        <text class="notice-text">聊天记录已脱敏处理，仅用于监护参考</text>
+      </view>
+
+      <view wx:if="{{chatSummary.total_count > 0}}">
+        <view class="chat-overview">
+          <view class="overview-item">
+            <text class="overview-icon">💬</text>
+            <view class="overview-info">
+              <view class="overview-value">{{chatSummary.total_count}}</view>
+              <view class="overview-label">总消息</view>
+            </view>
+          </view>
+          <view class="overview-item">
+            <text class="overview-icon">👥</text>
+            <view class="overview-info">
+              <view class="overview-value">{{chatSummary.chat_count}}</view>
+              <view class="overview-label">会话数</view>
+            </view>
+          </view>
+          <view class="overview-item">
+            <text class="overview-icon">⚠️</text>
+            <view class="overview-info">
+              <view class="overview-value danger" wx:if="{{chatSummary.sensitive_count > 0}}">
+                {{chatSummary.sensitive_count}}
+              </view>
+              <view class="overview-value" wx:else>0</view>
+              <view class="overview-label">敏感词</view>
+            </view>
+          </view>
+        </view>
+
+        <view class="chat-list">
+          <view
+            wx:for="{{chatList}}"
+            wx:key="id"
+            class="chat-item"
+            data-id="{{item.id}}"
+            bindtap="onChatTap"
+          >
+            <image
+              class="chat-avatar"
+              src="{{item.avatar || '/assets/icons/default-avatar.png'}}"
+              mode="aspectFill"
+            />
+            <view class="chat-info">
+              <view class="chat-top">
+                <text class="chat-name">{{item.name_masked}}</text>
+                <text class="chat-time">{{item.last_time}}</text>
+              </view>
+              <view class="chat-preview">
+                <text class="msg-mask" wx:if="{{item.last_msg_masked}}">{{item.last_msg_masked}}</text>
+                <text wx:else class="no-msg">无消息记录</text>
+                <text wx:if="{{item.sensitive_count > 0}}" class="sensitive-tag">
+                  ⚠ {{item.sensitive_count}}条敏感
+                </text>
+              </view>
+            </view>
+            <view class="unread-dot" wx:if="{{item.unread > 0}}">{{item.unread}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:else class="empty-orders">
+        <view class="empty-icon">💭</view>
+        <view class="empty-text">当月无聊天记录</view>
       </view>
     </view>
   </view>

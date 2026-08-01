@@ -21,6 +21,17 @@ type Config struct {
 	WebSocket WSConfig        `mapstructure:"websocket"`
 	Log       LogConfig       `mapstructure:"log"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	SMTP      SMTPConfig      `mapstructure:"smtp"`
+}
+
+// SMTPConfig 邮件SMTP配置
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"pass"`
+	From     string `mapstructure:"from"`
+	Sandbox  bool   `mapstructure:"sandbox"`
 }
 
 // AppConfig 应用基础配置

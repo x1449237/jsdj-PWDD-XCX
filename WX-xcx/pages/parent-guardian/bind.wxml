@@ -6,14 +6,28 @@
 
   <view class="form-card">
     <view class="form-item">
-      <view class="label">孩子用户ID</view>
+      <view class="label-row">
+        <view class="label">孩子用户ID</view>
+        <view class="scan-btn" bindtap="onScanQrCode">
+          <text class="scan-icon">📷</text>
+          <text class="scan-text">扫码绑定</text>
+        </view>
+      </view>
       <input
         class="input"
         type="number"
-        placeholder="请输入孩子的用户ID"
+        placeholder="请输入孩子的用户ID，或点击右上角扫码"
         value="{{childUserId}}"
         bindinput="onChildUserIdInput"
       />
+    </view>
+
+    <view class="quick-child-card" wx:if="{{childPreview.nickname}}">
+      <image class="quick-avatar" src="{{childPreview.avatar || '/assets/icons/default-avatar.png'}}"></image>
+      <view class="quick-info">
+        <text class="quick-nickname">{{childPreview.nickname}}</text>
+        <text class="quick-verified" wx:if="{{childPreview.is_verified}}">✓ 已验证</text>
+      </view>
     </view>
 
     <view class="form-item">
@@ -30,7 +44,7 @@
         <button
           class="send-code-btn {{countdown > 0 ? 'disabled' : ''}}"
           bindtap="onSendCode"
-          disabled="{{sending || countdown > 0}}"
+          disabled="{{sending || countdown > 0 || !childUserId}}"
         >
           {{countdown > 0 ? countdown + 's后重发' : '发送验证码'}}
         </button>

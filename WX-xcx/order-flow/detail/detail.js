@@ -233,6 +233,43 @@ Page({
     });
   },
 
+  onHandleAccept() {
+    wx.showModal({
+      title: '确认验收',
+      content: '请确认服务已完成且您已满意。验收后订单将进入T+3结算周期。',
+      confirmText: '确认验收',
+      success: (res) => {
+        if (res.confirm) {
+          this.confirmAccept();
+        }
+      }
+    });
+  },
+
+  confirmAccept() {
+    wx.showLoading({ title: '处理中...' });
+    request.post(`/api/v1/orders/${this.data.orderId}/confirm`).then(() => {
+      wx.hideLoading();
+      wx.showToast({
+        title: '验收成功，订单进入T+3结算',
+        icon: 'none',
+        duration: 2500
+      });
+      setTimeout(() => {
+        wx.switchTab({
+          url: '/order-flow/list/list',
+          fail: () => {
+            wx.navigateBack();
+          }
+        });
+      }, 1500);
+    }).catch((err) => {
+      wx.hideLoading();
+      console.error('验收失败:', err);
+      wx.showToast({ title: err?.message || '验收失败，请稍后重试', icon: 'none' });
+    });
+  },
+
   confirmComplete() {
     request.post(`/orders/${this.data.orderId}/complete`).then(() => {
       wx.showToast({

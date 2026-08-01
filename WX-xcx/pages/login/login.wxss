@@ -3,16 +3,117 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  padding: 0 60rpx;
+  padding: 60rpx 60rpx 120rpx;
 }
 
 .login-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 80rpx;
+  margin-bottom: 40rpx;
+}
+
+/* 协议签署卡片 */
+.agreement-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 24rpx;
+  padding: 28rpx 24rpx 24rpx;
+  margin-bottom: 40rpx;
+  backdrop-filter: blur(10px);
+}
+
+.role-tabs {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+  flex-wrap: wrap;
+}
+
+.role-tab {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 32rpx;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 26rpx;
+  transition: all 0.2s;
+}
+
+.role-tab.role-tab-active {
+  background: linear-gradient(135deg, rgba(233, 69, 96, 0.25), rgba(233, 69, 96, 0.08));
+  border-color: rgba(233, 69, 96, 0.6);
+  color: #fff;
+}
+
+.role-required {
+  margin-left: 6rpx;
+  font-size: 20rpx;
+  color: #ff8a9e;
+}
+
+.agreement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.agreement-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 16rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.05);
+}
+
+.agreement-row .checkbox {
+  margin-top: 0;
+}
+
+.agreement-tip {
+  padding: 16rpx 18rpx;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+  background: rgba(233, 69, 96, 0.08);
+  border-radius: 10rpx;
+  border-left: 4rpx solid rgba(233, 69, 96, 0.6);
+}
+
+.signed-tag {
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  padding: 4rpx 14rpx;
+  font-size: 20rpx;
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.12);
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(82, 196, 26, 0.4);
+}
+
+.signed-tag.signed-opt {
+  color: #52c41a;
+  opacity: 0.85;
+}
+
+/* 覆盖 checkbox 深色 */
+.agreement-row .checkbox {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.agreement-row .agreement-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .logo {
@@ -173,7 +274,7 @@
 
 .login-footer {
   position: fixed;
-  bottom: 60rpx;
+  bottom: 40rpx;
 }
 
 .footer-text {

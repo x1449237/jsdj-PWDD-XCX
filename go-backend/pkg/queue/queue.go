@@ -4,74 +4,65 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/hibiken/asynq"
+	redislib "github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+
 	"github.com/jisan/e-sports-platform/internal/config"
+	"github.com/jisan/e-sports-platform/internal/model"
+	"github.com/jisan/e-sports-platform/pkg/websocket"
 )
 
-// 任务类型定义
 const (
-	// TaskMessagePush 消息推送(订阅消息/通知推送)
-	TaskMessagePush = "queue:message:push"
-	// TaskAIScan AI 风控扫描(消息内容/订单风险)
-	TaskAIScan = "queue:ai:scan"
-	// TaskOrderSettle 订单结算(分账/佣金结算)
-	TaskOrderSettle = "queue:order:settle"
-	// TaskOrderTimeoutClose 订单超时关闭
-	TaskOrderTimeoutClose = "queue:order:timeout_close"
-	// TaskOrderRemind 预约订单提醒
-	TaskOrderRemind = "queue:order:remind"
-	// TaskWithdrawProcess 提现处理
-	TaskWithdrawProcess = "queue:withdraw:process"
-	// TaskOfflineMessagePush 离线消息推送补偿
-	TaskOfflineMessagePush = "queue:offline:push"
+	TaskMessagePush         = "queue:message:push"
+	TaskAIScan              = "queue:ai:scan"
+	TaskOrderSettle         = "queue:order:settle"
+	TaskOrderTimeoutClose   = "queue:order:timeout_close"
+	TaskOrderRemind         = "queue:order:remind"
+	TaskWithdrawProcess     = "queue:withdraw:process"
+	TaskWithdrawPaid        = "queue:withdraw:paid"
+	TaskOfflineMessagePush  = "queue:offline:push"
 )
 
-// 队列名称(按优先级分组)
 const (
-	QueueCritical = "critical" // 高优先级：订单结算、提现
-	QueueDefault  = "default"  // 默认：消息推送、提醒
-	QueueLow      = "low"      // 低优先级：AI 扫描、离线补偿
+	QueueCritical = "critical"
+	QueueDefault  = "default"
+	QueueLow      = "low"
 )
 
-// 消息推送任务载荷
 type MessagePushPayload struct {
-	UserID  int64  `json:"user_id"`  // 接收用户ID
-	Type    string `json:"type"`     // 通知类型
-	Title   string `json:"title"`    // 标题
-	Content string `json:"content"`  // 内容
+	UserID  int64  `json:"user_id"`
+	Type    string `json:"type"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
-// AI 扫描任务载荷
 type AIScanPayload struct {
-	TargetType string `json:"target_type"` // 目标类型 message/order/user
-	TargetID   int64  `json:"target_id"`   // 目标ID
-	Content    string `json:"content"`     // 待扫描内容
+	TargetType string `json:"target_type"`
+	TargetID   int64  `json:"target_id"`
+	Content    string `json:"content"`
 }
 
-// 订单结算任务载荷
 type OrderSettlePayload struct {
-	OrderID int64 `json:"order_id"` // 订单ID
+	OrderID int64 `json:"order_id"`
 }
 
-// 订单超时关闭任务载荷
 type OrderTimeoutPayload struct {
-	OrderID  int64 `json:"order_id"`  // 订单ID
-	Timeout  int   `json:"timeout"`   // 超时分钟数
+	OrderID  int64 `json:"order_id"`
+	Timeout  int   `json:"timeout"`
 }
 
-// 提现处理任务载荷
 type WithdrawProcessPayload struct {
-	WithdrawID int64 `json:"withdraw_id"` // 提现记录ID
+	WithdrawID int64 `json:"withdraw_id"`
 }
 
-// Client Asynq 任务投递客户端封装
 type Client struct {
 	client *asynq.Client
 }
 
-// NewClient 创建任务投递客户端
 func NewClient(cfg config.RedisConfig) *Client {
 	client := asynq.NewClient(asynq.RedisClientOpt{
 		Addr:     cfg.Addr(),
@@ -81,18 +72,16 @@ func NewClient(cfg config.RedisConfig) *Client {
 	return &Client{client: client}
 }
 
-// Close 关闭客户端
 func (c *Client) Close() error {
 	return c.client.Close()
 }
 
-// enqueue 投递任务
 func (c *Client) enqueue(ctx context.Context, typeName, queue string, payload []byte, opts ...asynq.Option) error {
 	defaultOpts := []asynq.Option{
 		asynq.Queue(queue),
-		asynq.MaxRetry(3),                   // 最大重试次数
-		asynq.Timeout(5 * time.Minute),      // 单任务超时
-		asynq.Retention(24 * time.Hour),     // 完成后保留时长
+		asynq.MaxRetry(3),
+		asynq.Timeout(5 * time.Minute),
+		asynq.Retention(24 * time.Hour),
 	}
 	task := asynq.NewTask(typeName, payload, append(defaultOpts, opts...)...)
 	info, err := c.client.EnqueueContext(ctx, task)
@@ -103,7 +92,6 @@ func (c *Client) enqueue(ctx context.Context, typeName, queue string, payload []
 	return nil
 }
 
-// EnqueueMessagePush 投递消息推送任务
 func (c *Client) EnqueueMessagePush(ctx context.Context, p MessagePushPayload) error {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -112,7 +100,6 @@ func (c *Client) EnqueueMessagePush(ctx context.Context, p MessagePushPayload) e
 	return c.enqueue(ctx, TaskMessagePush, QueueDefault, payload)
 }
 
-// EnqueueAIScan 投递 AI 扫描任务
 func (c *Client) EnqueueAIScan(ctx context.Context, p AIScanPayload) error {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -121,7 +108,6 @@ func (c *Client) EnqueueAIScan(ctx context.Context, p AIScanPayload) error {
 	return c.enqueue(ctx, TaskAIScan, QueueLow, payload)
 }
 
-// EnqueueOrderSettle 投递订单结算任务
 func (c *Client) EnqueueOrderSettle(ctx context.Context, p OrderSettlePayload) error {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -130,7 +116,6 @@ func (c *Client) EnqueueOrderSettle(ctx context.Context, p OrderSettlePayload) e
 	return c.enqueue(ctx, TaskOrderSettle, QueueCritical, payload)
 }
 
-// EnqueueOrderTimeoutClose 投递订单超时关闭任务(延迟执行)
 func (c *Client) EnqueueOrderTimeoutClose(ctx context.Context, p OrderTimeoutPayload) error {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -142,7 +127,6 @@ func (c *Client) EnqueueOrderTimeoutClose(ctx context.Context, p OrderTimeoutPay
 	)
 }
 
-// EnqueueWithdrawProcess 投递提现处理任务
 func (c *Client) EnqueueWithdrawProcess(ctx context.Context, p WithdrawProcessPayload) error {
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -151,35 +135,159 @@ func (c *Client) EnqueueWithdrawProcess(ctx context.Context, p WithdrawProcessPa
 	return c.enqueue(ctx, TaskWithdrawProcess, QueueCritical, payload)
 }
 
-// ---------------- 消费者服务 ----------------
+func (c *Client) EnqueueOrderTimeoutCloseByOrderNo(ctx context.Context, orderNo string, delay time.Duration) error {
+	return c.enqueue(ctx, TaskOrderTimeoutClose, QueueCritical, []byte(orderNo),
+		asynq.ProcessIn(delay),
+	)
+}
 
-// HandlerFunc 任务处理函数类型
+func (c *Client) EnqueueOrderSettleDelayed(ctx context.Context, orderID int64, delay time.Duration) error {
+	payload := strconv.FormatInt(orderID, 10)
+	return c.enqueue(ctx, TaskOrderSettle, QueueCritical, []byte(payload),
+		asynq.ProcessIn(delay),
+	)
+}
+
+type Server struct {
+	srv *asynq.Server
+	mux *asynq.ServeMux
+}
+
+func NewServer(cfg config.RedisConfig) (*Server, error) {
+	srv := asynq.NewServer(
+		asynq.RedisClientOpt{
+			Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Password: cfg.Password,
+			DB:       cfg.DB + 1,
+		},
+		asynq.Config{Concurrency: 20},
+	)
+	return &Server{srv: srv, mux: asynq.NewServeMux()}, nil
+}
+
+func (s *Server) RegisterHandlers(db *gorm.DB, rdb *redislib.Client, hub *websocket.Hub) {
+	s.mux.HandleFunc(TaskOrderTimeoutClose, HandleOrderTimeoutClose(db))
+	s.mux.HandleFunc(TaskOrderSettle, HandleOrderSettle(db))
+	s.mux.HandleFunc(TaskWithdrawPaid, HandleWithdrawPaid(db))
+	s.mux.HandleFunc(TaskAIScan, HandleAIScan(db, rdb))
+	s.mux.HandleFunc(TaskMessagePush, HandlePushMessage(db, hub))
+	s.mux.HandleFunc(TaskOfflineMessagePush, HandleOfflineMessagePush(db, rdb, hub))
+}
+
+func (s *Server) Start() error {
+	return s.srv.Run(s.mux)
+}
+
+func (s *Server) Shutdown() {
+	s.srv.Shutdown()
+}
+
+func HandleOrderTimeoutClose(db *gorm.DB) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		orderNo := string(t.Payload())
+		var order model.Order
+		if err := db.Where("order_no = ?", orderNo).First(&order).Error; err != nil {
+			return err
+		}
+		if order.Status != 0 {
+			return nil
+		}
+		db.Model(&order).Update("status", 10)
+		db.Create(&model.OrderStatusLog{OrderID: order.ID, FromStatus: 0, ToStatus: 10, Reason: "超时自动关闭"})
+		if order.PayStatus == 1 {
+		}
+		return nil
+	}
+}
+
+func HandleOrderSettle(db *gorm.DB) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		oid, _ := strconv.ParseInt(string(t.Payload()), 10, 64)
+		var order model.Order
+		if err := db.First(&order, oid).Error; err != nil {
+			return err
+		}
+		if order.Status != 5 {
+			return nil
+		}
+		db.Model(&order).Update("status", 6)
+		db.Create(&model.OrderStatusLog{OrderID: order.ID, FromStatus: 5, ToStatus: 6, Reason: "T+3自动结算"})
+		return nil
+	}
+}
+
+func HandleWithdrawPaid(db *gorm.DB) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		wid, _ := strconv.ParseInt(string(t.Payload()), 10, 64)
+		db.Model(&model.Withdraw{}).Where("id=?", wid).Updates(map[string]any{"status": "paid", "paid_at": time.Now()})
+		return nil
+	}
+}
+
+func HandleAIScan(db *gorm.DB, rdb *redislib.Client) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		uid, _ := strconv.ParseInt(string(t.Payload()), 10, 64)
+		db.Create(&model.AiRiskAlert{AlertType: "user_scan", TargetType: "user", TargetID: uid, Level: 1, Status: 0})
+		return nil
+	}
+}
+
+func HandlePushMessage(db *gorm.DB, hub *websocket.Hub) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		var p model.Notification
+		_ = json.Unmarshal(t.Payload(), &p)
+		msg, _ := websocket.NewMessage("notification", 0, p.UserID, p)
+		if hub != nil {
+			_ = hub.SendToUser(ctx, p.UserID, msg)
+		}
+		return nil
+	}
+}
+
+func HandleOfflineMessagePush(db *gorm.DB, rdb *redislib.Client, hub *websocket.Hub) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		uid, _ := strconv.ParseInt(string(t.Payload()), 10, 64)
+		if hub != nil && rdb != nil && hub.IsUserOnline(uid) {
+			key := fmt.Sprintf("jisan:offline:%d", uid)
+			for {
+				results, err := rdb.ZPopMin(ctx, key, 100).Result()
+				if err != nil || len(results) == 0 {
+					break
+				}
+				for _, z := range results {
+					if dataStr, ok := z.Member.(string); ok {
+						msg := &websocket.Message{}
+						if json.Unmarshal([]byte(dataStr), msg) == nil {
+							_ = hub.SendToUser(ctx, uid, msg)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+}
+
 type HandlerFunc func(context.Context, []byte) error
 
-// Server Asynq 消费者服务封装
-type Server struct {
+type ServerLegacy struct {
 	server *asynq.Server
 	mux    *asynq.ServeMux
 }
 
-// HandlerRegistry 消费者注册表
 type HandlerRegistry struct {
 	handlers map[string]HandlerFunc
 }
 
-// NewHandlerRegistry 创建消费者注册表
 func NewHandlerRegistry() *HandlerRegistry {
 	return &HandlerRegistry{handlers: make(map[string]HandlerFunc)}
 }
 
-// Register 注册任务处理器
 func (r *HandlerRegistry) Register(typeName string, handler HandlerFunc) {
 	r.handlers[typeName] = handler
 }
 
-// NewServer 创建消费者服务
-// cfg Redis 配置，concurrency 并发数
-func NewServer(cfg config.RedisConfig, concurrency int) *Server {
+func NewServerLegacy(cfg config.RedisConfig, concurrency int) *ServerLegacy {
 	if concurrency <= 0 {
 		concurrency = 10
 	}
@@ -192,48 +300,42 @@ func NewServer(cfg config.RedisConfig, concurrency int) *Server {
 		asynq.Config{
 			Concurrency: concurrency,
 			Queues: map[string]int{
-				QueueCritical: 6, // 高优先级权重最大
+				QueueCritical: 6,
 				QueueDefault:  3,
 				QueueLow:      1,
 			},
 			RetryDelayFunc: func(n int, _ error, _ *asynq.Task) time.Duration {
-				// 指数退避重试
 				return time.Duration(n*n) * time.Minute
 			},
 		},
 	)
 	mux := asynq.NewServeMux()
-	return &Server{server: srv, mux: mux}
+	return &ServerLegacy{server: srv, mux: mux}
 }
 
-// RegisterHandlers 注册所有消费者处理器
-func (s *Server) RegisterHandlers(registry *HandlerRegistry) {
+func (s *ServerLegacy) RegisterHandlers(registry *HandlerRegistry) {
 	for typeName, handler := range registry.handlers {
-		h := handler // 捕获循环变量
+		h := handler
 		s.mux.HandleFunc(typeName, func(ctx context.Context, t *asynq.Task) error {
 			return h(ctx, t.Payload())
 		})
 	}
 }
 
-// HandleFunc 注册单个任务处理器
-func (s *Server) HandleFunc(typeName string, handler HandlerFunc) {
+func (s *ServerLegacy) HandleFunc(typeName string, handler HandlerFunc) {
 	s.mux.HandleFunc(typeName, func(ctx context.Context, t *asynq.Task) error {
 		return handler(ctx, t.Payload())
 	})
 }
 
-// Start 启动消费者服务(阻塞)
-func (s *Server) Start() error {
+func (s *ServerLegacy) Start() error {
 	return s.server.Run(s.mux)
 }
 
-// Shutdown 优雅关闭消费者服务
-func (s *Server) Shutdown() {
+func (s *ServerLegacy) Shutdown() {
 	s.server.Shutdown()
 }
 
-// RedisOptions 返回 asynq 使用的 Redis 客户端选项(供外部诊断)
 func RedisOptions(cfg config.RedisConfig) asynq.RedisClientOpt {
 	return asynq.RedisClientOpt{
 		Addr:     cfg.Addr(),

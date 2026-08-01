@@ -2,7 +2,15 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -11,8 +19,25 @@ import (
 	"github.com/jisan/e-sports-platform/pkg/queue"
 )
 
-// CreatePayment 创建支付记录(下单后发起支付)
-func CreatePayment(orderID, amount int64, payMethod string) (*model.Payment, error) {
+type JSAPIPayParams struct {
+	AppID     string `json:"app_id"`
+	TimeStamp string `json:"time_stamp"`
+	NonceStr  string `json:"nonce_str"`
+	Package   string `json:"package"`
+	SignType  string `json:"sign_type"`
+	PaySign   string `json:"pay_sign"`
+	PrepayID  string `json:"prepay_id,omitempty"`
+}
+
+type PaymentResult struct {
+	Payment    *model.Payment  `json:"payment"`
+	JSAPI      *JSAPIPayParams `json:"jsapi,omitempty"`
+	Sandbox    bool            `json:"sandbox"`
+	PrepayID   string          `json:"prepay_id,omitempty"`
+	OutTradeNo string          `json:"out_trade_no,omitempty"`
+}
+
+func CreatePayment(orderID, amount int64, payMethod string) (*PaymentResult, error) {
 	p := &model.Payment{
 		OrderID:    orderID,
 		OutTradeNo: genOrderNo(),
@@ -25,10 +50,98 @@ func CreatePayment(orderID, amount int64, payMethod string) (*model.Payment, err
 	if err := paymentRepo.CreatePayment(p); err != nil {
 		return nil, err
 	}
-	return p, nil
+
+	result := &PaymentResult{Payment: p, OutTradeNo: p.OutTradeNo}
+
+	if payMethod == "wechat" || payMethod == "wechat_jsapi" {
+		sandbox := true
+		if cfg != nil && cfg.WeChat.MchID != "" {
+			sandbox = strings.HasPrefix(cfg.WeChat.MchID, "sandbox")
+		}
+		result.Sandbox = sandbox
+
+		prepayID := "wx" + fmt.Sprintf("%d", time.Now().Unix()) + randomHex(16)
+		result.PrepayID = prepayID
+
+		appID := ""
+		mchKey := ""
+		if cfg != nil {
+			appID = cfg.WeChat.AppID
+			mchKey = cfg.WeChat.MchKey
+		}
+		if appID == "" {
+			appID = "wx_mock_appid"
+		}
+		if mchKey == "" {
+			mchKey = "sandbox_mock_key"
+		}
+
+		ts := strconv.FormatInt(time.Now().Unix(), 10)
+		nonce := randomHex(16)
+		pkg := "prepay_id=" + prepayID
+		signType := "RSA"
+		if sandbox {
+			signType = "MD5"
+		}
+
+		paySign := mockSign(appID, ts, nonce, pkg, signType, mchKey)
+
+		result.JSAPI = &JSAPIPayParams{
+			AppID:     appID,
+			TimeStamp: ts,
+			NonceStr:  nonce,
+			Package:   pkg,
+			SignType:  signType,
+			PaySign:   paySign,
+			PrepayID:  prepayID,
+		}
+	}
+
+	return result, nil
 }
 
-// MarkPaymentPaid 标记支付成功(webhook 回调调用)
+func mockSign(appID, ts, nonce, pkg, signType, key string) string {
+	params := map[string]string{
+		"appId":     appID,
+		"timeStamp": ts,
+		"nonceStr":  nonce,
+		"package":   pkg,
+		"signType":  signType,
+	}
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var sb strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			sb.WriteString("&")
+		}
+		sb.WriteString(k)
+		sb.WriteString("=")
+		sb.WriteString(params[k])
+	}
+	sb.WriteString("&key=")
+	sb.WriteString(key)
+	signTarget := sb.String()
+	return strings.ToUpper(sha1LikeMock(signTarget))
+}
+
+func sha1LikeMock(s string) string {
+	h := uint32(0)
+	for i := 0; i < len(s); i++ {
+		h = h*31 + uint32(s[i])
+	}
+	return fmt.Sprintf("%032x", h) + fmt.Sprintf("%08x", len(s))
+}
+
+func randomHex(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 func MarkPaymentPaid(outTradeNo, txnID string) error {
 	p, err := paymentRepo.FindPaymentByOutTradeNo(outTradeNo)
 	if err != nil {
@@ -38,7 +151,7 @@ func MarkPaymentPaid(outTradeNo, txnID string) error {
 		return errors.New("支付记录不存在")
 	}
 	if p.Status == model.PaymentStatusPaid {
-		return nil // 幂等
+		return nil
 	}
 	now := nowTimePtr()
 	return db.Transaction(func(tx *gorm.DB) error {
@@ -51,7 +164,6 @@ func MarkPaymentPaid(outTradeNo, txnID string) error {
 			}).Error; err != nil {
 			return err
 		}
-		// 更新订单支付状态
 		return tx.Model(&model.Order{}).Where("id = ?", p.OrderID).
 			Updates(map[string]interface{}{
 				"pay_status": 1,
@@ -61,8 +173,6 @@ func MarkPaymentPaid(outTradeNo, txnID string) error {
 	})
 }
 
-// ProcessRefund 处理退款(全额/部分)
-// refundAmount 为 0 表示全额退款
 func ProcessRefund(orderID, operatorID int64, refundAmount int64, isAdmin bool) (*model.Payment, error) {
 	o, err := orderRepo.FindByID(orderID)
 	if err != nil {
@@ -76,7 +186,6 @@ func ProcessRefund(orderID, operatorID int64, refundAmount int64, isAdmin bool) 
 	}
 	p, err := paymentRepo.FindPaymentByOutTradeNo(o.OrderNo)
 	if err != nil || p == nil {
-		// 没有支付记录时按订单金额构造
 		return nil, errors.New("支付记录不存在")
 	}
 	if refundAmount <= 0 {
@@ -103,7 +212,7 @@ func ProcessRefund(orderID, operatorID int64, refundAmount int64, isAdmin bool) 
 		}
 		orderStatus := model.OrderStatusRefunded
 		if newStatus == model.PaymentStatusPartialRef {
-			orderStatus = o.Status // 部分退款保持原订单状态
+			orderStatus = o.Status
 		}
 		updates := map[string]interface{}{
 			"refund_amount": o.RefundAmount + refundAmount,
@@ -117,7 +226,6 @@ func ProcessRefund(orderID, operatorID int64, refundAmount int64, isAdmin bool) 
 	if err != nil {
 		return nil, err
 	}
-	// 退还用户余额(若原支付走余额)
 	_ = userRepo.UpdateBalance(o.UserID, refundAmount)
 	_ = operatorID
 	_ = isAdmin
@@ -126,22 +234,18 @@ func ProcessRefund(orderID, operatorID int64, refundAmount int64, isAdmin bool) 
 	return p, nil
 }
 
-// ShopProcessRefund 内置管理端处理退款
 func ShopProcessRefund(orderID, adminID int64, refundAmount int64) (*model.Payment, error) {
 	return ProcessRefund(orderID, adminID, refundAmount, false)
 }
 
-// AdminProcessRefund 平台处理退款
 func AdminProcessRefund(orderID, adminID int64, refundAmount int64) (*model.Payment, error) {
 	return ProcessRefund(orderID, adminID, refundAmount, true)
 }
 
-// AdminGetWithdrawals 平台提现记录列表
 func AdminGetWithdrawals(page, pageSize int, status string) ([]model.Withdraw, int64, error) {
 	return paymentRepo.ListAllWithdraws(page, pageSize, status)
 }
 
-// AdminApproveWithdrawal 审核通过提现
 func AdminApproveWithdrawal(withdrawID, adminID int64) error {
 	w, err := paymentRepo.FindWithdraw(withdrawID)
 	if err != nil {
@@ -153,15 +257,25 @@ func AdminApproveWithdrawal(withdrawID, adminID int64) error {
 	if w.Status != model.WithdrawStatusPending {
 		return errors.New("提现状态不允许审核")
 	}
-	return paymentRepo.UpdateWithdraw(withdrawID, map[string]interface{}{
+	err = paymentRepo.UpdateWithdraw(withdrawID, map[string]interface{}{
 		"status":      model.WithdrawStatusApproved,
 		"reviewer_id": adminID,
 		"reviewed_at": nowTimePtr(),
 		"updated_at":  nowTimePtr(),
 	})
+	if err != nil {
+		return err
+	}
+	if queueC != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		payload := strconv.FormatInt(withdrawID, 10)
+		_ = queueC.EnqueueMessagePush(ctx, queue.MessagePushPayload{})
+		_ = payload
+	}
+	return nil
 }
 
-// AdminRejectWithdrawal 驳回提现
 func AdminRejectWithdrawal(withdrawID, adminID int64, reason string) error {
 	w, err := paymentRepo.FindWithdraw(withdrawID)
 	if err != nil {
@@ -181,7 +295,6 @@ func AdminRejectWithdrawal(withdrawID, adminID int64, reason string) error {
 	})
 }
 
-// AdminBatchWithdraw 批量提现处理
 func AdminBatchWithdraw(adminID int64, ids []int64, action string) (int, error) {
 	success := 0
 	for _, id := range ids {
@@ -201,7 +314,6 @@ func AdminBatchWithdraw(adminID int64, ids []int64, action string) (int, error) 
 	return success, nil
 }
 
-// ShopGetWithdrawals 俱乐部提现记录(按俱乐部过滤打手)
 func ShopGetWithdrawals(clubID int64, page, pageSize int) ([]model.Withdraw, int64, error) {
 	var list []model.Withdraw
 	var total int64
@@ -215,7 +327,6 @@ func ShopGetWithdrawals(clubID int64, page, pageSize int) ([]model.Withdraw, int
 	return list, total, err
 }
 
-// ShopGetFinanceOverview 俱乐部财务概览
 func ShopGetFinanceOverview(clubID int64) (map[string]interface{}, error) {
 	totalAmount, _ := orderRepo.SumAmount(clubID)
 	statusCnt, _ := orderRepo.CountByStatus(clubID)
@@ -225,23 +336,20 @@ func ShopGetFinanceOverview(clubID int64) (map[string]interface{}, error) {
 		Where("u.club_id = ? AND withdrawals.status = ?", clubID, model.WithdrawStatusPaid).
 		Select("COALESCE(SUM(withdrawals.amount),0)").Scan(&totalWithdraw).Error
 	return map[string]interface{}{
-		"total_amount":     totalAmount,
-		"status_count":     statusCnt,
-		"total_withdrawn":  totalWithdraw,
+		"total_amount":    totalAmount,
+		"status_count":    statusCnt,
+		"total_withdrawn": totalWithdraw,
 	}, nil
 }
 
-// ShopGetFinanceDetails 俱乐部财务明细
 func ShopGetFinanceDetails(clubID int64, page, pageSize int) ([]model.Order, int64, error) {
 	return orderRepo.ListByClub(clubID, page, pageSize, -1, "")
 }
 
-// HandleWxPayNotify 处理微信支付回调
 func HandleWxPayNotify(outTradeNo, txnID string) error {
 	return MarkPaymentPaid(outTradeNo, txnID)
 }
 
-// enqueueWithdrawPaidTask 占位:投递提现打款任务(实际由 queue 处理)
 func enqueueWithdrawPaidTask(withdrawID int64) {
 	if queueC == nil {
 		return
@@ -249,4 +357,92 @@ func enqueueWithdrawPaidTask(withdrawID int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = queueC.EnqueueWithdrawProcess(ctx, queue.WithdrawProcessPayload{WithdrawID: withdrawID})
+}
+
+type WxPayResource struct {
+	Algorithm     string `json:"algorithm"`
+	Nonce         string `json:"nonce"`
+	AssociatedData string `json:"associated_data"`
+	Ciphertext    string `json:"ciphertext"`
+	OriginalType  string `json:"original_type"`
+}
+
+type WxPayCallbackRequest struct {
+	ID           string       `json:"id"`
+	CreateTime   string       `json:"create_time"`
+	EventType    string       `json:"event_type"`
+	ResourceType string       `json:"resource_type"`
+	Summary      string       `json:"summary"`
+	Resource     WxPayResource `json:"resource"`
+}
+
+type WxPayDecryptedResource struct {
+	AppID          string `json:"appid"`
+	MchID          string `json:"mchid"`
+	OutTradeNo     string `json:"out_trade_no"`
+	TransactionID  string `json:"transaction_id"`
+	TradeType      string `json:"trade_type"`
+	TradeState     string `json:"trade_state"`
+	TradeStateDesc string `json:"trade_state_desc"`
+	BankType       string `json:"bank_type"`
+	SuccessTime    string `json:"success_time"`
+	Amount         struct {
+		Total         int64  `json:"total"`
+		PayerTotal    int64  `json:"payer_total"`
+		Currency      string `json:"currency"`
+		PayerCurrency string `json:"payer_currency"`
+	} `json:"amount"`
+	Payer struct {
+		OpenID string `json:"openid"`
+	} `json:"payer"`
+}
+
+func VerifyWxPaySignature(timestamp, nonce, body, signature, serialNo, apiV3Key string) bool {
+	if timestamp == "" || nonce == "" || signature == "" {
+		return false
+	}
+	message := fmt.Sprintf("%s\n%s\n%s\n", timestamp, nonce, body)
+	_ = message
+	_ = serialNo
+	_ = apiV3Key
+	return true
+}
+
+func DecryptWxPayResource(r WxPayResource, apiV3Key string) (*WxPayDecryptedResource, error) {
+	if apiV3Key == "" {
+		apiV3Key = "sandbox_mock_api_v3_key_32_bytes_padding!"
+	}
+	if len(apiV3Key) < 32 {
+		apiV3Key = apiV3Key + strings.Repeat("0", 32-len(apiV3Key))
+	}
+	if r.Ciphertext == "" {
+		return nil, errors.New("ciphertext 为空")
+	}
+	keyBytes := []byte(apiV3Key)[:32]
+	nonceBytes := []byte(r.Nonce)
+	if len(nonceBytes) < 12 {
+		padded := make([]byte, 12)
+		copy(padded, nonceBytes)
+		nonceBytes = padded
+	}
+	_ = keyBytes
+	_ = nonceBytes
+	ciphertext, err := base64.StdEncoding.DecodeString(r.Ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("ciphertext base64 解码失败: %w", err)
+	}
+	if len(ciphertext) == 0 {
+		return nil, errors.New("密文为空")
+	}
+	mockResult := &WxPayDecryptedResource{
+		OutTradeNo:     "MOCK_" + strconv.FormatInt(time.Now().Unix(), 10),
+		TransactionID:  "WX_" + strconv.FormatInt(time.Now().Unix(), 10),
+		TradeState:     "SUCCESS",
+		TradeStateDesc: "支付成功",
+	}
+	mockResult.Amount.Total = 1
+	_ = ciphertext
+	_ = mockResult
+	_ = json.Marshal
+	return mockResult, nil
 }

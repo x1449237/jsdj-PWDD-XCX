@@ -18,6 +18,7 @@ func GetGrabOrderList(playerID, clubID int64, page, pageSize int) ([]model.Order
 }
 
 // GrabOrder 打手抢单(原子操作 + 分布式锁防并发)
+// 支持普通订单（一单一打手）和车队订单（多人匹配 TeamCount）
 func GrabOrder(orderID, playerID int64) error {
 	// 分布式锁防并发抢单
 	lockKey := cacheKey("grab:" + itoa(orderID))
@@ -32,6 +33,73 @@ func GrabOrder(orderID, playerID int64) error {
 	}
 	defer redis.Del(ctx, lockKey)
 
+	o, err := orderRepo.FindByID(orderID)
+	if err != nil {
+		return err
+	}
+	if o == nil {
+		return errors.New("订单不存在")
+	}
+
+	// 车队订单(OrderTypeTeam 或 TeamCount>1)：加入 team_members，满员后再置已接单
+	if o.Type == model.OrderTypeTeam || o.TeamCount > 1 {
+		tc := o.TeamCount
+		if tc < 2 {
+			tc = 2
+		}
+		if tc > 5 {
+			tc = 5
+		}
+		// 校验打手是否已在队中
+		var exist int64
+		_ = db.Model(&model.OrderTeamMember{}).
+			Where("order_id = ? AND player_id = ? AND status = ?", orderID, playerID, model.TeamMemberStatusJoined).Count(&exist).Error
+		if exist > 0 {
+			return errors.New("您已在该车队中")
+		}
+		// 写入车队成员
+		now := nowTimePtr()
+		if err := db.Create(&model.OrderTeamMember{
+			OrderID:   orderID,
+			PlayerID:  playerID,
+			JoinedAt:  now,
+			Status:    model.TeamMemberStatusJoined,
+			CreatedAt: now,
+		}).Error; err != nil {
+			return err
+		}
+		// 统计当前人数
+		var current int64
+		_ = db.Model(&model.OrderTeamMember{}).
+			Where("order_id = ? AND status = 1", orderID).Count(&current).Error
+		if current >= int64(tc) {
+			// 满员 -> 置为已接单
+			_ = orderRepo.Update(orderID, map[string]interface{}{
+				"player_id":  playerID, // 队长=最后入队者，实际可记录leader独立字段
+				"status":     model.OrderStatusAccepted,
+				"updated_at": now,
+			})
+			_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
+				OrderID: orderID, FromStatus: model.OrderStatusPending, ToStatus: model.OrderStatusAccepted,
+				OperatorID: playerID, OperatorType: "player", Reason: "车队满员，自动已接单",
+				CreatedAt: now,
+			})
+		} else if o.Status != model.OrderStatusTeamPending {
+			// 未满员标记车队等待状态
+			_ = orderRepo.Update(orderID, map[string]interface{}{
+				"status":     model.OrderStatusTeamPending,
+				"updated_at": now,
+			})
+			_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
+				OrderID: orderID, FromStatus: o.Status, ToStatus: model.OrderStatusTeamPending,
+				OperatorID: playerID, OperatorType: "player", Reason: "车队匹配中（" + itoa(int64(current)) + "/" + itoa(int64(tc)) + "）",
+				CreatedAt: now,
+			})
+		}
+		return nil
+	}
+
+	// 普通抢单
 	grabbed, err := orderRepo.GrabOrder(orderID, playerID)
 	if err != nil {
 		return err
@@ -39,14 +107,11 @@ func GrabOrder(orderID, playerID int64) error {
 	if !grabbed {
 		return errors.New("抢单失败，订单已被他人接单或状态已变更")
 	}
-	o, _ := orderRepo.FindByID(orderID)
-	if o != nil {
-		_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
-			OrderID: orderID, FromStatus: model.OrderStatusPending, ToStatus: model.OrderStatusAccepted,
-			OperatorID: playerID, OperatorType: "player", Reason: "打手抢单",
-			CreatedAt: nowTimePtr(),
-		})
-	}
+	_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
+		OrderID: orderID, FromStatus: model.OrderStatusPending, ToStatus: model.OrderStatusAccepted,
+		OperatorID: playerID, OperatorType: "player", Reason: "打手抢单",
+		CreatedAt: nowTimePtr(),
+	})
 	return nil
 }
 
@@ -100,6 +165,7 @@ func CompleteService(orderID, playerID int64) error {
 }
 
 // TransferOrder 转单(打手转给同俱乐部其他打手)
+// 校验：同俱乐部、目标打手无进行中同订单冲突、写 order_status_log
 func TransferOrder(orderID, fromPlayer, toPlayer int64) error {
 	o, err := orderRepo.FindByID(orderID)
 	if err != nil {
@@ -111,12 +177,56 @@ func TransferOrder(orderID, fromPlayer, toPlayer int64) error {
 	if o.PlayerID != fromPlayer {
 		return errors.New("无权转单")
 	}
-	if toPlayer <= 0 {
-		return errors.New("转单目标打手不能为空")
+	if toPlayer <= 0 || fromPlayer == toPlayer {
+		return errors.New("转单目标打手无效")
 	}
-	return orderRepo.Update(orderID, map[string]interface{}{
-		"player_id":  toPlayer,
-		"updated_at": nowTimePtr(),
+	fromUser, err := userRepo.FindByID(fromPlayer)
+	if err != nil || fromUser == nil {
+		return errors.New("来源打手不存在")
+	}
+	toUser, err := userRepo.FindByID(toPlayer)
+	if err != nil || toUser == nil {
+		return errors.New("目标打手不存在")
+	}
+	// 校验必须同俱乐部
+	if fromUser.ClubID == 0 || toUser.ClubID == 0 || fromUser.ClubID != toUser.ClubID {
+		return errors.New("转单仅限同俱乐部成员")
+	}
+	// 校验 toPlayer 无进行中同订单（冲突）
+	var conflict int64
+	_ = db.Model(&model.Order{}).
+		Where("player_id = ? AND id = ? AND status IN ?", toPlayer, orderID,
+			[]int8{model.OrderStatusAccepted, model.OrderStatusInProgress}).Count(&conflict).Error
+	if conflict > 0 {
+		return errors.New("目标打手已在该订单中")
+	}
+	// 校验 toPlayer 是否有 3 个以上进行中订单（容量风控）
+	var busy int64
+	_ = db.Model(&model.Order{}).
+		Where("player_id = ? AND status IN ?", toPlayer,
+			[]int8{model.OrderStatusAccepted, model.OrderStatusInProgress}).Count(&busy).Error
+	if busy >= 5 {
+		return errors.New("目标打手进行中订单过多，无法转单")
+	}
+	// 执行转单 + 写状态日志
+	now := nowTimePtr()
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Order{}).Where("id = ?", orderID).
+			Updates(map[string]interface{}{
+				"player_id":  toPlayer,
+				"updated_at": now,
+			}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&model.OrderStatusLog{
+			OrderID:      orderID,
+			FromStatus:   o.Status,
+			ToStatus:     o.Status,
+			OperatorID:   fromPlayer,
+			OperatorType: "player",
+			Reason:       "转单: " + itoa(fromPlayer) + "→" + itoa(toPlayer),
+			CreatedAt:    now,
+		}).Error
 	})
 }
 

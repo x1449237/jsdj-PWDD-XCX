@@ -201,7 +201,7 @@ func (h *AdminMarketingHandler) GetGroupBuyActivities(c *gin.Context) {
 // CreateGroupBuyActivity 创建拼团活动
 // POST /api/v1/admin/group-buy-activities
 func (h *AdminMarketingHandler) CreateGroupBuyActivity(c *gin.Context) {
-	var a model.LotteryActivity
+	var a model.GroupBuyActivity
 	if err := c.ShouldBindJSON(&a); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return

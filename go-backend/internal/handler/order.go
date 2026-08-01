@@ -214,6 +214,23 @@ func (h *OrderHandler) GetAppealList(c *gin.Context) {
 	utils.SuccessWithTotal(c, list, total)
 }
 
+// ConfirmOrderAcceptance 用户验收订单
+// POST /api/v1/orders/:id/confirm
+func (h *OrderHandler) ConfirmOrderAcceptance(c *gin.Context) {
+	orderID := parseInt64Path(c, "id")
+	if orderID == 0 {
+		utils.Fail(c, utils.CodeBadRequest, "订单ID不能为空")
+		return
+	}
+	userID := getCurrentUserID(c)
+	o, err := service.UserConfirmAcceptance(orderID, userID)
+	if err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, o)
+}
+
 // GetAppealDetail 申诉详情
 // GET /api/v1/appeals/:id
 func (h *OrderHandler) GetAppealDetail(c *gin.Context) {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -294,7 +295,7 @@ func ShopAdminLogin(username, password, ip string) (*LoginResult, error) {
 	}, nil
 }
 
-// ForgotAccount 忘记账号(通过邮箱反查用户名)
+// ForgotAccount 忘记账号(通过邮箱反查用户名 + 发送验证码)
 func ForgotAccount(email string) (string, error) {
 	if !utils.ValidateEmail(email) {
 		return "", errors.New("邮箱格式错误")
@@ -306,6 +307,21 @@ func ForgotAccount(email string) (string, error) {
 		}
 		return "", err
 	}
+	// 生成6位验证码并发送邮件
+	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = redis.Set(ctx, cacheKey("captcha:forgot:"+email), code+":"+a.Username, 5*time.Minute)
+	// 真发送邮件（沙箱 fallback 到日志）
+	smtpCfg := &utils.SMTPConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		User:     cfg.SMTP.User,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+		Sandbox:  cfg.SMTP.Sandbox,
+	}
+	_ = utils.SendVerifyCode(email, code, "forgot", smtpCfg, logger)
 	return a.Username, nil
 }
 
@@ -323,53 +339,147 @@ func ForgotPassword(username string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = redis.Set(ctx, cacheKey("captcha:reset:"+a.Email), code, 5*time.Minute)
-	// 实际项目应通过邮件服务发送，此处记录日志占位
-	if logger != nil {
-		logger.Info("管理员密码重置验证码",
-			zapField("username", username),
-			zapField("email", a.Email),
-			zapField("code", code))
+	// 真发送邮件（沙箱 fallback 到日志）
+	smtpCfg := &utils.SMTPConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		User:     cfg.SMTP.User,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+		Sandbox:  cfg.SMTP.Sandbox,
 	}
+	_ = utils.SendVerifyCode(a.Email, code, "reset", smtpCfg, logger)
 	return nil
 }
 
-// WebauthnBegin 开始 WebAuthn 注册/认证流程(返回 challenge)
-func WebauthnBegin(username string) (map[string]interface{}, error) {
-	challenge := newTraceID()
+// WebauthnBegin 开始 WebAuthn 注册/认证流程
+// 返回 challenge，并将 challenge->uid 映射存储到 Redis(5分钟过期)
+// ——真实项目集成 go-webauthn 说明——
+// 1. go get github.com/go-webauthn/webauthn/v4
+// 2. 初始化 webauthn := &webauthn.WebAuthn{RPID=xxx, RPOrigin=xxx, Timeout:60000}
+// 3. 注册 BeginRegistration(user webauthn.User) -> sessionData, credentialCreationOptions
+//    将 sessionData 序列化存入 Redis(key = webauthn:challenge:<challenge>, value=uid+sessionData)
+// 4. 前端完成 navigator.credentials.create 后回传 assertion
+// 5. FinishRegistration(user, session, req) 校验 signature -> 写入 DB webauthn_credentials
+// ——以下为沙箱模式:仅校验 challenge 存在+未过期+uid匹配——
+func WebauthnBegin(username string, userID int64) (map[string]interface{}, error) {
+	// 用 crypto/rand 生成 challenge(32字节 hex 64位)
+	var b [32]byte
+	_, _ = rand.Read(b[:])
+	challenge := fmt.Sprintf("%x", b[:])
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
+	// 存储 challenge -> uid JSON(含username,过期时间)
+	cacheObj := map[string]interface{}{
+		"uid":       userID,
+		"username":  username,
+		"created":   time.Now().Unix(),
+		"ttl_sec":   300,
+	}
+	cacheBytes, _ := json.Marshal(cacheObj)
+	_ = redis.Set(ctx, cacheKey("webauthn:challenge:"+challenge), cacheBytes, 5*time.Minute)
+	// 同时保留 username->challenge 兼容旧版
 	_ = redis.Set(ctx, cacheKey("webauthn:"+username), challenge, 5*time.Minute)
 	return map[string]interface{}{
 		"challenge": challenge,
 		"username":  username,
+		"uid":       userID,
+		"timeout":   300,
+		// 真实项目：把 webauthn 生成的 publicKeyCredentialCreationOptions 返回给前端
+		"rp": map[string]interface{}{
+			"id":   "localhost",
+			"name": "E-Sports Platform",
+		},
+		"user": map[string]interface{}{
+			"id":   userID,
+			"name": username,
+		},
 	}, nil
 }
 
-// WebauthnFinish 完成 WebAuthn 流程(校验并保存凭证)
-func WebauthnFinish(username, credentialID, publicKey, deviceInfo string) error {
+// WebauthnFinish 完成 WebAuthn 流程(校验 assertion signature)
+// 沙箱模式:仅检查 challenge 存在+未过期、对应 uid 匹配通过
+// ——真实项目 go-webauthn 集成点——
+// 1. 用 redis 取出 sessionData(反序列化 webauthn.SessionData)
+// 2. 根据用户 ID 加载 User(实现 webauthn.User 接口)
+// 3. 注册场景:cred, err := webauthn.FinishRegistration(user, session, httpReq)
+//    如果 err != nil 返回签名校验失败；否则存 cred.Descriptor().ID.Base64URLEncoded()
+//    以及 cred.PublicKeyPem() / credential.Raw 到 DB
+// 4. 认证(登录)场景:webauthn.FinishLogin(user, session, httpReq)
+//    通过则颁发 JWT
+// ——沙箱校验流程——
+func WebauthnFinish(username, challenge, credentialID, publicKey, deviceInfo string, uid int64) error {
+	if challenge == "" {
+		return errors.New("缺少 challenge")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	stored, _ := redis.Get(ctx, cacheKey("webauthn:"+username))
-	if stored == "" {
-		return errors.New("challenge 已过期，请重新开始")
+	// 1. 从 Redis 取 challenge 存储数据
+	cached, err := redis.Get(ctx, cacheKey("webauthn:challenge:"+challenge))
+	if err != nil || cached == "" {
+		// 回退: 旧 username->challenge
+		ch2, _ := redis.Get(ctx, cacheKey("webauthn:"+username))
+		if ch2 != challenge {
+			return errors.New("challenge 已过期或无效，请重新开始")
+		}
+	} else {
+		var obj map[string]interface{}
+		if jerr := json.Unmarshal([]byte(cached), &obj); jerr == nil {
+			// 2. 校验 challenge 未过期(创建+TTL > now)
+			created, _ := obj["created"].(float64)
+			ttl, _ := obj["ttl_sec"].(float64)
+			if created > 0 && ttl > 0 {
+				if int64(created)+int64(ttl) < time.Now().Unix() {
+					_ = redis.Del(ctx, cacheKey("webauthn:challenge:"+challenge))
+					return errors.New("challenge 已过期，请重新开始")
+				}
+			}
+			// 3. 校验 uid 匹配
+			if uid > 0 {
+				storedUID := int64(0)
+				switch v := obj["uid"].(type) {
+				case float64:
+					storedUID = int64(v)
+				case int64:
+					storedUID = v
+				}
+				if storedUID > 0 && storedUID != uid {
+					return errors.New("challenge 对应用户不匹配")
+				}
+			}
+		}
 	}
-	a, err := adminRepo.FindByUsername(username)
-	if err != nil {
-		return err
+	// 通过: 存库(管理员 Webauthn / 用户 Webauthn 都走这里，兼容两种)
+	if uid > 0 {
+		// 用户级 Webauthn (预留，DeviceInfo 字段存 uid 关联)
+		_ = db.Create(&model.AdminWebauthn{
+			AdminID:      0,
+			CredentialID: credentialID,
+			PublicKey:    publicKey,
+			DeviceInfo:   "uid:" + itoa(uid) + "|" + deviceInfo,
+			CreatedAt:    nowTimePtr(),
+		}).Error
+	} else if username != "" {
+		a, err := adminRepo.FindByUsername(username)
+		if err != nil {
+			return err
+		}
+		if a == nil {
+			return errors.New("管理员不存在")
+		}
+		w := &model.AdminWebauthn{
+			AdminID:      a.ID,
+			CredentialID: credentialID,
+			PublicKey:    publicKey,
+			DeviceInfo:   deviceInfo,
+			CreatedAt:    nowTimePtr(),
+		}
+		if err := adminRepo.CreateWebauthn(w); err != nil {
+			return err
+		}
 	}
-	if a == nil {
-		return errors.New("管理员不存在")
-	}
-	w := &model.AdminWebauthn{
-		AdminID:      a.ID,
-		CredentialID: credentialID,
-		PublicKey:    publicKey,
-		DeviceInfo:   deviceInfo,
-		CreatedAt:    nowTimePtr(),
-	}
-	if err := adminRepo.CreateWebauthn(w); err != nil {
-		return err
-	}
+	// 清理 challenge
+	_ = redis.Del(ctx, cacheKey("webauthn:challenge:"+challenge))
 	_ = redis.Del(ctx, cacheKey("webauthn:"+username))
 	return nil
 }
@@ -418,7 +528,7 @@ func AdminChangePassword(adminID int64, oldPassword, newPassword string) error {
 	return nil
 }
 
-// AdminBindEmail 管理员绑定邮箱(发送验证码)
+// AdminBindEmail 管理员绑定邮箱(真发送验证码，沙箱模式下 fallback 写日志)
 func AdminBindEmail(adminID int64, email string) error {
 	if !utils.ValidateEmail(email) {
 		return errors.New("邮箱格式错误")
@@ -434,11 +544,24 @@ func AdminBindEmail(adminID int64, email string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = redis.Set(ctx, cacheKey("captcha:email:"+fmt.Sprint(adminID)), code+":"+email, 5*time.Minute)
-	if logger != nil {
-		logger.Info("管理员绑定邮箱验证码",
-			zapField("admin_id", fmt.Sprint(adminID)),
-			zapField("email", email),
-			zapField("code", code))
+	// 真发送邮件（沙箱 fallback 到日志）
+	smtpCfg := &utils.SMTPConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		User:     cfg.SMTP.User,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+		Sandbox:  cfg.SMTP.Sandbox,
+	}
+	if err := utils.SendVerifyCode(email, code, "bind", smtpCfg, logger); err != nil {
+		// 发送失败时兜底写日志（沙箱模式已兜底，此处处理非沙箱网络异常）
+		if logger != nil {
+			logger.Warn("管理员绑定邮箱验证码邮件发送失败，已降级为日志输出",
+				zapField("admin_id", fmt.Sprint(adminID)),
+				zapField("email", email),
+				zapField("code", code),
+				zapField("error", err.Error()))
+		}
 	}
 	return nil
 }

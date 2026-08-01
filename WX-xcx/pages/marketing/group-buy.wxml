@@ -1,4 +1,10 @@
 <view class="group-buy-page">
+  <!-- 顶部 banner -->
+  <view class="top-banner">
+    <view class="banner-title">🔥 拼团特惠</view>
+    <view class="banner-subtitle">邀请好友一起拼，立省最高50%</view>
+  </view>
+
   <!-- 顶部导航 -->
   <view class="tab-bar">
     <view
@@ -21,27 +27,70 @@
         wx:for="{{activityList}}"
         wx:key="id"
       >
+        <!-- 折扣角标 -->
+        <view class="discount-badge" wx:if="{{item.discount_label}}">
+          {{item.discount_label}}
+        </view>
+
         <view class="activity-info">
           <view class="activity-name">{{item.name}}</view>
+          <view class="activity-service" wx:if="{{item.service_name}}">
+            <text class="service-tag">{{item.service_name}}</text>
+          </view>
           <view class="activity-price">
-            <text class="group-price">¥{{item.group_price}}</text>
+            <text class="currency">¥</text>
+            <text class="group-price">{{item.group_price}}</text>
             <text class="original-price">¥{{item.original_price}}</text>
+            <text class="save-tag" wx:if="{{item.save_amount}}">省¥{{item.save_amount}}</text>
           </view>
           <view class="activity-meta">
             <text>{{item.min_people}}人成团</text>
             <text>·</text>
-            <text>{{item.duration_hours}}小时有效</text>
+            <text wx:if="{{item.min_consume}}">最低¥{{item.min_consume}}</text>
+            <text wx:else>{{item.duration_hours}}小时有效</text>
+          </view>
+
+          <!-- 参团进度条 -->
+          <view class="progress-section">
+            <view class="progress-info">
+              <text class="progress-text">
+                {{item.on_going_groups || 0}} 个团正在拼
+              </text>
+              <text class="remain-time" wx:if="{{item.remain_time_text}}">
+                ⏰ {{item.remain_time_text}}
+              </text>
+            </view>
+            <view class="progress-bar-wrap">
+              <view
+                class="progress-bar"
+                style="width: {{item.progress_percent || 0}}%"
+              ></view>
+            </view>
           </view>
         </view>
-        <view class="activity-action">
-          <button class="join-btn" data-item="{{item}}" bindtap="onOpenGroup">
-            去开团
+
+        <view class="activity-actions">
+          <button
+            class="join-existing-btn"
+            data-activity="{{item}}"
+            bindtap="onJoinExistingGroup"
+            wx:if="{{(item.on_going_groups || 0) > 0}}"
+          >
+            加入已有团
+          </button>
+          <button
+            class="open-group-btn"
+            data-item="{{item}}"
+            bindtap="onOpenGroup"
+          >
+            一键开团
           </button>
         </view>
       </view>
 
       <view class="empty-tip" wx:if="{{!loading && activityList.length === 0}}">
-        <text class="empty-text">暂无拼团活动</text>
+        <text class="empty-icon">🎁</text>
+        <text class="empty-text">暂无拼团活动，敬请期待</text>
       </view>
     </view>
   </block>
@@ -65,13 +114,40 @@
           </text>
         </view>
         <view class="group-name">{{item.activity_name}}</view>
+
+        <!-- 进度条 -->
+        <view class="group-progress">
+          <view class="progress-bar-wrap small">
+            <view
+              class="progress-bar"
+              style="width: {{item.group_progress || 0}}%"
+            ></view>
+          </view>
+          <text class="progress-hint" wx:if="{{item.status === 'pending'}}">
+            还差 {{item.max_people - item.current_people}} 人成团
+          </text>
+        </view>
+
         <view class="group-footer">
           <text class="group-price">¥{{item.group_price}}</text>
-          <text class="group-arrow">查看详情 ›</text>
+          <view class="group-actions">
+            <button
+              wx:if="{{item.status === 'pending'}}"
+              class="share-btn"
+              catchtap="onShareGroup"
+              data-id="{{item.id}}"
+              data-item="{{item}}"
+              open-type="share"
+            >
+              邀请好友
+            </button>
+            <text class="group-arrow">查看详情 ›</text>
+          </view>
         </view>
       </view>
 
       <view class="empty-tip" wx:if="{{!loading && myGroupList.length === 0}}">
+        <text class="empty-icon">📦</text>
         <text class="empty-text">暂无拼团记录</text>
       </view>
     </view>

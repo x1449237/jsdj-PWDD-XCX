@@ -7,21 +7,82 @@ Page({
     verifyCode: '',
     sending: false,
     countdown: 0,
-    submitting: false
+    submitting: false,
+    childPreview: {}
   },
 
   onLoad(options) {
     if (options.child_user_id) {
       this.setData({ childUserId: options.child_user_id });
+      this.previewChildInfo(options.child_user_id);
     }
   },
 
   onChildUserIdInput(e) {
-    this.setData({ childUserId: e.detail.value });
+    const val = e.detail.value;
+    this.setData({ childUserId: val });
+    if (val && val.length >= 5) {
+      clearTimeout(this._previewTimer);
+      this._previewTimer = setTimeout(() => {
+        this.previewChildInfo(val);
+      }, 500);
+    } else {
+      this.setData({ childPreview: {} });
+    }
   },
 
   onVerifyCodeInput(e) {
     this.setData({ verifyCode: e.detail.value });
+  },
+
+  onScanQrCode() {
+    wx.scanCode({
+      onlyFromCamera: false,
+      scanType: ['qrCode'],
+      success: (res) => {
+        try {
+          let result = res.result || '';
+          let childUserId = '';
+          if (result.startsWith('http')) {
+            const match = result.match(/child_user_id=(\d+)/) || result.match(/uid[=:](\d+)/);
+            childUserId = match ? match[1] : '';
+          } else if (/^\d+$/.test(result)) {
+            childUserId = result;
+          } else {
+            try {
+              const parsed = JSON.parse(result);
+              childUserId = parsed.child_user_id || parsed.uid || '';
+            } catch (e) {
+              childUserId = '';
+            }
+          }
+          if (childUserId) {
+            wx.showToast({ title: '扫码成功', icon: 'success' });
+            this.setData({ childUserId });
+            this.previewChildInfo(childUserId);
+          } else {
+            wx.showToast({ title: '未识别到用户ID', icon: 'none' });
+          }
+        } catch (err) {
+          wx.showToast({ title: '二维码解析失败', icon: 'none' });
+        }
+      },
+      fail: (err) => {
+        if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
+          wx.showToast({ title: '扫码失败，请重试', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  previewChildInfo(userId) {
+    request.get('/guardian/child_preview', {
+      child_user_id: userId
+    }).then((res) => {
+      this.setData({ childPreview: res.data || {} });
+    }).catch(() => {
+      this.setData({ childPreview: {} });
+    });
   },
 
   onSendCode() {
@@ -39,7 +100,7 @@ Page({
       wx.showToast({ title: '验证码已发送', icon: 'success' });
       this.startCountdown();
     }).catch((err) => {
-      wx.showToast({ title: err.message || '发送失败', icon: 'none' });
+      wx.showToast({ title: (err && err.message) || '发送失败', icon: 'none' });
     }).finally(() => {
       this.setData({ sending: false });
     });

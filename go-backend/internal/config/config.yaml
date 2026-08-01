@@ -79,3 +79,11 @@ rate_limit:
   player_qps: 30              # 打手 QPS
   admin_qps: 100              # 管理员 QPS
   burst: 50                   # 突发桶容量
+
+smtp:
+  host: "smtp.example.com"
+  port: 465
+  user: "noreply@example.com"
+  pass: ""
+  from: "戟三电竞 <noreply@example.com>"
+  sandbox: true               # 沙箱模式=true时写日志不真实发送

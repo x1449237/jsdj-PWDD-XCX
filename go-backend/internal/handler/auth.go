@@ -170,6 +170,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 // webauthnBeginRequest WebAuthn 开始请求
 type webauthnBeginRequest struct {
 	Username string `json:"username" binding:"required"`
+	UserID   int64  `json:"user_id"` // 可选:用户侧 WebAuthn 携带 uid
 }
 
 // WebauthnBegin 开始 WebAuthn 流程
@@ -180,7 +181,11 @@ func (h *AuthHandler) WebauthnBegin(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	res, err := service.WebauthnBegin(req.Username)
+	uid := req.UserID
+	if uid <= 0 {
+		uid = getCurrentUserID(c)
+	}
+	res, err := service.WebauthnBegin(req.Username, uid)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
@@ -191,9 +196,11 @@ func (h *AuthHandler) WebauthnBegin(c *gin.Context) {
 // webauthnFinishRequest WebAuthn 完成请求
 type webauthnFinishRequest struct {
 	Username     string `json:"username" binding:"required"`
+	Challenge    string `json:"challenge" binding:"required"`
 	CredentialID string `json:"credential_id" binding:"required"`
 	PublicKey    string `json:"public_key" binding:"required"`
 	DeviceInfo   string `json:"device_info"`
+	UserID       int64  `json:"user_id"`
 }
 
 // WebauthnFinish 完成 WebAuthn 流程
@@ -204,7 +211,11 @@ func (h *AuthHandler) WebauthnFinish(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := service.WebauthnFinish(req.Username, req.CredentialID, req.PublicKey, req.DeviceInfo); err != nil {
+	uid := req.UserID
+	if uid <= 0 {
+		uid = getCurrentUserID(c)
+	}
+	if err := service.WebauthnFinish(req.Username, req.Challenge, req.CredentialID, req.PublicKey, req.DeviceInfo, uid); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}

@@ -236,6 +236,12 @@ const routes = [
         meta: { title: 'UP主认证', icon: 'Medal', group: 'platform' }
       },
       {
+        path: 'up-master/index',
+        name: 'UpMasterIndex',
+        component: () => import('@/views/up-master/index.vue'),
+        meta: { title: 'UP主管理', icon: 'Cpu' }
+      },
+      {
         path: 'after-sale/keywords',
         name: 'AfterSaleKeywords',
         component: () => import('@/views/after-sale/keywords.vue'),
