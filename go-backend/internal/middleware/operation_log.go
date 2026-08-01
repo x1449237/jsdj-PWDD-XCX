@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,55 @@ const ContextKeyOpLogResult = "op_log_result"
 
 // ContextKeyOpLogModule 操作模块在 gin.Context 中的键(club_join/deposit/vbadge 等)
 const ContextKeyOpLogModule = "op_log_module"
+
+// sensitiveQueryKeys 操作日志中需要脱敏的查询参数键(小写匹配)
+// 这些参数可能携带 token、密码、身份证、银行卡等敏感信息
+var sensitiveQueryKeys = map[string]bool{
+	"token":          true,
+	"access_token":   true,
+	"password":       true,
+	"old_password":   true,
+	"new_password":   true,
+	"id_card":        true,
+	"idcard":         true,
+	"bank_card":      true,
+	"bankcard":       true,
+	"card_no":        true,
+	"cardno":         true,
+	"phone":          true,
+	"mobile":         true,
+	"real_name":      true,
+	"realname":       true,
+	"verify_code":    true,
+	"verifycode":     true,
+	"sms_code":       true,
+	"smscode":        true,
+	"signature":      true,
+	"sign":           true,
+	"secret":         true,
+	"api_key":        true,
+	"apikey":         true,
+	"private_key":    true,
+	"privatekey":     true,
+	"wechat_pay_key": true,
+}
+
+// sanitizeQueryMap 对 query 参数进行脱敏处理
+// 敏感参数值替换为 "***REDACTED***"
+func sanitizeQueryMap(m map[string][]string) map[string][]string {
+	if len(m) == 0 {
+		return m
+	}
+	out := make(map[string][]string, len(m))
+	for k, v := range m {
+		if sensitiveQueryKeys[strings.ToLower(k)] {
+			out[k] = []string{"***REDACTED***"}
+		} else {
+			out[k] = v
+		}
+	}
+	return out
+}
 
 // OperationLog 操作日志记录(异步写入，模块为空)
 // action 为操作动作标识，targetType 为操作对象类型
@@ -66,7 +116,9 @@ func (m *OperationLogMiddleware) OperationLogWithModule(action, targetType, modu
 				targetID = n
 			}
 
-			content, _ := json.Marshal(c.Request.URL.Query())
+			// 查询参数脱敏(避免 token/密码/身份证/银行卡等敏感信息写入日志)
+			sanitizedQuery := sanitizeQueryMap(c.Request.URL.Query())
+			content, _ := json.Marshal(sanitizedQuery)
 
 			// 操作结果：默认 success，handler 可通过 context 覆盖为 fail
 			result := "success"

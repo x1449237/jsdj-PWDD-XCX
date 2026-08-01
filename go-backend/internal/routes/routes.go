@@ -279,6 +279,7 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		admin.POST("/clubs/:id/approve", adminAuditH.ApproveClub)
 		admin.POST("/clubs/:id/reject", adminAuditH.RejectClub)
 		admin.POST("/clubs/:id/freeze", adminAuditH.FreezeClub)
+		admin.POST("/clubs/:id/unfreeze", adminAuditH.UnfreezeClub)
 		admin.POST("/clubs/:id/cancel", adminAuditH.CancelClub)
 		admin.POST("/clubs/:id/vbadge/hide", adminAuditH.HideVBadge)
 		admin.POST("/clubs/:id/vbadge/restore", adminAuditH.RestoreVBadge)

@@ -83,6 +83,17 @@ func (h *AdminAuditHandler) CancelClub(c *gin.Context) {
 	utils.Success(c, gin.H{"msg": "ok"})
 }
 
+// UnfreezeClub 解冻俱乐部(级联恢复)
+// POST /api/v1/admin/clubs/:id/unfreeze
+func (h *AdminAuditHandler) UnfreezeClub(c *gin.Context) {
+	clubID := parseInt64Path(c, "id")
+	if err := service.AdminUnfreezeClub(clubID); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"msg": "ok"})
+}
+
 // HideVBadge 平台手动隐藏俱乐部 V 标
 // POST /api/v1/admin/clubs/:id/vbadge/hide
 func (h *AdminAuditHandler) HideVBadge(c *gin.Context) {

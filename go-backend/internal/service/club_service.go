@@ -54,6 +54,24 @@ func ShopUpdateClubInfo(clubID int64, fields map[string]interface{}) error {
 	now := nowTimePtr()
 	changeLogs := make([]*model.ClubInfoChangeLog, 0, len(fields))
 
+	// 安全防护:禁止外部直接设置 abbreviation(只能由 name 变更时由系统重新生成)
+	// 防止攻击者通过 updateClubInfoRequest 直接覆盖缩写绕过查重
+	delete(fields, "abbreviation")
+
+	// 同样禁止外部直接修改 status/founder_uid/id 等敏感字段
+	delete(fields, "status")
+	delete(fields, "founder_uid")
+	delete(fields, "id")
+	delete(fields, "type")
+	delete(fields, "reject_count")
+	delete(fields, "locked_until")
+	delete(fields, "is_archived")
+	delete(fields, "v_badge_type")
+	delete(fields, "v_badge_hidden")
+	delete(fields, "deposit_amount")
+	delete(fields, "deposit_paid")
+	delete(fields, "created_at")
+
 	// 名称变更:触发缩写重新生成 + 查重
 	if newName, ok := fields["name"].(string); ok && newName != "" && newName != c.Name {
 		newAbbr := utils.GenerateAbbreviation(newName)

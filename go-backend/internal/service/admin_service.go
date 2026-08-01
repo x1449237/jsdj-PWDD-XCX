@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -391,15 +392,62 @@ func ShopUploadAfterSaleEvidence(sessionID int64, mediaURL string) error {
 }
 
 // AdminGetSystemConfig 获取系统配置(全部)
+// 使用 Redis 缓存(5 分钟)，减少 DB 压力
 func AdminGetSystemConfig() ([]model.SystemConfig, error) {
+	ctx := context.Background()
+	const cacheKey = "system_configs:all"
+	const cacheTTL = 5 * time.Minute
+
+	// 1. 尝试从缓存读取
+	if cacheC != nil {
+		if list, err := tryGetSystemConfigCache(ctx, cacheKey); err == nil && list != nil {
+			return list, nil
+		}
+	}
+
+	// 2. 缓存未命中，查 DB
 	var list []model.SystemConfig
 	err := db.Order("id DESC").Find(&list).Error
-	return list, err
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 回填缓存(失败不影响主流程)
+	if cacheC != nil {
+		_ = cacheC.SetJSON(ctx, cacheKey, list, cacheTTL)
+	}
+	return list, nil
+}
+
+// tryGetSystemConfigCache 从缓存读取系统配置
+func tryGetSystemConfigCache(ctx context.Context, key string) ([]model.SystemConfig, error) {
+	var list []model.SystemConfig
+	hit, err := cacheC.GetJSON(ctx, key, &list)
+	if err != nil {
+		return nil, err
+	}
+	if !hit {
+		return nil, nil
+	}
+	return list, nil
+}
+
+// invalidateSystemConfigCache 失效系统配置缓存
+func invalidateSystemConfigCache() {
+	if cacheC == nil {
+		return
+	}
+	_ = cacheC.Del(context.Background(), "system_configs:all")
 }
 
 // AdminUpdateSystemConfig 更新系统配置项
+// 更新后失效缓存
 func AdminUpdateSystemConfig(key, value, desc string) error {
-	return upsertSystemConfig(key, value, desc)
+	if err := upsertSystemConfig(key, value, desc); err != nil {
+		return err
+	}
+	invalidateSystemConfigCache()
+	return nil
 }
 
 // AdminGetOperationLogs 操作日志列表
