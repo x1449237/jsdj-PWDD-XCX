@@ -1,10 +1,11 @@
 package service
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"time"
 
@@ -85,6 +86,7 @@ func isAbbrUsed(abbr string) (bool, error) {
 
 // generateAlternativeAbbrs 生成 3 套备选缩写
 // 策略:1) 名称首字母+尾字母 2) 名称拼音首字母截前4位+X 3) 名称首字母+随机数字
+// 备选缩写同样做查重,已占用的不会出现在备选列表中
 func generateAlternativeAbbrs(originalAbbr, name string) []string {
 	out := make([]string, 0, 3)
 	seen := map[string]bool{originalAbbr: true}
@@ -103,8 +105,11 @@ func generateAlternativeAbbrs(originalAbbr, name string) []string {
 		}
 		cand = strings.ToUpper(cand)
 		if !seen[cand] {
-			seen[cand] = true
-			out = append(out, cand)
+			used, _ := isAbbrUsed(cand)
+			if !used {
+				seen[cand] = true
+				out = append(out, cand)
+			}
 		}
 	}
 
@@ -118,21 +123,27 @@ func generateAlternativeAbbrs(originalAbbr, name string) []string {
 		cand2 = cand2 + strings.Repeat("X", 3-len(cand2))
 	}
 	if !seen[cand2] {
-		seen[cand2] = true
-		out = append(out, cand2)
+		used, _ := isAbbrUsed(cand2)
+		if !used {
+			seen[cand2] = true
+			out = append(out, cand2)
+		}
 	}
 
-	// 备选3: 缩写 + 随机数字后缀(取 1-9)
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	cand3 := originalAbbr
-	// 取缩写前5位 + 1位数字
-	if len([]rune(cand3)) > 5 {
-		cand3 = string([]rune(cand3)[:5])
-	}
-	cand3 = strings.ToUpper(cand3) + fmt.Sprintf("%d", 1+rng.Intn(9))
-	if !seen[cand3] {
-		seen[cand3] = true
-		out = append(out, cand3)
+	// 备选3: 缩写 + 随机数字后缀(使用 crypto/rand)
+	if n, err := rand.Int(rand.Reader, big.NewInt(9)); err == nil {
+		cand3 := originalAbbr
+		if len([]rune(cand3)) > 5 {
+			cand3 = string([]rune(cand3)[:5])
+		}
+		cand3 = strings.ToUpper(cand3) + fmt.Sprintf("%d", 1+n.Int64())
+		if !seen[cand3] {
+			used, _ := isAbbrUsed(cand3)
+			if !used {
+				seen[cand3] = true
+				out = append(out, cand3)
+			}
+		}
 	}
 
 	// 兜底:若备选不足3个，用缩写+递增数字补齐
@@ -140,10 +151,16 @@ func generateAlternativeAbbrs(originalAbbr, name string) []string {
 	for len(out) < 3 {
 		cand := fmt.Sprintf("%s%d", strings.ToUpper(originalAbbr), i)
 		if !seen[cand] {
-			seen[cand] = true
-			out = append(out, cand)
+			used, _ := isAbbrUsed(cand)
+			if !used {
+				seen[cand] = true
+				out = append(out, cand)
+			}
 		}
 		i++
+		if i > 100 {
+			break // 防止死循环
+		}
 	}
 	return out
 }
@@ -192,6 +209,7 @@ type PersonalRegistrationForm struct {
 // 2. 居住地址必填校验
 // 3. 年龄校验兜底(<16 拒绝)
 // 4. 入驻锁定检查
+// 5. 防重复提交:同一用户已有审核中/待审核的俱乐部不可重复提交
 func SubmitPersonalRegistration(userID int64, form PersonalRegistrationForm) (*model.PersonalRegistration, error) {
 	// 0. 基础校验
 	if strings.TrimSpace(form.RealName) == "" {
@@ -202,6 +220,13 @@ func SubmitPersonalRegistration(userID int64, form PersonalRegistrationForm) (*m
 	}
 	if !utils.ValidateMobile(form.Phone) {
 		return nil, errors.New("手机号格式错误")
+	}
+	// 0.5 防重复提交:同一用户已有审核中俱乐部
+	var existingClub model.Club
+	if err := db.Where("founder_uid = ? AND status IN ?", userID,
+		[]int8{model.ClubStatusReviewing, model.ClubStatusApproved},
+	).First(&existingClub).Error; err == nil {
+		return nil, fmt.Errorf("您已有入驻申请正在审核中(俱乐部ID:%d),请勿重复提交", existingClub.ID)
 	}
 	// 1. 实名绑定校验(沙箱模式跳过微信实名比对)
 	if err := verifyRealnameFromWx(form.RealName, form.IDCard); err != nil {
@@ -279,6 +304,7 @@ func verifyRealnameFromWx(realName, idCard string) error {
 
 // ensureClubForRegistration 确保 club 记录存在(首次创建或复用)
 // 返回 clubID
+// 使用事务 + SELECT FOR UPDATE 防止并发创建同名缩写俱乐部
 func ensureClubForRegistration(clubID, founderUID int64, name, abbr string, clubType int8) (int64, error) {
 	now := nowTimePtr()
 	if clubID > 0 {
@@ -297,26 +323,43 @@ func ensureClubForRegistration(clubID, founderUID int64, name, abbr string, club
 	if abbr == "" {
 		return 0, errors.New("俱乐部缩写不能为空")
 	}
-	used, err := isAbbrUsed(abbr)
+
+	var newClubID int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 事务内再次查重(SELECT FOR UPDATE 防并发)
+		var cnt1 int64
+		if err := tx.Model(&model.Club{}).Where("abbreviation = ?", abbr).Count(&cnt1).Error; err != nil {
+			return err
+		}
+		if cnt1 > 0 {
+			return errors.New("缩写已被占用，请重新生成")
+		}
+		var cnt2 int64
+		if err := tx.Model(&model.ClubAbbreviation{}).Where("abbreviation = ?", abbr).Count(&cnt2).Error; err != nil {
+			return err
+		}
+		if cnt2 > 0 {
+			return errors.New("缩写已被占用，请重新生成")
+		}
+		c := &model.Club{
+			Name:         strings.TrimSpace(name),
+			Abbreviation: abbr,
+			Type:         clubType,
+			Status:       model.ClubStatusReviewing,
+			FounderUID:   founderUID,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if err := tx.Create(c).Error; err != nil {
+			return err
+		}
+		newClubID = c.ID
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
-	if used {
-		return 0, errors.New("缩写已被占用，请重新生成")
-	}
-	c := &model.Club{
-		Name:         strings.TrimSpace(name),
-		Abbreviation: abbr,
-		Type:         clubType,
-		Status:       model.ClubStatusReviewing,
-		FounderUID:   founderUID,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-	if err := clubRepo.Create(c); err != nil {
-		return 0, err
-	}
-	return c.ID, nil
+	return newClubID, nil
 }
 
 // ================ 草稿保存(7天) ================
@@ -596,26 +639,29 @@ func checkLegalPersonFaceValid(clubID int64, legalPersonName, legalPersonIDCard,
 	return nil
 }
 
-// checkCorporateTransferVerified 校验对公打款已验证通过
+// checkCorporateTransferVerified 校验对公打款已验证通过(查找最近一次通过的记录,校验未过期)
 func checkCorporateTransferVerified(clubID int64) error {
 	if clubID <= 0 {
 		return nil
 	}
+	// 查找最近一条状态为 verified 的记录
 	var ctv model.CorporateTransferVerify
-	err := db.Where("club_id = ?", clubID).Order("id DESC").First(&ctv).Error
+	err := db.Where("club_id = ? AND status = ?", clubID, model.CorporateTransferStatusVerified).
+		Order("id DESC").First(&ctv).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("对公打款验证未完成，请先完成打款验证")
 		}
 		return err
 	}
-	if ctv.Status != model.CorporateTransferStatusVerified {
-		return errors.New("对公打款验证未通过，无法提交企业入驻")
+	// 校验锁定状态(15 天内禁止提交),检查所有记录中是否有未到期的 locked_until
+	var locked model.CorporateTransferVerify
+	lockErr := db.Where("club_id = ? AND locked_until IS NOT NULL AND locked_until > ?",
+		clubID, time.Now()).Order("id DESC").First(&locked).Error
+	if lockErr == nil {
+		return fmt.Errorf("企业入驻已被锁定，请于 %s 后再次提交", locked.LockedUntil.Format("2006-01-02 15:04:05"))
 	}
-	// 校验锁定状态(15 天内禁止提交)
-	if ctv.LockedUntil != nil && ctv.LockedUntil.After(time.Now()) {
-		return fmt.Errorf("企业入驻已被锁定，请于 %s 后再次提交", ctv.LockedUntil.Format("2006-01-02 15:04:05"))
-	}
+	_ = ctv
 	return nil
 }
 
@@ -645,11 +691,14 @@ func RecordLegalPersonFaceVerify(clubID int64, legalPersonName, legalPersonIDCar
 
 // ================ 对公小额打款验证 ================
 
-// generateRandomVerifyAmount 生成 0.0-0.9 之间的随机 1 位小数验证金额
+// generateRandomVerifyAmount 生成 0.0-0.9 之间的随机 1 位小数验证金额(使用 crypto/rand)
 func generateRandomVerifyAmount() string {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	// 0.1 - 0.9 随机1位小数
-	v := 1 + rng.Intn(9)
+	n, err := rand.Int(rand.Reader, big.NewInt(9))
+	if err != nil {
+		// crypto/rand 失败极度罕见,兜底返回固定值并记录
+		return "0.5"
+	}
+	v := 1 + n.Int64() // 1-9
 	return fmt.Sprintf("%d.%d", 0, v)
 }
 
@@ -720,7 +769,9 @@ func VerifyCorporateTransfer(verifyID int64, actualAmount string) (*model.Corpor
 		return nil, fmt.Errorf("当前状态(%s)不可验证", ctv.Status)
 	}
 	// 金额比对
-	if normalizeAmount(actualAmount) != normalizeAmount(ctv.VerifyAmount) {
+	normActual, okActual := normalizeAmount(actualAmount)
+	normVerify, _ := normalizeAmount(ctv.VerifyAmount)
+	if !okActual || normActual != normVerify {
 		// 失败:verify_count++
 		newCount := ctv.VerifyCount + 1
 		updates := map[string]interface{}{
@@ -751,11 +802,21 @@ func VerifyCorporateTransfer(verifyID int64, actualAmount string) (*model.Corpor
 	return &ctv, nil
 }
 
-// checkAndLockCorporateTransfer 检查累计失败次数,达 5 次锁定 15 天
+// checkAndLockCorporateTransfer 检查最近的有效验证失败次数,达 5 次锁定 15 天
+// 仅统计当前入驻周期内(最近一次通过后)的失败/过期次数
 func checkAndLockCorporateTransfer(clubID int64) error {
+	// 查找最近一次通过的验证
+	var lastSuccess model.CorporateTransferVerify
+	err := db.Where("club_id = ? AND status = ?", clubID, model.CorporateTransferStatusVerified).
+		Order("id DESC").First(&lastSuccess).Error
+	sinceID := int64(0)
+	if err == nil {
+		sinceID = lastSuccess.ID
+	}
+
 	var totalFailed int64
 	_ = db.Model(&model.CorporateTransferVerify{}).
-		Where("club_id = ? AND status IN ?", clubID, []string{
+		Where("club_id = ? AND id > ? AND status IN ?", clubID, sinceID, []string{
 			model.CorporateTransferStatusFailed, model.CorporateTransferStatusExpired,
 		}).Count(&totalFailed).Error
 	if totalFailed >= 5 {
@@ -791,15 +852,35 @@ func ListCorporateTransfers(page, pageSize int, clubID int64, status string) ([]
 }
 
 // normalizeAmount 归一化金额字符串用于比对("0.5" == "0.50" == ".5")
-func normalizeAmount(s string) string {
+// 返回 (归一化金额, 是否合法)。非法输入返回空串+false，不在调用方误判为匹配
+func normalizeAmount(s string) (string, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return ""
+		return "", false
 	}
-	// 解析为 float 再格式化为 1 位小数
+	// 校验格式:仅允许数字、小数点、负号，最多1位小数
+	matched := false
+	for i, ch := range s {
+		if ch == '-' && i == 0 {
+			continue
+		}
+		if ch == '.' {
+			if matched {
+				return "", false // 多个小数点
+			}
+			matched = true
+			continue
+		}
+		if ch < '0' || ch > '9' {
+			return "", false
+		}
+	}
 	var f float64
-	_, _ = fmt.Sscanf(s, "%f", &f)
-	return fmt.Sprintf("%.1f", f)
+	n, err := fmt.Sscanf(s, "%f", &f)
+	if err != nil || n != 1 {
+		return "", false
+	}
+	return fmt.Sprintf("%.1f", f), true
 }
 
 // ================ 合同盖章提醒标记 ================

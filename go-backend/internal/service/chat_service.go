@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jisan/e-sports-platform/internal/model"
@@ -258,12 +259,13 @@ func RequestIntervention(sessionID, userID int64, reason string) error {
 
 // scanMessageRisk 消息风险扫描(敏感词 + 售后关键词)
 // 返回风险等级 0无 1低 2中 3高
+// 使用缓存避免每次发送消息全表扫描关键词
 func scanMessageRisk(content string) int8 {
 	if content == "" {
 		return 0
 	}
-	// 加载关键词(简化:每条消息实时查表，实际应缓存)
-	keywords, _ := chatRepo.ListKeywords()
+	// 从缓存加载关键词(每 5 分钟刷新一次)
+	keywords := loadCachedKeywords()
 	risk := int8(0)
 	for _, kw := range keywords {
 		if kw.MatchType == model.KeywordMatchExact {
@@ -279,9 +281,8 @@ func scanMessageRisk(content string) int8 {
 			}
 		}
 	}
-	// 敏感词扫描
-	var sws []model.SensitiveWord
-	_ = db.Where("enabled = 1").Find(&sws).Error
+	// 敏感词扫描(同样走缓存)
+	sws := loadCachedSensitiveWords()
 	for _, sw := range sws {
 		if strings.Contains(content, sw.Word) {
 			if risk < 3 {
@@ -291,6 +292,48 @@ func scanMessageRisk(content string) int8 {
 		}
 	}
 	return risk
+}
+
+// 关键词缓存(避免每次消息全表扫描)
+var (
+	cachedKeywords           []model.AfterSaleKeyword
+	cachedSensitiveWords     []model.SensitiveWord
+	cachedKeywordsExpireAt   time.Time
+	cachedSensitiveExpireAt  time.Time
+	keywordsCacheMu          sync.Mutex
+)
+
+const cacheRefreshInterval = 5 * time.Minute
+
+// loadCachedKeywords 加载缓存的聊天关键词
+func loadCachedKeywords() []model.AfterSaleKeyword {
+	keywordsCacheMu.Lock()
+	defer keywordsCacheMu.Unlock()
+	if time.Now().Before(cachedKeywordsExpireAt) && cachedKeywords != nil {
+		return cachedKeywords
+	}
+	ks, _ := chatRepo.ListKeywords()
+	if ks != nil {
+		cachedKeywords = ks
+		cachedKeywordsExpireAt = time.Now().Add(cacheRefreshInterval)
+	}
+	return cachedKeywords
+}
+
+// loadCachedSensitiveWords 加载缓存的敏感词
+func loadCachedSensitiveWords() []model.SensitiveWord {
+	keywordsCacheMu.Lock()
+	defer keywordsCacheMu.Unlock()
+	if time.Now().Before(cachedSensitiveExpireAt) && cachedSensitiveWords != nil {
+		return cachedSensitiveWords
+	}
+	var sws []model.SensitiveWord
+	_ = db.Where("enabled = 1").Find(&sws).Error
+	if sws != nil {
+		cachedSensitiveWords = sws
+		cachedSensitiveExpireAt = time.Now().Add(cacheRefreshInterval)
+	}
+	return cachedSensitiveWords
 }
 
 // AdminGetChatAuditList 聊天审计列表(按会话维度)

@@ -138,7 +138,6 @@
 </template>
 
 <script>
-import request from '@/utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 export default {
@@ -190,8 +189,11 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/club/list', this.buildParams())
-        this.tableData = res.data?.list || []
+        const res = await this.$api.getClubList(this.buildParams())
+        this.tableData = (res.data?.list || []).map(row => ({
+          ...row,
+          deposit_amount: row.deposit_amount ? (row.deposit_amount / 100).toFixed(2) : '0.00'
+        }))
         this.total = res.data?.total || 0
       } catch (e) { ElMessage.error('加载失败') }
       finally { this.loading = false }
@@ -200,7 +202,7 @@ export default {
     async handleFreeze(row) {
       try {
         const { value: reason } = await ElMessageBox.prompt('请输入冻结原因', '冻结俱乐部', { type: 'warning' })
-        await request.put('/club/freeze', { id: row.id, reason })
+        await this.$api.freezeClub({ id: row.id, reason })
         ElMessage.success('已冻结')
         this.fetchList()
       } catch (e) { /* cancel */ }
@@ -208,7 +210,7 @@ export default {
     async handleUnfreeze(row) {
       try {
         await ElMessageBox.confirm(`确定解冻俱乐部"${row.club_name}"吗？`, '确认解冻', { type: 'success' })
-        await request.put('/club/unfreeze', { id: row.id })
+        await this.$api.unfreezeClub({ id: row.id })
         ElMessage.success('已解冻')
         this.fetchList()
       } catch (e) { /* cancel */ }
@@ -220,7 +222,7 @@ export default {
         : `注销后俱乐部永久关闭，缩写永久封存不可复用，此操作不可撤销！`
       try {
         const { value: reason } = await ElMessageBox.prompt(msg, `确认${label}`, { type: 'error', inputPlaceholder: '请输入原因' })
-        await request.put('/club/cancel', { id: row.id, action, reason })
+        await this.$api.cancelClub({ id: row.id, action, reason })
         ElMessage.success(`已${label}`)
         this.fetchList()
       } catch (e) { /* cancel */ }
@@ -232,7 +234,7 @@ export default {
           '隐藏V标确认',
           { type: 'warning', confirmButtonText: '确认隐藏' }
         )
-        await request.post(`/club/${row.id}/hide-vbadge`, {})
+        await this.$api.hideClubVBadge(row.id)
         ElMessage.success('V标已隐藏')
         this.fetchList()
       } catch (e) { /* cancel */ }
@@ -244,7 +246,7 @@ export default {
           '恢复V标确认',
           { type: 'success', confirmButtonText: '确认恢复' }
         )
-        await request.post(`/club/${row.id}/restore-vbadge`, {})
+        await this.$api.restoreClubVBadge(row.id)
         ElMessage.success('V标已恢复')
         this.fetchList()
       } catch (e) { /* cancel */ }
