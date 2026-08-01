@@ -390,7 +390,7 @@ export default {
           level: this.ruleSearchForm.level || undefined,
           status: this.ruleSearchForm.status !== '' ? this.ruleSearchForm.status : undefined
         }
-        const res = await request.get('/admin/chat/anti_fraud_rules', { params })
+        const res = await request.get('/chat/anti_fraud_rules', { params })
         this.ruleList = res.data?.list || []
         this.rulePagination.total = res.data?.total || 0
       } catch (err) {
@@ -433,7 +433,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete('/admin/chat/anti_fraud_rule', { data: { id: row.id } })
+        await request.delete('/chat/anti_fraud_rule', { data: { id: row.id } })
         ElMessage.success('删除成功')
         this.fetchRules()
       } catch (err) {
@@ -451,10 +451,10 @@ export default {
       try {
         this.ruleSubmitting = true
         if (this.ruleDialogMode === 'add') {
-          await request.post('/admin/chat/anti_fraud_rule', this.ruleForm)
+          await request.post('/chat/anti_fraud_rule', this.ruleForm)
           ElMessage.success('创建成功')
         } else {
-          await request.put('/admin/chat/anti_fraud_rule', this.ruleForm)
+          await request.put('/chat/anti_fraud_rule', this.ruleForm)
           ElMessage.success('更新成功')
         }
         this.ruleDialogVisible = false
@@ -478,7 +478,7 @@ export default {
           start_date: this.logSearchForm.dateRange?.[0] || undefined,
           end_date: this.logSearchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/chat/anti_fraud_logs', { params })
+        const res = await request.get('/chat/anti_fraud_logs', { params })
         this.logList = res.data?.list || []
         this.logPagination.total = res.data?.total || 0
       } catch (err) {
@@ -508,7 +508,7 @@ export default {
     async handleProcessSubmit() {
       try {
         this.processSubmitting = true
-        await request.put('/admin/chat/anti_fraud_log_handle', {
+        await request.put('/chat/anti_fraud_log_handle', {
           id: this.currentLog.id,
           handle_result: this.processForm.handle_result
         })

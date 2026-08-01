@@ -121,7 +121,7 @@ const fetchList = async () => {
     if (!params.club_id) delete params.club_id
     if (params.status === '') delete params.status
     if (!params.keyword) delete params.keyword
-    const res = await request.get('/admin/club/internal-order/list', params)
+    const res = await request.get('/club/internal-order/list', params)
     tableData.value = res.list || []
     total.value = res.total || 0
   } catch (e) {
@@ -138,7 +138,7 @@ const handlePageChange = (p) => {
 
 const handleDetail = async (row) => {
   try {
-    const res = await request.get('/admin/club/internal-order/detail', { id: row.id })
+    const res = await request.get('/club/internal-order/detail', { id: row.id })
     detailData.value = res
     detailVisible.value = true
   } catch (e) {

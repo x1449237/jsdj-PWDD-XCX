@@ -77,7 +77,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/v1/admin/club/transfer_list', { page: this.page, limit: this.limit, ...this.searchForm })
+        const res = await request.get('/club/transfer_list', { page: this.page, limit: this.limit, ...this.searchForm })
         this.tableData = res.data?.list || []
         this.total = res.data?.total || 0
       } catch (e) { ElMessage.error('加载失败') }
@@ -91,10 +91,10 @@ export default {
       try {
         if (action === 'fail') {
           const { value: reason } = await ElMessageBox.prompt('请输入驳回原因', '驳回验证', { type: 'warning' })
-          await request.put('/v1/admin/club/verify_transfer', { id: row.id, action, reason })
+          await request.put('/club/verify_transfer', { id: row.id, action, reason })
         } else {
           await ElMessageBox.confirm(`确认对公打款验证通过？俱乐部"${row.club_name}"验证金额${row.verification_amount}元。`, '确认通过', { type: 'success' })
-          await request.put('/v1/admin/club/verify_transfer', { id: row.id, action })
+          await request.put('/club/verify_transfer', { id: row.id, action })
         }
         ElMessage.success(`已${label}`)
         this.fetchList()

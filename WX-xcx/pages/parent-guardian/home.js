@@ -25,7 +25,7 @@ Page({
   async loadBindList() {
     this.setData({ loading: true });
     try {
-      const res = await request.get('/api/v1/parent_guardian/bind_list');
+      const res = await request.get('/guardian/bind_list');
       const list = res.data || [];
       this.setData({ bindList: list });
 
@@ -44,8 +44,8 @@ Page({
   async loadChildInfo(bindId) {
     try {
       const [childRes, settingRes] = await Promise.all([
-        request.get('/api/v1/parent_guardian/child_info', { bind_id: bindId }),
-        request.get('/api/v1/parent_guardian/setting', { bind_id: bindId })
+        request.get('/guardian/child_info', { bind_id: bindId }),
+        request.get('/guardian/setting', { bind_id: bindId })
       ]);
 
       this.setData({
@@ -110,16 +110,16 @@ Page({
       let url = '';
       let data = {};
       if (key === 'monthly_limit') {
-        url = '/api/v1/parent_guardian/monthly_limit';
+        url = '/guardian/monthly_limit';
         data = { bind_id: selectedBindId, monthly_limit: value };
       } else if (key === 'allow_order') {
-        url = '/api/v1/parent_guardian/toggle_order';
+        url = '/guardian/toggle_order';
         data = { bind_id: selectedBindId, allow: value };
       } else if (key === 'allow_reward') {
-        url = '/api/v1/parent_guardian/toggle_reward';
+        url = '/guardian/toggle_reward';
         data = { bind_id: selectedBindId, allow: value };
       } else if (key === 'is_frozen') {
-        url = '/api/v1/parent_guardian/toggle_freeze';
+        url = '/guardian/toggle_freeze';
         data = { bind_id: selectedBindId, is_frozen: value };
       }
 
@@ -182,7 +182,7 @@ Page({
 
   async doUnbind(bindId) {
     try {
-      await request.post('/api/v1/parent_guardian/unbind', { bind_id: bindId });
+      await request.post('/guardian/unbind', { bind_id: bindId });
       wx.showToast({ title: '解绑成功', icon: 'success' });
       setTimeout(() => {
         this.loadBindList();

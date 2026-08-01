@@ -41,7 +41,7 @@ Page({
   },
 
   loadShopInfo() {
-    request.get('/api/v1/shop-admin/shop-info').then((res) => {
+    request.get('/shop-admin/shop-info').then((res) => {
       const shopInfo = {
         logo: res.logo || '',
         banner: res.banner || '',
@@ -90,7 +90,7 @@ Page({
     wx.showLoading({ title: '上传中...' });
 
     wx.uploadFile({
-      url: 'https://api.example.com/api/v1/upload/image',
+      url: request.baseURL + '/upload/image',
       filePath: filePath,
       name: 'file',
       header: {
@@ -100,14 +100,14 @@ Page({
         wx.hideLoading();
         try {
           const data = JSON.parse(res.data);
-          if (data.code === 0) {
+          if (data.code === 200) {
             const key = type === 'logo' ? 'logo' : 'banner';
             this.setData({
               ['shopInfo.' + key]: data.data.url
             });
             wx.showToast({ title: '上传成功', icon: 'success' });
           } else {
-            wx.showToast({ title: '上传失败', icon: 'none' });
+            wx.showToast({ title: data.msg || '上传失败', icon: 'none' });
           }
         } catch (e) {
           wx.showToast({ title: '上传失败', icon: 'none' });
@@ -147,7 +147,7 @@ Page({
 
     this.setData({ saving: true });
 
-    request.post('/api/v1/shop-admin/shop-info', {
+    request.post('/shop-admin/shop-info', {
       shop_name: shopInfo.shopName.trim(),
       logo: shopInfo.logo,
       banner: shopInfo.banner,

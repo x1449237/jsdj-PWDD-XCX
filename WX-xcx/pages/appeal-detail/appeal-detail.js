@@ -37,7 +37,7 @@ Page({
       3: '#e94560'
     };
 
-    request.get(`/api/v1/appeals/${this.data.appealId}`).then((res) => {
+    request.get(`/appeals/${this.data.appealId}`).then((res) => {
       this.setData({
         appeal: {
           ...res,
@@ -68,7 +68,7 @@ Page({
   },
 
   loadMessages() {
-    request.get(`/api/v1/appeals/${this.data.appealId}/messages`).then((res) => {
+    request.get(`/appeals/${this.data.appealId}/messages`).then((res) => {
       const list = (res.list || []).map((item) => ({
         ...item,
         create_time: util.formatRelativeTime(item.create_time)
@@ -98,7 +98,7 @@ Page({
 
     this.setData({ replying: true });
 
-    request.post(`/api/v1/appeals/${this.data.appealId}/messages`, {
+    request.post(`/appeals/${this.data.appealId}/messages`, {
       content: text
     }).then((res) => {
       const messages = this.data.messages.concat([{

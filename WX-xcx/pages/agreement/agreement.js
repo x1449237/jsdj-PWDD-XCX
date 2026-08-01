@@ -21,7 +21,7 @@ Page({
   async fetchDocuments() {
     this.setData({ loading: true });
     try {
-      const res = await request.get('/api/v1/config/documents');
+      const res = await request.get('/config/documents');
       const allDocs = res.data || [];
 
       this.setData({

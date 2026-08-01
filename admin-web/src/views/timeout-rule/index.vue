@@ -199,7 +199,7 @@ export default {
     async fetchPresetRules() {
       this.presetLoading = true
       try {
-        const res = await request.get('/admin/timeout-rules/preset')
+        const res = await request.get('/timeout-rules/preset')
         this.presetRules = (res.data?.list || []).map(item => ({ ...item, switching: false }))
       } catch (err) {
         console.error('获取预置规则失败:', err)
@@ -210,7 +210,7 @@ export default {
     async fetchCustomRules() {
       this.customLoading = true
       try {
-        const res = await request.get('/admin/timeout-rules/custom')
+        const res = await request.get('/timeout-rules/custom')
         this.customRules = (res.data?.list || []).map(item => ({ ...item, switching: false }))
       } catch (err) {
         console.error('获取自定义规则失败:', err)
@@ -221,7 +221,7 @@ export default {
     async handleTogglePreset(row) {
       row.switching = true
       try {
-        await request.put(`/admin/timeout-rules/preset/${row.id}/toggle`, { enabled: row.enabled })
+        await request.put(`/timeout-rules/preset/${row.id}/toggle`, { enabled: row.enabled })
         ElMessage.success(row.enabled ? '已启用' : '已禁用')
       } catch (err) {
         row.enabled = !row.enabled
@@ -248,7 +248,7 @@ export default {
     async handleToggleCustom(row) {
       row.switching = true
       try {
-        await request.put(`/admin/timeout-rules/custom/${row.id}/toggle`, { enabled: row.enabled })
+        await request.put(`/timeout-rules/custom/${row.id}/toggle`, { enabled: row.enabled })
         ElMessage.success(row.enabled ? '已启用' : '已禁用')
       } catch (err) {
         row.enabled = !row.enabled
@@ -294,7 +294,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete(`/admin/timeout-rules/custom/${row.id}`)
+        await request.delete(`/timeout-rules/custom/${row.id}`)
         ElMessage.success('删除成功')
         this.fetchCustomRules()
       } catch (err) {
@@ -310,12 +310,12 @@ export default {
       try {
         if (this.isEdit) {
           const url = this.isPreset
-            ? `/admin/timeout-rules/preset/${this.editId}`
-            : `/admin/timeout-rules/custom/${this.editId}`
+            ? `/timeout-rules/preset/${this.editId}`
+            : `/timeout-rules/custom/${this.editId}`
           await request.put(url, this.ruleForm)
           ElMessage.success('编辑成功')
         } else {
-          await request.post('/admin/timeout-rules/custom', this.ruleForm)
+          await request.post('/timeout-rules/custom', this.ruleForm)
           ElMessage.success('新增成功')
         }
         this.dialogVisible = false

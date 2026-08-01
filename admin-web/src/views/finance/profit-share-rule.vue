@@ -189,7 +189,8 @@ export default {
         status: 1
       },
       rules: {
-        name: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
+        name: [{ required: true, message: '请输入规则名称', trigger: 'blur' }]
+      },
       submitLoading: false
     }
   },
@@ -215,7 +216,7 @@ export default {
           type: this.searchForm.type || undefined,
           status: this.searchForm.status !== '' ? this.searchForm.status : undefined
         }
-        const res = await request.get('/admin/profit_share/rule_list', { params })
+        const res = await request.get('/profit_share/rule_list', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -293,10 +294,10 @@ export default {
 
         if (this.isEdit) {
           data.id = this.form.id
-          await request.put('/admin/profit_share/rule_update', data)
+          await request.put('/profit_share/rule_update', data)
           ElMessage.success('更新成功')
         } else {
-          await request.post('/admin/profit_share/rule_create', data)
+          await request.post('/profit_share/rule_create', data)
           ElMessage.success('创建成功')
         }
         this.dialogVisible = false
@@ -309,7 +310,7 @@ export default {
     },
     async handleToggle(row, val) {
       try {
-        await request.put('/admin/profit_share/rule_toggle', { id: row.id })
+        await request.put('/profit_share/rule_toggle', { id: row.id })
         ElMessage.success('操作成功')
       } catch (err) {
           row.status = row.status === 1 ? 0 : 1
@@ -323,7 +324,7 @@ export default {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
       ).then(async () => {
         try {
-          await request.delete(`/admin/profit_share/rule_delete?id=${row.id}`)
+          await request.delete(`/profit_share/rule_delete?id=${row.id}`)
           ElMessage.success('删除成功')
           this.fetchList()
         } catch (err) {

@@ -106,7 +106,7 @@ Page({
       2: '#07c160'
     };
 
-    request.get('/api/v1/shop-admin/risk-users', params).then((res) => {
+    request.get('/shop-admin/risk-users', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         risk_level_text: levelTextMap[item.risk_level] || '未知',

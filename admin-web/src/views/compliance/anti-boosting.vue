@@ -224,7 +224,7 @@ export default {
         status: 1
       },
       ruleRules: {
-        keyword: [{ required: true, message: '请输入关键词', trigger: 'blur' },
+        keyword: [{ required: true, message: '请输入关键词', trigger: 'blur' }],
         level: [{ required: true, message: '请选择级别', trigger: 'change' }]
       }
     }
@@ -235,7 +235,7 @@ export default {
   methods: {
     loadRules() {
       this.rulesLoading = true
-      request.get('/api/v1/admin/compliance/anti_boosting_rule_list', {
+      request.get('/compliance/anti_boosting_rule_list', {
         params: {
           level: this.searchForm.level,
           page: this.rulesPagination.page,
@@ -274,7 +274,7 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        request.delete('/api/v1/admin/compliance/anti_boosting_rule_delete', {
+        request.delete('/compliance/anti_boosting_rule_delete', {
           data: { id: row.id }
         }).then(() => {
           ElMessage.success('删除成功')
@@ -287,8 +287,8 @@ export default {
         if (!valid) return
         this.ruleSubmitting = true
         const requestFn = this.isEditRule
-          ? request.put('/api/v1/admin/compliance/anti_boosting_rule_update', this.ruleForm)
-          : request.post('/api/v1/admin/compliance/anti_boosting_rule_create', this.ruleForm)
+          ? request.put('/compliance/anti_boosting_rule_update', this.ruleForm)
+          : request.post('/compliance/anti_boosting_rule_create', this.ruleForm)
         requestFn.then(() => {
           ElMessage.success(this.isEditRule ? '更新成功' : '创建成功')
           this.ruleDialogVisible = false
@@ -304,14 +304,14 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        request.post('/api/v1/admin/compliance/expand_sensitive_words').then(() => {
+        request.post('/compliance/expand_sensitive_words').then(() => {
           ElMessage.success('扩充成功')
         })
       }).catch(() => {})
     },
     loadLogs() {
       this.logsLoading = true
-      request.get('/api/v1/admin/compliance/anti_boosting_log_list', {
+      request.get('/compliance/anti_boosting_log_list', {
         params: {
           source: this.logSearchForm.source,
           level: this.logSearchForm.level,
@@ -336,7 +336,7 @@ export default {
       this.loadLogs()
     },
     handleLog(row) {
-      request.post('/api/v1/admin/compliance/anti_boosting_log_handle', {
+      request.post('/compliance/anti_boosting_log_handle', {
         id: row.id
       }).then(() => {
         ElMessage.success('已标记处理')

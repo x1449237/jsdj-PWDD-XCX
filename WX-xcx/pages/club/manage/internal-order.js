@@ -41,7 +41,7 @@ Page({
 
     try {
       const page = refresh ? 1 : this.data.page;
-      const res = await request.get('/api/v1/club/internal-order/list', {
+      const res = await request.get('/club/internal-order/list', {
         club_id: this.data.clubId,
         page,
         limit: this.data.limit,
@@ -80,7 +80,7 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            await request.post('/api/v1/club/internal-order/accept', { id });
+            await request.post('/club/internal-order/accept', { id });
             wx.showToast({ title: '接单成功', icon: 'success' });
             this.loadList(true);
           } catch (e) {

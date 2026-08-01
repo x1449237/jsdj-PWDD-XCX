@@ -23,7 +23,7 @@ Page({
   },
 
   checkUserAge() {
-    request.get('/api/v1/user/profile').then((res) => {
+    request.get('/user/profile').then((res) => {
       if (res.is_minor) {
         this.setData({ isMinor: true });
       }
@@ -31,9 +31,7 @@ Page({
   },
 
   loadPlayerInfo() {
-    request.get('/api/v1/order/reward-info', {
-      order_id: this.data.orderId
-    }).then((res) => {
+    request.get(`/orders/${this.data.orderId}/reward/info`).then((res) => {
       this.setData({
         playerInfo: {
           avatar: res.player_avatar || '',
@@ -109,8 +107,7 @@ Page({
 
     this.setData({ paying: true });
 
-    request.post('/api/v1/order/reward', {
-      order_id: orderId,
+    request.post(`/orders/${orderId}/reward`, {
       amount: util.yuanToFen(amount),
       message: message.trim()
     }).then((res) => {

@@ -45,7 +45,7 @@ Page({
 
     try {
       const page = refresh ? 1 : this.data.page;
-      const res = await request.get('/api/v1/club/dynamic/list', {
+      const res = await request.get('/club/dynamic/list', {
         club_id: this.data.clubId,
         page,
         limit: this.data.limit,

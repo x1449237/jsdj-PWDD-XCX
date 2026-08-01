@@ -127,7 +127,7 @@ const fetchList = async () => {
       limit: limit.value,
     }
     if (searchForm.club_type) params.club_type = searchForm.club_type
-    const res = await request.get('/admin/club/deposit-tier/list', params)
+    const res = await request.get('/club/deposit-tier/list', params)
     tableData.value = res.list || []
     total.value = res.total || 0
   } catch (e) {
@@ -177,10 +177,10 @@ const handleSubmit = async () => {
   }
   try {
     if (isEdit.value) {
-      await request.post('/admin/club/deposit-tier/update', formData)
+      await request.post('/club/deposit-tier/update', formData)
       ElMessage.success('更新成功')
     } else {
-      await request.post('/admin/club/deposit-tier/create', formData)
+      await request.post('/club/deposit-tier/create', formData)
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
@@ -195,7 +195,7 @@ const handleDelete = (row) => {
     type: 'warning',
   }).then(async () => {
     try {
-      await request.post('/admin/club/deposit-tier/delete', { id: row.id })
+      await request.post('/club/deposit-tier/delete', { id: row.id })
       ElMessage.success('删除成功')
       fetchList()
     } catch (e) {

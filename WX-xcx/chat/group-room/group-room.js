@@ -124,7 +124,7 @@ Page({
   },
 
   loadGroupInfo() {
-    request.get('/api/v1/group/detail', {
+    request.get('/groups/detail', {
       group_id: this.data.groupId
     }).then((res) => {
       const typeMap = { chat: '闲聊群', welfare: '福利群', after_sale: '售后群' };
@@ -141,7 +141,7 @@ Page({
   },
 
   loadMessages() {
-    request.get('/api/v1/group/messages', {
+    request.get('/groups/messages', {
       group_id: this.data.groupId,
       page: this.data.page,
       page_size: this.data.pageSize
@@ -253,7 +253,7 @@ Page({
     });
     this.scrollToBottom();
 
-    request.post('/api/v1/group/send_text', {
+    request.post('/groups/send-text', {
       group_id: this.data.groupId,
       content: text
     }).then((res) => {
@@ -325,39 +325,16 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/group/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/group/send_image', {
-              group_id: this.data.groupId,
-              image_url: data.data.url
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/groups/upload', filePath).then((data) => {
+      return request.post('/groups/send-image', {
+        group_id: this.data.groupId,
+        image_url: data.url
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -412,39 +389,17 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/group/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/group/send_voice', {
-              group_id: this.data.groupId,
-              voice_url: data.data.url,
-              duration: Math.round(duration / 1000)
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/groups/upload', filePath).then((data) => {
+      return request.post('/groups/send-voice', {
+        group_id: this.data.groupId,
+        voice_url: data.url,
+        duration: Math.round(duration / 1000)
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -518,10 +473,10 @@ Page({
       content: '撤回后其他成员将无法看到此消息',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/group/recall', {
-            msg_id: msg.msg_id,
-            group_id: this.data.groupId
-          }).then(() => {
+          request.post('/groups/recall', {
+      msg_id: msg.msg_id,
+      group_id: this.data.groupId
+    }).then(() => {
             this.setMessageRecalled(msg.msg_id);
           }).catch(() => {
             wx.showToast({ title: '撤回失败', icon: 'none' });
@@ -576,7 +531,7 @@ Page({
       content: '确定要禁言「' + member.nickname + '」吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/group/mute', {
+          request.post('/groups/mute', {
             group_id: this.data.groupId,
             user_id: member.user_id
           }).then(() => {
@@ -594,7 +549,7 @@ Page({
       content: '确定要将「' + member.nickname + '」移出群聊吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/group/kick', {
+          request.post('/groups/kick', {
             group_id: this.data.groupId,
             user_id: member.user_id
           }).then(() => {
@@ -619,7 +574,7 @@ Page({
 
   onSaveAnnouncement() {
     const text = this.data.editAnnouncementText.trim();
-    request.post('/api/v1/group/announcement', {
+    request.post('/groups/announcement', {
       group_id: this.data.groupId,
       content: text
     }).then(() => {
@@ -701,49 +656,25 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/group/upload_file',
-      filePath: filePath,
-      name: 'file',
-      formData: {
+    request.upload('/groups/upload-file', filePath, {
+      group_id: this.data.groupId,
+      file_name: fileName
+    }).then((data) => {
+      return request.post('/groups/send-file', {
         group_id: this.data.groupId,
-        file_name: fileName
-      },
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/group/send_file', {
-              group_id: this.data.groupId,
-              file_url: data.data.url,
-              file_name: fileName,
-              file_size: fileSize,
-              file_type: data.data.file_type || 'document'
-            }).then((res) => {
-              if (res.anti_fraud_risky) {
-                this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
-              }
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: data.msg || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
+        file_url: data.url,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: data.file_type || 'document'
+      }).then((res) => {
+        if (res.anti_fraud_risky) {
+          this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
         }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -784,7 +715,7 @@ Page({
   },
 
   loadScheduleList() {
-    request.get('/api/v1/group/announcement_schedule', {
+    request.get('/groups/announcement-schedule', {
       group_id: this.data.groupId
     }).then((res) => {
       this.setData({ scheduleList: res.list || [] });
@@ -828,7 +759,7 @@ Page({
 
     const scheduleTime = date + ' ' + time + ':00';
 
-    request.post('/api/v1/group/announcement_schedule', {
+    request.post('/groups/announcement-schedule', {
       group_id: this.data.groupId,
       title: title,
       content: content,
@@ -854,7 +785,7 @@ Page({
       content: '确定要删除这条定时公告吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/group/announcement_schedule/delete', {
+          request.post('/groups/announcement-schedule/delete', {
             id: id,
             group_id: this.data.groupId
           }).then(() => {

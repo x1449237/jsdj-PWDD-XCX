@@ -36,13 +36,13 @@ Page({
   },
 
   checkUserRole() {
-    request.get('/api/v1/user/profile').then((res) => {
+    request.get('/user/profile').then((res) => {
       this.setData({ isPlayer: res.is_player || false });
     }).catch(() => {});
   },
 
   loadServiceTimer() {
-    request.get(`/api/v1/order/${this.data.orderId}/service_timer`).then((res) => {
+    request.get(`/orders/${this.data.orderId}/service-timer`).then((res) => {
       if (res) {
         this.setData({ serviceTimer: res });
         this.updateDurationText(res.total_seconds || 0);
@@ -74,7 +74,7 @@ Page({
   },
 
   loadEvidenceList() {
-    request.get(`/api/v1/order/${this.data.orderId}/evidences`).then((res) => {
+    request.get(`/orders/${this.data.orderId}/evidences`).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         type_text: this.getEvidenceTypeText(item.type),
@@ -117,8 +117,8 @@ Page({
     
     const uploadPromises = files.map(file => {
       return new Promise((resolve, reject) => {
-        request.upload('/api/v1/order/evidence/upload', file.tempFilePath).then(res => {
-          request.post(`/api/v1/order/${this.data.orderId}/evidence`, {
+        request.upload('/orders/evidence/upload', file.tempFilePath).then(res => {
+          request.post(`/orders/${this.data.orderId}/evidence`, {
             type: type,
             file_url: res.url,
             description: ''
@@ -149,9 +149,7 @@ Page({
   },
 
   loadOrderDetail() {
-    request.get('/api/v1/order/detail', {
-      order_id: this.data.orderId
-    }).then((res) => {
+    request.get(`/orders/${this.data.orderId}`).then((res) => {
       const status = res.status;
       const orderInfo = {
         orderId: res.order_id,
@@ -236,9 +234,7 @@ Page({
   },
 
   confirmComplete() {
-    request.post('/api/v1/order/complete', {
-      order_id: this.data.orderId
-    }).then(() => {
+    request.post(`/orders/${this.data.orderId}/complete`).then(() => {
       wx.showToast({
         title: '已完成',
         icon: 'success',
@@ -265,9 +261,7 @@ Page({
   },
 
   cancelOrder() {
-    request.post('/api/v1/order/cancel', {
-      order_id: this.data.orderId
-    }).then(() => {
+    request.post(`/orders/${this.data.orderId}/cancel`).then(() => {
       wx.showToast({
         title: '已取消',
         icon: 'success',

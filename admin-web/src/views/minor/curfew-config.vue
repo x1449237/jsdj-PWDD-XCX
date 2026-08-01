@@ -178,7 +178,7 @@ export default {
     async fetchConfig() {
       this.loading = true
       try {
-        const res = await request.get('/admin/minor/curfew_config')
+        const res = await request.get('/minor/curfew_config')
         const data = res.data || {}
         this.formData = {
           curfewEnabled: data.curfew_enabled !== undefined ? Number(data.curfew_enabled) : 1,
@@ -197,7 +197,7 @@ export default {
     },
     async fetchStats() {
       try {
-        const res = await request.get('/admin/minor/curfew_stats', { params: { days: 7 } })
+        const res = await request.get('/minor/curfew_stats', { params: { days: 7 } })
         this.statsData = res.data
       } catch (err) {
         console.error('获取宵禁统计失败:', err)
@@ -211,7 +211,7 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         this.saveLoading = true
-        await request.put('/admin/minor/curfew_config', {
+        await request.put('/minor/curfew_config', {
           curfew_enabled: this.formData.curfewEnabled,
           curfew_start_hour: this.formData.curfewStartHour,
           curfew_end_hour: this.formData.curfewEndHour,

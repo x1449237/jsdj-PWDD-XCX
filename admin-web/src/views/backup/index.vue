@@ -106,7 +106,7 @@ export default {
           page: this.pagination.page,
           pageSize: this.pagination.pageSize
         }
-        const res = await request.get('/admin/backups', { params })
+        const res = await request.get('/backups', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -123,7 +123,7 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
         )
         this.createLoading = true
-        await request.post('/admin/backups')
+        await request.post('/backups')
         ElMessage.success('备份任务已创建，请稍后刷新查看')
         this.fetchList()
       } catch (err) {
@@ -146,7 +146,7 @@ export default {
             confirmButtonClass: 'el-button--danger'
           }
         )
-        await request.post(`/admin/backups/${row.id}/restore`)
+        await request.post(`/backups/${row.id}/restore`)
         ElMessage.success('数据恢复成功')
         this.fetchList()
       } catch (err) {
@@ -157,7 +157,7 @@ export default {
     },
     async handleDownload(row) {
       try {
-        const res = await request.get(`/admin/backups/${row.id}/download`, {
+        const res = await request.get(`/backups/${row.id}/download`, {
           responseType: 'blob'
         })
         const url = window.URL.createObjectURL(new Blob([res]))

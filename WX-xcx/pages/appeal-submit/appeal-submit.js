@@ -24,7 +24,7 @@ Page({
   },
 
   loadOrderList() {
-    request.get('/api/v1/orders', { page: 1, page_size: 50 }).then((res) => {
+    request.get('/orders', { page: 1, page_size: 50 }).then((res) => {
       this.setData({ orderList: res.list || [] });
     });
   },
@@ -168,7 +168,7 @@ Page({
       const videoUrl = uploadResults[0] || '';
       const imageUrls = uploadResults.slice(1);
 
-      return request.post('/api/v1/appeals', {
+      return request.post('/appeals', {
         type: this.data.appealType,
         order_id: this.data.selectedOrder ? this.data.selectedOrder.id : undefined,
         phone: this.data.phone,
@@ -193,21 +193,21 @@ Page({
   uploadFile(filePath, type) {
     return new Promise((resolve, reject) => {
       wx.uploadFile({
-        url: request.baseURL + '/api/v1/upload',
+        url: request.baseURL + '/upload',
         filePath: filePath,
         name: 'file',
         header: {
-          'Authorization': 'Bearer ' + getApp().globalData.token
+          'Authorization': 'Bearer ' + wx.getStorageSync('token')
         },
         formData: {
           type: type
         },
         success(res) {
           const data = JSON.parse(res.data);
-          if (data.code === 0) {
+          if (data.code === 200) {
             resolve(data.data.url);
           } else {
-            reject(new Error(data.message));
+            reject(new Error(data.msg));
           }
         },
         fail(err) {

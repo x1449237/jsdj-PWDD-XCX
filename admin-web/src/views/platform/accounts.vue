@@ -130,7 +130,7 @@ export default {
           page: this.pagination.page,
           pageSize: this.pagination.pageSize
         }
-        const res = await request.get('/v1/admin/platform/accounts', { params })
+        const res = await request.get('/platform/accounts', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -166,10 +166,10 @@ export default {
       this.submitLoading = true
       try {
         if (this.isEdit) {
-          await request.put(`/v1/admin/platform/accounts/${this.editId}`, this.form)
+          await request.put(`/platform/accounts/${this.editId}`, this.form)
           ElMessage.success('编辑成功')
         } else {
-          await request.post('/v1/admin/platform/accounts', this.form)
+          await request.post('/platform/accounts', this.form)
           ElMessage.success('创建成功')
         }
         this.dialogVisible = false
@@ -190,8 +190,8 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         const url = isActive
-          ? `/v1/admin/platform/accounts/${row.id}/disable`
-          : `/v1/admin/platform/accounts/${row.id}/enable`
+          ? `/platform/accounts/${row.id}/disable`
+          : `/platform/accounts/${row.id}/enable`
         await request.post(url)
         ElMessage.success(`${action}成功`)
         this.fetchList()

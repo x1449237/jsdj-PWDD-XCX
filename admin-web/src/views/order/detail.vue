@@ -15,7 +15,7 @@
         <el-button
           v-if="canRefund"
           type="danger"
-          :icon="Refund"
+          :icon="RefreshLeft"
           @click="handleRefund"
         >
           退款
@@ -266,7 +266,7 @@
 
 <script>
 import request from '@/utils/request'
-import { ArrowLeft, Switch, Refund } from '@element-plus/icons-vue'
+import { ArrowLeft, Switch, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 
 export default {
@@ -275,7 +275,7 @@ export default {
     return {
       ArrowLeft,
       Switch,
-      Refund,
+      RefreshLeft,
       loading: false,
       orderId: null,
       orderInfo: {},
@@ -342,7 +342,7 @@ export default {
     async fetchDetail() {
       this.loading = true
       try {
-        const res = await request.get(`/admin/orders/${this.orderId}`)
+        const res = await request.get(`/orders/${this.orderId}`)
         this.orderInfo = res.data || {}
       } catch (err) {
         console.error('获取订单详情失败:', err)
@@ -362,7 +362,7 @@ export default {
       if (!valid) return
       this.forceStatusLoading = true
       try {
-        await request.post(`/admin/orders/${this.orderId}/force-status`, {
+        await request.post(`/orders/${this.orderId}/force-status`, {
           targetStatus: this.forceStatusForm.targetStatus,
           reason: this.forceStatusForm.reason
         })
@@ -387,7 +387,7 @@ export default {
       if (!valid) return
       this.refundLoading = true
       try {
-        await request.post(`/admin/orders/${this.orderId}/refund`, {
+        await request.post(`/orders/${this.orderId}/refund`, {
           refundAmount: this.refundForm.refundAmount,
           reason: this.refundForm.reason
         })

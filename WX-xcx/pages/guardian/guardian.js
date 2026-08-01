@@ -81,7 +81,7 @@ Page({
       livenessFailReason: ''
     });
 
-    request.post('/api/v1/auth/guardian/liveness', {
+    request.post('/auth/guardian/liveness', {
       real_name: guardianName,
       id_card: guardianIdCard
     }).then((res) => {
@@ -192,24 +192,17 @@ Page({
   },
 
   uploadSignatureAndSubmit(filePath) {
-    wx.uploadFile({
-      url: `${getApp().globalData.baseURL}/api/v1/upload/signature`,
-      filePath: filePath,
-      name: 'signature',
-      success: (res) => {
-        const data = JSON.parse(res.data);
-        this.doSubmit(data.url || '');
-      },
-      fail: () => {
-        this.doSubmit('');
-      }
+    request.upload('/upload/signature', filePath, {}, { name: 'signature' }).then((data) => {
+      this.doSubmit(data.url || '');
+    }).catch(() => {
+      this.doSubmit('');
     });
   },
 
   doSubmit(signatureUrl) {
     const { guardianName, guardianIdCard, guardianPhone } = this.data;
 
-    request.post('/api/v1/auth/guardian/verify', {
+    request.post('/auth/guardian/verify', {
       guardian_name: guardianName,
       guardian_id_card: guardianIdCard,
       guardian_phone: guardianPhone,

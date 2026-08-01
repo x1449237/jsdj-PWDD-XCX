@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { getToken } from '@/utils/auth'
+import { getToken, getNeedInit } from '@/utils/auth'
 
 const routes = [
   {
@@ -421,11 +421,17 @@ router.beforeEach((to, from, next) => {
 
   const token = getToken()
   if (token) {
-    if (to.path === '/login') {
-      next({ path: '/dashboard' })
-    } else {
-      next()
+    // 已登录但账号尚未完成首次登录初始化，强制进入初始化页
+    if (getNeedInit() && to.path !== '/init') {
+      next({ path: '/init' })
+      return
     }
+    // 已完成初始化时，访问登录页则跳转仪表盘
+    if (to.path === '/login' && !getNeedInit()) {
+      next({ path: '/dashboard' })
+      return
+    }
+    next()
   } else {
     if (to.meta.noAuth) {
       next()

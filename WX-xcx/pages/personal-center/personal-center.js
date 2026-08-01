@@ -28,7 +28,7 @@ Page({
 
   async checkClubSwitch() {
     try {
-      const res = await request.get('/api/v1/club/check_switch');
+      const res = await request.get('/club/check_switch');
       this.setData({ clubJoinOpen: res.data?.club_join_open === true });
     } catch (e) {
       this.setData({ clubJoinOpen: false });
@@ -50,7 +50,7 @@ Page({
   },
 
   loadBalance() {
-    request.get('/api/v1/wallet/balance').then((res) => {
+    request.get('/wallet/balance').then((res) => {
       this.setData({
         balance: (res.balance / 100).toFixed(2)
       });
@@ -61,7 +61,7 @@ Page({
 
   onChooseAvatar(e) {
     const { avatarUrl } = e.detail;
-    request.put('/api/v1/user/profile', { avatar: avatarUrl }).then(() => {
+    request.put('/user/profile', { avatar: avatarUrl }).then(() => {
       app.globalData.userInfo.avatar = avatarUrl;
       auth.setStoredUserInfo(app.globalData.userInfo);
       this.setData({

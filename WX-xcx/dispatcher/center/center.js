@@ -28,7 +28,7 @@ Page({
   loadPendingOrders() {
     this.setData({ loading: true });
 
-    request.get('/api/v1/dispatcher/pending-orders').then((res) => {
+    request.get('/dispatcher/pending-orders').then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         amount: util.fenToYuan(item.amount),
@@ -47,7 +47,7 @@ Page({
   loadOnlinePlayers() {
     this.setData({ playerLoading: true });
 
-    request.get('/api/v1/dispatcher/online-players').then((res) => {
+    request.get('/dispatcher/online-players').then((res) => {
       this.setData({
         onlinePlayers: res.list || [],
         playerLoading: false
@@ -88,7 +88,7 @@ Page({
 
     this.setData({ dispatching: true });
 
-    request.post('/api/v1/dispatcher/dispatch', {
+    request.post('/dispatcher/dispatch', {
       order_id: selectedOrder.order_id,
       player_id: selectedPlayer.player_id
     }).then(() => {

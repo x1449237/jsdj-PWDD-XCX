@@ -159,7 +159,7 @@ export default {
       if (!id) return
       this.loading = true
       try {
-        const res = await request.get('/v1/admin/club/detail', { id })
+        const res = await request.get('/club/detail', { id })
         this.club = res.data
       } catch (e) {
         ElMessage.error('加载详情失败')
@@ -170,7 +170,7 @@ export default {
     async handleFreeze() {
       try {
         const { value: reason } = await ElMessageBox.prompt('请输入冻结原因', '冻结俱乐部', { type: 'warning' })
-        await request.put('/v1/admin/club/freeze', { id: this.club.id, reason })
+        await request.put('/club/freeze', { id: this.club.id, reason })
         ElMessage.success('已冻结')
         this.fetchDetail()
       } catch (e) { /* cancel */ }
@@ -178,7 +178,7 @@ export default {
     async handleUnfreeze() {
       try {
         await ElMessageBox.confirm(`确定解冻俱乐部"${this.club.club_name}"吗？`, '确认解冻', { type: 'success' })
-        await request.put('/v1/admin/club/unfreeze', { id: this.club.id })
+        await request.put('/club/unfreeze', { id: this.club.id })
         ElMessage.success('已解冻')
         this.fetchDetail()
       } catch (e) { /* cancel */ }
@@ -190,7 +190,7 @@ export default {
         : `注销后俱乐部永久关闭，缩写永久封存不可复用，此操作不可撤销！`
       try {
         const { value: reason } = await ElMessageBox.prompt(msg, `确认${label}`, { type: 'error', inputPlaceholder: '请输入原因' })
-        await request.put('/v1/admin/club/cancel', { id: this.club.id, action, reason })
+        await request.put('/club/cancel', { id: this.club.id, action, reason })
         ElMessage.success(`已${label}`)
         this.fetchDetail()
       } catch (e) { /* cancel */ }

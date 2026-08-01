@@ -28,9 +28,7 @@ Page({
   },
 
   checkCoolingPeriod() {
-    request.get('/api/v1/order/evaluate-check', {
-      order_id: this.data.orderId
-    }).then((res) => {
+    request.get(`/orders/${this.data.orderId}/evaluate/check`).then((res) => {
       if (res.cooling_remaining > 0) {
         const hours = Math.floor(res.cooling_remaining / 3600);
         const minutes = Math.floor((res.cooling_remaining % 3600) / 60);
@@ -95,8 +93,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/order/evaluate', {
-      order_id: orderId,
+    request.post(`/orders/${orderId}/evaluate`, {
       rating_attitude: starRating.attitude,
       rating_skill: starRating.skill,
       rating_communication: starRating.communication,

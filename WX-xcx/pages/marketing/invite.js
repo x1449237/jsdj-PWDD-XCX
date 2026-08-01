@@ -35,7 +35,7 @@ Page({
   },
 
   loadInviteInfo() {
-    request.get('/api/v1/invite/info').then((res) => {
+    request.get('/invite/info').then((res) => {
       this.setData({
         inviteCode: res.data?.invite_code || '',
         inviteQrCode: res.data?.qr_code || ''
@@ -44,7 +44,7 @@ Page({
   },
 
   loadInviteStats() {
-    request.get('/api/v1/invite/stats').then((res) => {
+    request.get('/invite/stats').then((res) => {
       this.setData({
         stats: res.data || {
           invite_count: 0,
@@ -53,7 +53,7 @@ Page({
       });
     }).catch(() => {});
 
-    request.get('/api/v1/invite/rewards', { limit: 10 }).then((res) => {
+    request.get('/invite/rewards', { limit: 10 }).then((res) => {
       this.setData({
         rewardList: res.data?.list || []
       });

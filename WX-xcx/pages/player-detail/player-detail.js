@@ -36,7 +36,7 @@ Page({
   },
 
   loadPlayerTags() {
-    request.get(`/api/v1/player/tags`, {
+    request.get(`/player/tags`, {
       player_id: this.data.playerId
     }).then((res) => {
       this.setData({ playerTags: res || {} });
@@ -44,7 +44,7 @@ Page({
   },
 
   checkFavoriteStatus() {
-    request.get('/api/v1/player/favorite/list').then((res) => {
+    request.get('/player/favorite/list').then((res) => {
       const list = res.list || [];
       const isFavorited = list.some(item => item.player_user_id == this.data.playerId);
       this.setData({ isFavorited });
@@ -55,7 +55,7 @@ Page({
     const { isFavorited, playerId } = this.data;
     
     if (isFavorited) {
-      request.post('/api/v1/player/favorite/cancel', {
+      request.post('/player/favorite/cancel', {
         player_user_id: playerId
       }).then(() => {
         this.setData({ isFavorited: false });
@@ -64,7 +64,7 @@ Page({
         wx.showToast({ title: '操作失败', icon: 'none' });
       });
     } else {
-      request.post('/api/v1/player/favorite/add', {
+      request.post('/player/favorite/add', {
         player_user_id: playerId
       }).then(() => {
         this.setData({ isFavorited: true });
@@ -76,7 +76,7 @@ Page({
   },
 
   loadPlayerDetail() {
-    request.get(`/api/v1/players/${this.data.playerId}`).then((res) => {
+    request.get(`/players/${this.data.playerId}`).then((res) => {
       this.setData({
         player: res
       });
@@ -108,7 +108,7 @@ Page({
   },
 
   loadReviews() {
-    request.get(`/api/v1/players/${this.data.playerId}/reviews`, {
+    request.get(`/players/${this.data.playerId}/reviews`, {
       page: 1,
       page_size: 5
     }).then((res) => {

@@ -95,7 +95,7 @@ Component({
       const app = getApp();
       const request = require('../../utils/request');
 
-      request.post('/api/v1/subscribe/report', {
+      request.post('/subscribe/report', {
         accepted: accepted,
         rejected: rejected,
         scene: this.properties.scene

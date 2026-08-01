@@ -60,7 +60,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/auth/register', {
+    auth.register({
       nickname: this.data.nickname.trim(),
       avatar: this.data.avatarUrl,
       invite_code: this.data.inviteCode.trim(),

@@ -160,7 +160,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/v1/admin/audit/club_list', {
+        const res = await request.get('/audit/club_list', {
           page: this.page,
           limit: this.limit,
           audit_status: this.searchForm.auditStatus,
@@ -177,7 +177,7 @@ export default {
     async handleApprove(row) {
       try {
         await ElMessageBox.confirm(`确定通过俱乐部"${row.club_name}"的入驻申请吗？`, '确认通过', { type: 'success' })
-        await request.put('/v1/admin/audit/approve', { id: row.id, type: 'club' })
+        await request.put('/audit/approve', { id: row.id, type: 'club' })
         ElMessage.success('已通过')
         this.fetchList()
       } catch (e) {
@@ -195,7 +195,7 @@ export default {
       }
       this.rejectLoading = true
       try {
-        await request.put('/v1/admin/audit/reject', {
+        await request.put('/audit/reject', {
           id: this.rejectForm.id,
           type: 'club',
           remark: this.rejectForm.remark
@@ -216,7 +216,7 @@ export default {
           '强制下架确认',
           { type: 'warning', confirmButtonText: '确认下架' }
         )
-        await request.put('/v1/admin/audit/force_offline', { id: row.id, type: 'club' })
+        await request.put('/audit/force_offline', { id: row.id, type: 'club' })
         ElMessage.success('已强制下架')
         this.fetchList()
       } catch (e) {

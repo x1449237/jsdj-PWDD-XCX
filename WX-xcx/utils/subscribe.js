@@ -57,7 +57,7 @@ function requestSubscribe(scenes) {
           }
         });
 
-        request.post('/api/v1/subscribe/report', {
+        request.post('/subscribe/report', {
           accepted,
           rejected,
           scenes: Array.isArray(scenes) ? scenes : [scenes]

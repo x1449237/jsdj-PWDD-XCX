@@ -327,7 +327,7 @@ export default {
         if (this.filters.club_id) {
           params.club_id = this.filters.club_id
         }
-        const res = await request.get('/v1/admin/up_master/list', { params })
+        const res = await request.get('/up_master/list', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -357,7 +357,7 @@ export default {
     },
     async loadDetail(id) {
       try {
-        const res = await request.get('/v1/admin/up_master/detail', { params: { id } })
+        const res = await request.get('/up_master/detail', { params: { id } })
         const data = res.data || {}
         this.currentDetail = {
           ...data,
@@ -390,7 +390,7 @@ export default {
       }
       this.submitLoading = true
       try {
-        await request.post('/v1/admin/up_master/approve', {
+        await request.post('/up_master/approve', {
           id: this.approveForm.id,
           verified_fan_count: this.approveForm.verified_fan_count,
           remark: this.approveForm.remark
@@ -422,7 +422,7 @@ export default {
       }
       this.submitLoading = true
       try {
-        await request.post('/v1/admin/up_master/reject', {
+        await request.post('/up_master/reject', {
           id: this.rejectForm.id,
           remark: this.rejectForm.remark
         })
@@ -442,7 +442,7 @@ export default {
           '吊销确认',
           { confirmButtonText: '确定吊销', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post('/v1/admin/up_master/revoke', { id: row.id })
+        await request.post('/up_master/revoke', { id: row.id })
         ElMessage.success('已吊销')
         this.fetchList()
       } catch (err) {

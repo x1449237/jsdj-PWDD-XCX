@@ -1,6 +1,7 @@
 const auth = require('./auth');
 
-const baseURL = 'https://api.example.com';
+// Go(Gin) 后端 API 前缀，所有业务路径均相对该前缀
+const baseURL = 'https://your-domain.com/api/v1';
 
 let requestCount = 0;
 
@@ -35,49 +36,27 @@ const request = (options) => {
       success(res) {
         const { statusCode, data } = res;
 
-        if (statusCode === 200) {
-          if (data.code === 0) {
-            resolve(data.data);
-          } else if (data.code === 401) {
-            auth.removeToken();
-            const app = getApp();
-            app.globalData.isLogin = false;
-            app.globalData.token = null;
-            wx.reLaunch({
-              url: '/pages/login/login'
-            });
-            reject(data);
-          } else {
-            wx.showToast({
-              title: data.message || '请求失败',
-              icon: 'none',
-              duration: 2000
-            });
-            reject(data);
-          }
-        } else if (statusCode === 401) {
+        // Go 后端统一响应格式: {code: 200, msg: "成功", data: {}, trace_id: "uuid"}
+        if (statusCode === 200 && data && data.code === 200) {
+          resolve(data.data);
+        } else if (statusCode === 401 || (data && data.code === 401)) {
           auth.removeToken();
           const app = getApp();
-          app.globalData.isLogin = false;
-          app.globalData.token = null;
+          if (app && app.globalData) {
+            app.globalData.isLogin = false;
+            app.globalData.token = null;
+          }
           wx.reLaunch({
             url: '/pages/login/login'
           });
-          reject({ code: 401, message: '登录已过期' });
-        } else if (statusCode === 500) {
-          wx.showToast({
-            title: '服务器繁忙，请稍后重试',
-            icon: 'none',
-            duration: 2000
-          });
-          reject({ code: 500, message: '服务器错误' });
+          reject(data || { code: 401, msg: '登录已过期' });
         } else {
           wx.showToast({
-            title: `请求失败(${statusCode})`,
+            title: (data && (data.msg || data.message)) || '请求失败',
             icon: 'none',
             duration: 2000
           });
-          reject({ code: statusCode, message: '请求失败' });
+          reject(data || { code: statusCode, msg: '请求失败' });
         }
       },
       fail(err) {
@@ -108,11 +87,72 @@ const del = (url, data = {}, options = {}) => {
   return request({ url, data, method: 'DELETE', ...options });
 };
 
+// 文件上传封装，路径相对 baseURL（不含 /api/v1 前缀），resolve(data.data)
+const upload = (url, filePath, formData = {}, options = {}) => {
+  return new Promise((resolve, reject) => {
+    const token = auth.getToken();
+    const header = {
+      'X-Trace-Id': generateTraceId(),
+      ...options.header
+    };
+    if (token) {
+      header['Authorization'] = `Bearer ${token}`;
+    }
+
+    wx.uploadFile({
+      url: `${baseURL}${url}`,
+      filePath: filePath,
+      name: options.name || 'file',
+      formData: formData,
+      header: header,
+      timeout: options.timeout || 60000,
+      success(res) {
+        try {
+          const data = JSON.parse(res.data);
+          if (data.code === 200) {
+            resolve(data.data);
+          } else if (data.code === 401) {
+            auth.removeToken();
+            const app = getApp();
+            if (app && app.globalData) {
+              app.globalData.isLogin = false;
+              app.globalData.token = null;
+            }
+            wx.reLaunch({ url: '/pages/login/login' });
+            reject(data);
+          } else {
+            wx.showToast({
+              title: data.msg || '上传失败',
+              icon: 'none',
+              duration: 2000
+            });
+            reject(data);
+          }
+        } catch (e) {
+          wx.showToast({ title: '上传失败', icon: 'none', duration: 2000 });
+          reject(e);
+        }
+      },
+      fail(err) {
+        wx.showToast({
+          title: '网络异常，请检查网络',
+          icon: 'none',
+          duration: 2000
+        });
+        reject(err);
+      }
+    });
+  });
+};
+
 module.exports = {
   request,
   get,
   post,
   put,
   del,
-  baseURL
+  upload,
+  baseURL,
+  // 兼容旧代码中 request.getBaseUrl() 的调用
+  getBaseUrl: () => baseURL
 };

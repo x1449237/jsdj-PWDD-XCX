@@ -129,7 +129,7 @@ export default {
           params.warning_level = this.filterForm.warningLevel
         }
 
-        const res = await request.get('/admin/minor/warning_log', { params })
+        const res = await request.get('/minor/warning_log', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {

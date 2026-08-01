@@ -195,7 +195,7 @@ export default {
           page: this.pagination.page,
           pageSize: this.pagination.pageSize
         }
-        const res = await request.get('/admin/gray-release', { params })
+        const res = await request.get('/gray-release', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -217,7 +217,7 @@ export default {
       if (!valid) return
       this.submitLoading = true
       try {
-        await request.post('/admin/gray-release', {
+        await request.post('/gray-release', {
           version: this.form.version,
           whiteList: this.form.whiteList.split(',').map(s => s.trim()).filter(Boolean),
           ratio: this.form.ratio
@@ -238,7 +238,7 @@ export default {
           '发布确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.put(`/admin/gray-release/${row.id}/publish`)
+        await request.put(`/gray-release/${row.id}/publish`)
         ElMessage.success('发布成功')
         this.fetchList()
       } catch (err) {
@@ -254,7 +254,7 @@ export default {
           '全量发布确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.put(`/admin/gray-release/${row.id}/full`)
+        await request.put(`/gray-release/${row.id}/full`)
         ElMessage.success('全量发布成功')
         this.fetchList()
       } catch (err) {
@@ -270,7 +270,7 @@ export default {
           '回滚确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'error' }
         )
-        await request.put(`/admin/gray-release/${row.id}/rollback`)
+        await request.put(`/gray-release/${row.id}/rollback`)
         ElMessage.success('回滚成功')
         this.fetchList()
       } catch (err) {
@@ -286,7 +286,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete(`/admin/gray-release/${row.id}`)
+        await request.delete(`/gray-release/${row.id}`)
         ElMessage.success('删除成功')
         this.fetchList()
       } catch (err) {

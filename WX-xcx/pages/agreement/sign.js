@@ -23,7 +23,7 @@ Page({
   },
 
   loadAgreement() {
-    request.get('/api/v1/compliance/agreement/latest', {
+    request.get('/compliance/agreement/latest', {
       role: this.data.role,
       agreement_type: this.data.agreementType
     }).then(res => {
@@ -60,7 +60,7 @@ Page({
     }
 
     wx.showLoading({ title: '签署中...', mask: true });
-    request.post('/api/v1/compliance/agreement/sign', {
+    request.post('/compliance/agreement/sign', {
       role: this.data.role,
       agreement_type: this.data.agreementType,
       version: this.data.agreementVersion

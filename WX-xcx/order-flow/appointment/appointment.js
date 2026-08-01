@@ -45,7 +45,7 @@ Page({
   },
 
   loadPlayerInfo() {
-    request.get('/api/v1/order/preview', {
+    request.get('/orders/preview', {
       player_id: this.data.playerId,
       service_id: this.data.serviceId
     }).then((res) => {
@@ -108,7 +108,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/order/create_appointment', {
+    request.post('/orders/appointments', {
       player_id: playerId,
       service_id: serviceId,
       appoint_time: appointTimeStr,

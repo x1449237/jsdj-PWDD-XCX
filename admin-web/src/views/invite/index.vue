@@ -193,7 +193,7 @@ export default {
       if (!valid) return
       this.generateLoading = true
       try {
-        await request.post('/admin/invite-codes/generate', {
+        await request.post('/invite-codes/generate', {
           roleType: this.generateForm.roleType,
           maxUses: this.generateForm.maxUses,
           expireTime: this.generateForm.expireTime,
@@ -215,7 +215,7 @@ export default {
           pageSize: this.pagination.pageSize,
           batchNo: this.searchForm.batchNo || undefined
         }
-        const res = await request.get('/admin/invite-codes', { params })
+        const res = await request.get('/invite-codes', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -239,7 +239,7 @@ export default {
           '作废确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.put(`/admin/invite-codes/${row.id}/invalidate`)
+        await request.put(`/invite-codes/${row.id}/invalidate`)
         ElMessage.success('作废成功')
         this.fetchList()
       } catch (err) {
@@ -250,7 +250,7 @@ export default {
     },
     async handleExport(row) {
       try {
-        const res = await request.get(`/admin/invite-codes/${row.id}/export`, {
+        const res = await request.get(`/invite-codes/${row.id}/export`, {
           responseType: 'blob'
         })
         const url = window.URL.createObjectURL(new Blob([res]))

@@ -258,7 +258,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/finance/withdraws', { params })
+        const res = await request.get('/finance/withdraws', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -287,7 +287,7 @@ export default {
           '审核通过确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
         )
-        await request.post(`/admin/finance/withdraws/${row.id}/approve`)
+        await request.post(`/finance/withdraws/${row.id}/approve`)
         ElMessage.success('审核通过')
         this.fetchList()
       } catch (err) {
@@ -306,7 +306,7 @@ export default {
       if (!valid) return
       this.rejectLoading = true
       try {
-        await request.post(`/admin/finance/withdraws/${this.currentRejectRow.id}/reject`, {
+        await request.post(`/finance/withdraws/${this.currentRejectRow.id}/reject`, {
           reason: this.rejectForm.reason
         })
         ElMessage.success('已拒绝')
@@ -331,7 +331,7 @@ export default {
       if (!valid) return
       this.bankVerifyLoading = true
       try {
-        const res = await request.post('/admin/finance/withdraws/verify-bank-card', {
+        const res = await request.post('/finance/withdraws/verify-bank-card', {
           realName: this.bankVerifyForm.realName,
           idCard: this.bankVerifyForm.idCard,
           bankCardNo: this.bankVerifyForm.bankCardNo

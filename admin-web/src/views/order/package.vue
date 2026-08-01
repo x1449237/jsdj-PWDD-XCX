@@ -144,7 +144,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search, Refresh, Plus, ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const loading = ref(false)

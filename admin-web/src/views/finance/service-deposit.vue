@@ -171,7 +171,7 @@ export default {
   methods: {
     loadData() {
       this.loading = true
-      request.get('/api/v1/admin/service_deposit/list', {
+      request.get('/service_deposit/list', {
         params: {
           status: this.searchForm.status,
           keyword: this.searchForm.keyword,
@@ -193,7 +193,7 @@ export default {
     handleViewLog(row) {
       this.logDialogVisible = true
       this.logLoading = true
-      request.get('/api/v1/admin/service_deposit/log_list', {
+      request.get('/service_deposit/log_list', {
         params: { player_user_id: row.player_user_id }
       }).then(res => {
         this.logList = res.list || []
@@ -232,11 +232,11 @@ export default {
       }
       const amountFen = Math.round(this.actionForm.amount * 100)
       const apiMap = {
-        deposit: '/api/v1/admin/service_deposit/manual_deposit',
-        deduct: '/api/v1/admin/service_deposit/manual_deduct',
-        refund: '/api/v1/admin/service_deposit/manual_refund',
-        freeze: '/api/v1/admin/service_deposit/freeze',
-        unfreeze: '/api/v1/admin/service_deposit/unfreeze'
+        deposit: '/service_deposit/manual_deposit',
+        deduct: '/service_deposit/manual_deduct',
+        refund: '/service_deposit/manual_refund',
+        freeze: '/service_deposit/freeze',
+        unfreeze: '/service_deposit/unfreeze'
       }
       this.actionLoading = true
       request.post(apiMap[this.actionType], {

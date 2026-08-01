@@ -136,9 +136,9 @@ export default {
         status: 1
       },
       rules: {
-        dispute_type: [{ required: true, message: '请选择纠纷类型', trigger: 'change' },
-        title: [{ required: true, message: '请输入模板标题', trigger: 'blur' }]
-      }
+          dispute_type: [{ required: true, message: '请选择纠纷类型', trigger: 'change' }],
+          title: [{ required: true, message: '请输入模板标题', trigger: 'blur' }]
+        }
     }
   },
   mounted() {
@@ -147,7 +147,7 @@ export default {
   methods: {
     loadData() {
       this.loading = true
-      request.get('/api/v1/admin/arbitration/evidence_tpl_list', {
+      request.get('/arbitration/evidence_tpl_list', {
         params: {
           dispute_type: this.searchForm.disputeType
         }
@@ -188,7 +188,7 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        request.delete('/api/v1/admin/arbitration/evidence_tpl_delete', {
+        request.delete('/arbitration/evidence_tpl_delete', {
           data: { id: row.id }
         }).then(() => {
           ElMessage.success('删除成功')
@@ -216,8 +216,8 @@ export default {
           required_items_json: JSON.stringify(this.form.required_items)
         }
         const requestFn = this.isEdit
-          ? request.put('/api/v1/admin/arbitration/evidence_tpl_update', data)
-          : request.post('/api/v1/admin/arbitration/evidence_tpl_create', data)
+          ? request.put('/arbitration/evidence_tpl_update', data)
+          : request.post('/arbitration/evidence_tpl_create', data)
         requestFn.then(() => {
           ElMessage.success(this.isEdit ? '更新成功' : '创建成功')
           this.dialogVisible = false

@@ -195,7 +195,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/admin/marketing/group_buy/list', {
+        const res = await request.get('/marketing/group_buy/list', {
           params: {
             page: this.pagination.page,
             limit: this.pagination.pageSize,
@@ -237,8 +237,8 @@ export default {
       this.submitLoading = true
       try {
         const url = this.form.id
-          ? '/admin/marketing/group_buy/update'
-          : '/admin/marketing/group_buy/create'
+          ? '/marketing/group_buy/update'
+          : '/marketing/group_buy/create'
         const method = this.form.id ? 'put' : 'post'
         const res = await request[method](url, this.form)
         if (res.code === 200) {
@@ -259,7 +259,7 @@ export default {
     async handleToggle(row) {
       this.$set(this.toggleLoading, row.id, true)
       try {
-        const res = await request.put('/admin/marketing/group_buy/toggle', { id: row.id })
+        const res = await request.put('/marketing/group_buy/toggle', { id: row.id })
         if (res.code === 200) {
           row.status = res.data.status
           ElMessage.success('状态更新成功')
@@ -272,12 +272,12 @@ export default {
       }
     },
     handleDelete(row) {
-      ElMessageBox.confirm(`确定删除活动「${row.name}」吗？', '删除确认', {
+      ElMessageBox.confirm(`确定删除活动「${row.name}」吗？`, '删除确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(async () => {
-        const res = await request.delete('/admin/marketing/group_buy/delete', { data: { id: row.id } })
+        const res = await request.delete('/marketing/group_buy/delete', { data: { id: row.id } })
         if (res.code === 200) {
           ElMessage.success('删除成功')
           this.fetchList()

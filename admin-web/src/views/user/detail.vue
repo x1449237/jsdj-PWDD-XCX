@@ -200,7 +200,7 @@ export default {
     async fetchDetail() {
       this.loading = true
       try {
-        const res = await request.get(`/admin/users/${this.userId}`)
+        const res = await request.get(`/users/${this.userId}`)
         const data = res.data || {}
         this.userInfo = data.userInfo || data
         this.livenessRecords = data.livenessRecords || []
@@ -222,8 +222,8 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         const url = isBan
-          ? `/admin/users/${this.userId}/ban`
-          : `/admin/users/${this.userId}/unban`
+          ? `/users/${this.userId}/ban`
+          : `/users/${this.userId}/unban`
         await request.post(url)
         ElMessage.success(`${action}成功`)
         this.fetchDetail()
@@ -240,7 +240,7 @@ export default {
           '强制解绑确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/admin/users/${this.userId}/unbind-invite`)
+        await request.post(`/users/${this.userId}/unbind-invite`)
         ElMessage.success('邀请码已解绑')
         this.fetchDetail()
       } catch (err) {

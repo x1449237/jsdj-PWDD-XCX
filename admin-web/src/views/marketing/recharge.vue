@@ -221,7 +221,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/admin/marketing/recharge/list', {
+        const res = await request.get('/marketing/recharge/list', {
           params: {
             page: this.pagination.page,
             limit: this.pagination.pageSize,
@@ -264,8 +264,8 @@ export default {
       this.submitLoading = true
       try {
         const url = this.form.id
-          ? '/admin/marketing/recharge/update'
-          : '/admin/marketing/recharge/create'
+          ? '/marketing/recharge/update'
+          : '/marketing/recharge/create'
         const method = this.form.id ? 'put' : 'post'
         const res = await request[method](url, this.form)
         if (res.code === 200) {
@@ -286,7 +286,7 @@ export default {
     async handleToggle(row) {
       this.$set(this.toggleLoading, row.id, true)
       try {
-        const res = await request.put('/admin/marketing/recharge/toggle', { id: row.id })
+        const res = await request.put('/marketing/recharge/toggle', { id: row.id })
         if (res.code === 200) {
           row.status = res.data.status
           ElMessage.success('状态更新成功')
@@ -299,12 +299,12 @@ export default {
       }
     },
     handleDelete(row) {
-      ElMessageBox.confirm(`确定删除活动「${row.name}」吗？', '删除确认', {
+      ElMessageBox.confirm(`确定删除活动「${row.name}」吗？`, '删除确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(async () => {
-        const res = await request.delete('/admin/marketing/recharge/delete', { data: { id: row.id } })
+        const res = await request.delete('/marketing/recharge/delete', { data: { id: row.id } })
         if (res.code === 200) {
           ElMessage.success('删除成功')
           this.fetchList()

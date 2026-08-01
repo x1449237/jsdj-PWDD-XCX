@@ -152,10 +152,10 @@ export default {
         status: 1
       },
       rules: {
-        rule_type: [{ required: true, message: '请选择规则类型', trigger: 'change' },
-        fault_side: [{ required: true, message: '请选择责任方', trigger: 'change' },
-        penalty_type: [{ required: true, message: '请选择处罚类型', trigger: 'change' }]
-      }
+          rule_type: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
+          fault_side: [{ required: true, message: '请选择责任方', trigger: 'change' }],
+          penalty_type: [{ required: true, message: '请选择处罚类型', trigger: 'change' }]
+        }
     }
   },
   mounted() {
@@ -164,7 +164,7 @@ export default {
   methods: {
     loadData() {
       this.loading = true
-      request.get('/api/v1/admin/arbitration/rule_list', {
+      request.get('/arbitration/rule_list', {
         params: {
           rule_type: this.searchForm.ruleType,
           fault_side: this.searchForm.faultSide
@@ -206,7 +206,7 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        request.delete('/api/v1/admin/arbitration/rule_delete', {
+        request.delete('/arbitration/rule_delete', {
           data: { id: row.id }
         }).then(() => {
           ElMessage.success('删除成功')
@@ -219,8 +219,8 @@ export default {
         if (!valid) return
         this.submitting = true
         const requestFn = this.isEdit
-          ? request.put('/api/v1/admin/arbitration/rule_update', this.form)
-          : request.post('/api/v1/admin/arbitration/rule_create', this.form)
+          ? request.put('/arbitration/rule_update', this.form)
+          : request.post('/arbitration/rule_create', this.form)
         requestFn.then(() => {
           ElMessage.success(this.isEdit ? '更新成功' : '创建成功')
           this.dialogVisible = false

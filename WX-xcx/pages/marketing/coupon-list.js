@@ -46,7 +46,7 @@ Page({
     const statusMap = ['unused', 'used', 'expired'];
     const status = statusMap[this.data.tabIndex];
 
-    request.get('/api/v1/coupon/my', {
+    request.get('/coupon/my', {
       status,
       page: this.data.page,
       limit: this.data.pageSize

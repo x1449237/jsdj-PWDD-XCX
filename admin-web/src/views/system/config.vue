@@ -250,7 +250,7 @@ export default {
     async fetchConfig() {
       this.loading = true
       try {
-        const res = await request.get('/admin/system/config')
+        const res = await request.get('/system/config')
         const data = res.data || {}
         if (data.business) {
           this.formData.business = { ...this.formData.business, ...data.business }
@@ -280,7 +280,7 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         this.saveLoading = true
-        await request.put('/admin/system/config', this.formData)
+        await request.put('/system/config', this.formData)
         ElMessage.success('配置保存成功')
       } catch (err) {
         if (err !== 'cancel') {

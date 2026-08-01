@@ -22,7 +22,7 @@ Page({
 
   async loadDetail() {
     try {
-      const res = await request.get('/api/v1/club/detail', {
+      const res = await request.get('/club/detail', {
         id: this.data.clubId
       });
       this.setData({ club: res.data, loading: false });
@@ -50,7 +50,7 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            await request.post('/api/v1/club/member/join-apply', { club_id: this.data.clubId });
+            await request.post('/club/member/join-apply', { club_id: this.data.clubId });
             wx.showToast({ title: '申请已提交', icon: 'success' });
           } catch (e) {
             wx.showToast({ title: e.message || '申请失败', icon: 'none' });
@@ -80,7 +80,7 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            await request.post('/api/v1/club/coupon/receive', { id });
+            await request.post('/club/coupon/receive', { id });
             wx.showToast({ title: '领取成功', icon: 'success' });
             this.loadDetail();
           } catch (e) {

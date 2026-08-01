@@ -52,7 +52,7 @@ Page({
       3: '#e94560'
     };
 
-    request.get('/api/v1/appeals', {
+    request.get('/appeals', {
       page: this.data.page,
       page_size: this.data.pageSize
     }).then((res) => {

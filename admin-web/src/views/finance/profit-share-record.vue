@@ -208,7 +208,7 @@ export default {
           start_date: this.searchForm.dateRange?.[0] || undefined,
           end_date: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/profit_share/record_list', { params })
+        const res = await request.get('/profit_share/record_list', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -261,7 +261,7 @@ export default {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
       ).then(async () => {
         try {
-          await request.put('/admin/profit_share/record_settle', { id: row.id })
+          await request.put('/profit_share/record_settle', { id: row.id })
           ElMessage.success('结算成功')
           this.fetchList()
         } catch (err) {
@@ -277,7 +277,7 @@ export default {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
       ).then(async () => {
         try {
-          await request.post('/admin/profit_share/record_batch_settle', {
+          await request.post('/profit_share/record_batch_settle', {
             ids: this.selectedIds.join(',')
           })
           ElMessage.success('批量结算完成')

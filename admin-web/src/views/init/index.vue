@@ -125,6 +125,7 @@
 import request from '@/utils/request'
 import { Lock, Message, Key } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
 export default {
   name: 'Init',
@@ -221,7 +222,7 @@ export default {
       if (!valid) return
       this.passwordLoading = true
       try {
-        await request.post('/admin/init/change-password', {
+        await request.post('/init/change-password', {
           newPassword: this.passwordForm.newPassword
         })
         ElMessage.success('密码修改成功')
@@ -237,7 +238,7 @@ export default {
       if (!valid) return
       this.sendLoading = true
       try {
-        await request.post('/admin/init/send-verify-code', {
+        await request.post('/init/send-verify-code', {
           email: this.emailForm.email
         })
         ElMessage.success('验证码已发送')
@@ -260,7 +261,7 @@ export default {
       if (!valid) return
       this.emailLoading = true
       try {
-        await request.post('/admin/init/verify-email', {
+        await request.post('/init/verify-email', {
           email: this.emailForm.email,
           verifyCode: this.emailForm.verifyCode
         })
@@ -272,7 +273,9 @@ export default {
         this.emailLoading = false
       }
     },
-    handleFinish() {
+    async handleFinish() {
+      const authStore = useAuthStore()
+      await authStore.finishInit()
       this.$router.push('/dashboard')
     }
   }

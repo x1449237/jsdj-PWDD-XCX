@@ -129,7 +129,7 @@ export default {
           punishmentType: this.searchForm.punishmentType || undefined,
           targetType: this.searchForm.targetType || undefined
         }
-        const res = await request.get('/v1/admin/punishment/records', { params })
+        const res = await request.get('/punishment/records', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -156,7 +156,7 @@ export default {
           '撤销确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/v1/admin/punishment/records/${row.id}/revoke`)
+        await request.post(`/punishment/records/${row.id}/revoke`)
         ElMessage.success('撤销成功')
         this.fetchList()
       } catch (err) {

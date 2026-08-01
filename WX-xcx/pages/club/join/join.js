@@ -62,7 +62,7 @@ Page({
 
   async checkSwitch() {
     try {
-      const res = await request.get('/api/v1/club/check_switch');
+      const res = await request.get('/club/check_switch');
       const isOpen = res.data?.club_join_open === true;
       if (!isOpen) {
         wx.showModal({
@@ -135,7 +135,7 @@ Page({
   async generateAbbr(name) {
     this.setData({ abbrLoading: true });
     try {
-      const res = await request.post('/api/v1/club/generate_abbr', { club_name: name });
+      const res = await request.post('/club/generate_abbr', { club_name: name });
       this.setData({
         abbreviation: res.data?.abbreviation || '',
         abbrOccupied: res.data?.occupied || false,
@@ -166,7 +166,7 @@ Page({
       success: (res) => {
         wx.showLoading({ title: '上传中...' });
         wx.uploadFile({
-          url: this.getBaseUrl() + '/api/v1/upload/image',
+          url: request.baseURL + '/upload/image',
           filePath: res.tempFilePaths[0],
           name: 'file',
           header: { 'Authorization': 'Bearer ' + wx.getStorageSync('token') },
@@ -207,7 +207,7 @@ Page({
       success: (res) => {
         wx.showLoading({ title: '上传中...' });
         wx.uploadFile({
-          url: this.getBaseUrl() + '/api/v1/upload/file',
+          url: request.baseURL + '/upload/file',
           filePath: res.tempFiles[0].path,
           name: 'file',
           header: { 'Authorization': 'Bearer ' + wx.getStorageSync('token') },
@@ -283,7 +283,7 @@ Page({
     }
 
     try {
-      await request.post('/api/v1/club/submit', postData);
+      await request.post('/club/submit', postData);
       wx.showToast({ title: '入驻申请已提交', icon: 'success' });
       setTimeout(() => wx.navigateBack(), 1500);
     } catch (e) {

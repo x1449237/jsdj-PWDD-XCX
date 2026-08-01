@@ -67,7 +67,7 @@ Page({
 
     this.setData({ submitting: true });
     try {
-      await request.post('/api/v1/club/dynamic/publish', {
+      await request.post('/club/dynamic/publish', {
         club_id: this.data.clubId,
         type: this.data.form.type,
         title: this.data.form.title,

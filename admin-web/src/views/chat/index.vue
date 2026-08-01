@@ -331,7 +331,7 @@ export default {
           startDate: this.orderSearchForm.dateRange?.[0] || undefined,
           endDate: this.orderSearchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/v1/admin/chat-audit/sessions', { params })
+        const res = await request.get('/chat-audit/sessions', { params })
         this.orderSessionList = res.data?.list || []
         this.orderPagination.total = res.data?.total || 0
       } catch (err) {
@@ -357,7 +357,7 @@ export default {
       this.orderMessageDialogVisible = true
       this.orderMessageLoading = true
       try {
-        const res = await request.get(`/v1/admin/chat-audit/sessions/${row.sessionId}/messages`)
+        const res = await request.get(`/chat-audit/sessions/${row.sessionId}/messages`)
         this.orderMessages = res.data?.list || []
       } catch (err) {
         console.error('获取消息列表失败:', err)
@@ -375,7 +375,7 @@ export default {
           groupName: this.groupSearchForm.groupName || undefined,
           groupType: this.groupSearchForm.groupType || undefined
         }
-        const res = await request.get('/v1/admin/group-monitor/groups', { params })
+        const res = await request.get('/group-monitor/groups', { params })
         this.groupList = res.data?.list || []
         this.groupPagination.total = res.data?.total || 0
       } catch (err) {
@@ -409,7 +409,7 @@ export default {
           page: this.groupMessagePagination.page,
           pageSize: this.groupMessagePagination.pageSize
         }
-        const res = await request.get(`/v1/admin/group-monitor/groups/${this.currentGroupId}/messages`, { params })
+        const res = await request.get(`/group-monitor/groups/${this.currentGroupId}/messages`, { params })
         this.groupMessages = res.data?.list || []
         this.groupMessagePagination.total = res.data?.total || 0
       } catch (err) {

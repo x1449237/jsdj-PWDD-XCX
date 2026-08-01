@@ -72,7 +72,7 @@ Page({
   },
 
   loadConversationInfo() {
-    request.get('/api/v1/chat/conversation/detail', {
+    request.get('/chat/conversation/detail', {
       conversation_id: this.data.conversationId
     }).then((res) => {
       this.setData({
@@ -155,13 +155,13 @@ Page({
   },
 
   markAsRead() {
-    request.post('/api/v1/chat/read', {
+    request.post('/chat/read', {
       conversation_id: this.data.conversationId
     }).catch(() => {});
   },
 
   loadMessages() {
-    request.get('/api/v1/chat/messages', {
+    request.get('/chat/messages', {
       conversation_id: this.data.conversationId,
       page: this.data.page,
       page_size: this.data.pageSize
@@ -255,7 +255,7 @@ Page({
     });
     this.scrollToBottom();
 
-    request.post('/api/v1/chat/send', {
+    request.post('/chat/send', {
       conversation_id: this.data.conversationId,
       type: 'text',
       content: text
@@ -327,39 +327,17 @@ Page({
     });
     this.scrollToBottom();
 
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/chat/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/chat/send', {
-              conversation_id: this.data.conversationId,
-              type: 'image',
-              image_url: data.data.url
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/chat/upload', filePath).then((data) => {
+      return request.post('/chat/send', {
+        conversation_id: this.data.conversationId,
+        type: 'image',
+        image_url: data.url
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -413,39 +391,18 @@ Page({
     });
     this.scrollToBottom();
 
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/chat/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/chat/send', {
-              conversation_id: this.data.conversationId,
-              type: 'voice',
-              voice_url: data.data.url,
-              duration: Math.round(duration / 1000)
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/chat/upload', filePath).then((data) => {
+      return request.post('/chat/send', {
+        conversation_id: this.data.conversationId,
+        type: 'voice',
+        voice_url: data.url,
+        duration: Math.round(duration / 1000)
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -523,7 +480,7 @@ Page({
       content: '撤回后对方将无法看到此消息',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/chat/recall', {
+          request.post('/chat/recall', {
             msg_id: msg.msg_id,
             conversation_id: this.data.conversationId
           }).then(() => {
@@ -559,7 +516,7 @@ Page({
       content: '申请后平台方将在48小时内强行介入，确定要申请吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/chat/request_intervene', {
+          request.post('/chat/request-intervene', {
             conversation_id: this.data.conversationId
           }).then(() => {
             this.setData({
@@ -646,49 +603,25 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/chat/upload_file',
-      filePath: filePath,
-      name: 'file',
-      formData: {
+    request.upload('/chat/upload-file', filePath, {
+      conversation_id: this.data.conversationId,
+      file_name: fileName
+    }).then((data) => {
+      return request.post('/chat/send-file', {
         conversation_id: this.data.conversationId,
-        file_name: fileName
-      },
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/chat/send_file', {
-              conversation_id: this.data.conversationId,
-              file_url: data.data.url,
-              file_name: fileName,
-              file_size: fileSize,
-              file_type: data.data.file_type || 'document'
-            }).then((res) => {
-              if (res.anti_fraud_risky) {
-                this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
-              }
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: data.msg || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
+        file_url: data.url,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: data.file_type || 'document'
+      }).then((res) => {
+        if (res.anti_fraud_risky) {
+          this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
         }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -719,7 +652,7 @@ Page({
   },
 
   loadQuickCards() {
-    request.get('/api/v1/chat/quick_cards', {
+    request.get('/chat/quick-cards', {
       type: 'all'
     }).then((res) => {
       this.setData({ quickCardList: res.list || [] });
@@ -763,7 +696,7 @@ Page({
     });
     this.scrollToBottom();
 
-    request.post('/api/v1/chat/send_quick_card', {
+    request.post('/chat/send-quick-card', {
       conversation_id: this.data.conversationId,
       card_id: card.id
     }).then((res) => {

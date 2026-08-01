@@ -51,7 +51,7 @@ Page({
     if (this.data.loading || !this.data.hasMore) return;
     this.setData({ loading: true });
 
-    request.get('/api/v1/group_buy/activities', {
+    request.get('/group-buy/activities', {
       page: this.data.page,
       limit: this.data.pageSize
     }).then((res) => {
@@ -74,7 +74,7 @@ Page({
     if (this.data.loading || !this.data.hasMore) return;
     this.setData({ loading: true });
 
-    request.get('/api/v1/group_buy/my', {
+    request.get('/group-buy/my', {
       page: this.data.page,
       limit: this.data.pageSize
     }).then((res) => {
@@ -122,7 +122,7 @@ Page({
 
   createGroup(activityId) {
     wx.showLoading({ title: '创建中...' });
-    request.post('/api/v1/group_buy/create', {
+    request.post('/group-buy/join', {
       activity_id: activityId
     }).then((res) => {
       wx.hideLoading();

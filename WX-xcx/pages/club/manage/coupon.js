@@ -38,7 +38,7 @@ Page({
 
     try {
       const page = refresh ? 1 : this.data.page;
-      const res = await request.get('/api/v1/club/coupon/list', {
+      const res = await request.get('/club/coupon/list', {
         club_id: this.data.clubId,
         page,
         limit: this.data.limit,
@@ -72,7 +72,7 @@ Page({
   async handleReceive(e) {
     const id = e.currentTarget.dataset.id;
     try {
-      await request.post('/api/v1/club/coupon/receive', { id });
+      await request.post('/club/coupon/receive', { id });
       wx.showToast({ title: '领取成功', icon: 'success' });
       this.loadList(true);
     } catch (e) {

@@ -276,7 +276,7 @@ export default {
           start_date: this.searchForm.dateRange?.[0] || undefined,
           end_date: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/finance/withdraw_batch_list', { params })
+        const res = await request.get('/finance/withdraw_batch_list', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -322,7 +322,7 @@ export default {
     async handleCreateSubmit() {
       this.createLoading = true
       try {
-        const res = await request.post('/admin/finance/withdraw_batch_create', {
+        const res = await request.post('/finance/withdraw_batch_create', {
           channel: this.createForm.channel,
           remark: this.createForm.remark
         })
@@ -346,7 +346,7 @@ export default {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
       ).then(async () => {
         try {
-          await request.put('/admin/finance/withdraw_batch_process', { id: row.id })
+          await request.put('/finance/withdraw_batch_process', { id: row.id })
           ElMessage.success('已开始处理')
           this.fetchList()
         } catch (err) {
@@ -367,7 +367,7 @@ export default {
     async handleCompleteSubmit() {
       this.completeLoading = true
       try {
-        await request.put('/admin/finance/withdraw_batch_complete', {
+        await request.put('/finance/withdraw_batch_complete', {
           id: this.completeRow.id,
           success_count: this.completeForm.successCount,
           success_amount: this.completeForm.successAmount,

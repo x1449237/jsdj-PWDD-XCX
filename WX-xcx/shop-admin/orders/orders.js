@@ -94,7 +94,7 @@ Page({
       params.status = this.data.currentStatus;
     }
 
-    request.get('/api/v1/shop-admin/orders', params).then((res) => {
+    request.get('/shop-admin/orders', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         statusText: util.getOrderStatusText(item.status),
@@ -118,7 +118,7 @@ Page({
     if (this.data.riskLoading) return;
     this.setData({ riskLoading: true });
 
-    request.get('/api/v1/shop-admin/risk-orders', {
+    request.get('/shop-admin/risk-orders', {
       page: this.data.riskPage,
       page_size: this.data.pageSize
     }).then((res) => {
@@ -155,7 +155,7 @@ Page({
   },
 
   doToggleOnline(orderId, action) {
-    request.post('/api/v1/shop-admin/orders/toggle-online', {
+    request.post('/shop-admin/orders/toggle-online', {
       order_id: orderId,
       action: action
     }).then(() => {

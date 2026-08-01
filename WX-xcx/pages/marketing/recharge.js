@@ -30,7 +30,7 @@ Page({
   },
 
   loadBalance() {
-    request.get('/api/v1/wallet/balance').then((res) => {
+    request.get('/wallet/balance').then((res) => {
       this.setData({
         balance: (res.balance / 100).toFixed(2)
       });
@@ -41,7 +41,7 @@ Page({
 
   loadActivities() {
     this.setData({ loading: true });
-    request.get('/api/v1/recharge/activities').then((res) => {
+    request.get('/recharge/activities').then((res) => {
       const list = res.data?.list || [];
       this.setData({
         activityList: list,
@@ -73,7 +73,7 @@ Page({
     this.setData({ paying: true });
     const activityId = this.data.selectedActivity.id;
 
-    request.post('/api/v1/recharge/create', {
+    request.post('/recharge', {
       activity_id: activityId
     }).then((res) => {
       if (res.data?.pay_params) {

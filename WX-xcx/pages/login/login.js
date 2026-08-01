@@ -67,13 +67,7 @@ Page({
   doLogin(phoneDetail) {
     this.setData({ loading: true });
 
-    auth.wxLogin().then((code) => {
-      return request.post('/api/v1/auth/login', {
-        code: code,
-        encrypted_data: phoneDetail.encryptedData,
-        iv: phoneDetail.iv
-      });
-    }).then((res) => {
+    auth.loginWithWx(phoneDetail).then((res) => {
       let userInfo = {};
       if (res.user_info) {
         userInfo = res.user_info;

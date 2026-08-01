@@ -61,7 +61,7 @@
         <el-table-column prop="is_winner" label="是否中标" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.is_winner" type="success" effect="dark">
-              <el-icon :size="12"><Crown /></el-icon>
+              <el-icon :size="12"><Trophy /></el-icon>
               中标
             </el-tag>
             <span v-else class="text-muted">-</span>
@@ -87,7 +87,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search, Refresh, Crown, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Search, Refresh, Trophy } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const loading = ref(false)

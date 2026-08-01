@@ -289,7 +289,7 @@ export default {
         if (this.filterScene) {
           params.scene = this.filterScene
         }
-        const res = await request.get('/v1/admin/subscribe/template/list', { params })
+        const res = await request.get('/subscribe/template/list', { params })
         this.tableData = (res.data?.list || []).map((item) => ({
           ...item,
           _toggleLoading: false
@@ -347,10 +347,10 @@ export default {
           is_enabled: this.form.is_enabled
         }
         if (this.isEdit) {
-          await request.put(`/v1/admin/subscribe/template/update/${this.editId}`, payload)
+          await request.put(`/subscribe/template/update/${this.editId}`, payload)
           ElMessage.success('编辑成功')
         } else {
-          await request.post('/v1/admin/subscribe/template/create', payload)
+          await request.post('/subscribe/template/create', payload)
           ElMessage.success('创建成功')
         }
         this.dialogVisible = false
@@ -364,7 +364,7 @@ export default {
     async handleToggleStatus(row, val) {
       row._toggleLoading = true
       try {
-        await request.put(`/v1/admin/subscribe/template/toggle/${row.id || row.template_id}`, {
+        await request.put(`/subscribe/template/toggle/${row.id || row.template_id}`, {
           is_enabled: val
         })
         ElMessage.success(val ? '已启用' : '已禁用')
@@ -382,7 +382,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete(`/v1/admin/subscribe/template/delete/${row.id || row.template_id}`)
+        await request.delete(`/subscribe/template/delete/${row.id || row.template_id}`)
         ElMessage.success('删除成功')
         this.fetchList()
       } catch (err) {
@@ -426,7 +426,7 @@ export default {
         if (this.currentLogTemplateId) {
           params.template_id = this.currentLogTemplateId
         }
-        const res = await request.get('/v1/admin/subscribe/log/list', { params })
+        const res = await request.get('/subscribe/log/list', { params })
         this.logTableData = res.data?.list || []
         this.logPagination.total = res.data?.total || 0
       } catch (err) {

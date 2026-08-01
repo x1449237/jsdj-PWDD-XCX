@@ -33,7 +33,7 @@ Page({
 
     this.setData({ sending: true });
 
-    request.post('/api/v1/parent_guardian/send_bind_code', {
+    request.post('/guardian/send_bind_code', {
       child_user_id: childUserId
     }).then(() => {
       wx.showToast({ title: '验证码已发送', icon: 'success' });
@@ -70,7 +70,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/parent_guardian/bind', {
+    request.post('/guardian/bind', {
       child_user_id: childUserId,
       verify_code: verifyCode
     }).then(() => {

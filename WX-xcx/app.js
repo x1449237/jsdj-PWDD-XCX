@@ -8,7 +8,7 @@ App({
     token: null,
     isLogin: false,
     systemInfo: null,
-    baseURL: 'https://api.example.com',
+    baseURL: 'https://your-domain.com/api/v1',
     wsConnected: false
   },
 
@@ -55,7 +55,7 @@ App({
       const signedKey = 'agreement_' + role + '_' + type + '_version';
       const signedVersion = wx.getStorageSync(signedKey);
 
-      request.get('/api/v1/compliance/agreement/latest', {
+      request.get('/compliance/agreement/latest', {
         role: role,
         agreement_type: type
       }).then(res => {

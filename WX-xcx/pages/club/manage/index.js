@@ -23,7 +23,7 @@ Page({
 
   async loadDashboard() {
     try {
-      const res = await request.get('/api/v1/club/manage/dashboard', {
+      const res = await request.get('/club/manage/dashboard', {
         club_id: this.data.clubId
       });
       const data = res.data;

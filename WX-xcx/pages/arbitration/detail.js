@@ -27,7 +27,7 @@ Page({
     if (!this.data.caseId) return;
 
     this.setData({ loading: true });
-    request.get('/api/v1/arbitration/detail', {
+    request.get('/arbitration/detail', {
       case_id: this.data.caseId
     }).then(res => {
       this.setData({

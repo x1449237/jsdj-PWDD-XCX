@@ -40,7 +40,7 @@ Page({
   },
 
   loadOrderTypes() {
-    request.get('/api/v1/order/types').then((res) => {
+    request.get('/orders/types').then((res) => {
       this.setData({ orderTypes: res.list || [] });
     }).catch(() => {
       this.setData({
@@ -105,7 +105,7 @@ Page({
   },
 
   loadOrderInfo(playerId, serviceId) {
-    request.get('/api/v1/order/preview', {
+    request.get('/orders/preview', {
       player_id: playerId,
       service_id: serviceId
     }).then((res) => {
@@ -136,7 +136,7 @@ Page({
   },
 
   checkUserAge() {
-    request.get('/api/v1/user/profile').then((res) => {
+    request.get('/user/profile').then((res) => {
       if (res.is_minor) {
         this.setData({
           isMinor: true,
@@ -149,7 +149,7 @@ Page({
   loadUsableCoupons() {
     if (!this.data.totalAmount || this.data.totalAmount === '0.00') return;
 
-    request.get('/api/v1/coupon/usable', {
+    request.get('/coupons/usable', {
       amount: this.data.totalAmount
     }).then((res) => {
       this.setData({
@@ -268,7 +268,7 @@ Page({
       const { remark, serviceInfo, playerInfo } = this.data;
       const checkContent = remark + ' ' + (serviceInfo.title || '') + ' ' + (playerInfo.nickname || '');
 
-      request.post('/api/v1/compliance/check_anti_boosting', {
+      request.post('/compliance/check-anti-boosting', {
         content: checkContent,
         source: 'order'
       }).then(res => {
@@ -295,7 +295,7 @@ Page({
 
     this.setData({ paying: true });
 
-    request.post('/api/v1/order/create', {
+    request.post('/orders', {
       player_id: playerId,
       service_id: serviceId,
       remark: remark.trim(),

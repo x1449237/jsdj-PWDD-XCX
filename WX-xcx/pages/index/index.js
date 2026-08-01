@@ -46,7 +46,7 @@ Page({
   },
 
   loadBanners() {
-    request.get('/api/v1/banners').then((res) => {
+    request.get('/banners').then((res) => {
       this.setData({ banners: res.list || [] });
     }).catch(() => {
       this.setData({
@@ -60,7 +60,7 @@ Page({
   },
 
   loadCategories() {
-    request.get('/api/v1/categories').then((res) => {
+    request.get('/categories').then((res) => {
       this.setData({ categories: res.list || [] });
     }).catch(() => {
       this.setData({
@@ -80,7 +80,7 @@ Page({
 
     this.setData({ loading: true });
 
-    request.get('/api/v1/players', {
+    request.get('/players', {
       page: this.data.page,
       page_size: this.data.pageSize,
       keyword: this.data.keyword

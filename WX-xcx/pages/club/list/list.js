@@ -29,7 +29,7 @@ Page({
 
   async checkSwitch() {
     try {
-      const res = await request.get('/api/v1/club/check_switch');
+      const res = await request.get('/club/check_switch');
       this.setData({ clubJoinOpen: res.data?.club_join_open === true });
     } catch (e) {
       // 忽略
@@ -42,7 +42,7 @@ Page({
     this.setData({ loading: true });
 
     try {
-      const res = await request.get('/api/v1/club/list', {
+      const res = await request.get('/club/list', {
         page: this.data.page,
         page_size: this.data.pageSize
       });

@@ -17,7 +17,7 @@ Page({
   },
 
   loadGameList() {
-    request.get('/api/v1/config/service_types').then((res) => {
+    request.get('/config/service-types').then((res) => {
       this.setData({
         gameList: res.games || []
       });
@@ -30,7 +30,7 @@ Page({
     if (this.data.currentGameId) {
       params.game_id = this.data.currentGameId;
     }
-    request.get('/api/v1/order/packages', params).then((res) => {
+    request.get('/orders/packages', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         price_text: util.fenToYuan(item.price),

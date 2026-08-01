@@ -38,7 +38,7 @@ Page({
 
   async loadSummary() {
     try {
-      const res = await request.get('/api/v1/profit_share/summary');
+      const res = await request.get('/profit_share/summary');
       this.setData({
         totalIncome: util.fenToYuan(res.totalIncome || 0),
         totalSettled: util.fenToYuan(res.totalSettled || 0),
@@ -53,7 +53,7 @@ Page({
   async loadProfitList() {
     this.setData({ loading: true });
     try {
-      const res = await request.get('/api/v1/profit_share/list', {
+      const res = await request.get('/profit_share/list', {
         page: this.data.page,
         pageSize: this.data.pageSize,
         month: this.data.selectedMonth,
@@ -79,7 +79,7 @@ Page({
     this.setData({ loadingMore: true });
     try {
       const nextPage = this.data.page + 1;
-      const res = await request.get('/api/v1/profit_share/list', {
+      const res = await request.get('/profit_share/list', {
         page: nextPage,
         pageSize: this.data.pageSize,
         month: this.data.selectedMonth,

@@ -165,7 +165,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/users', { params })
+        const res = await request.get('/users', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -199,7 +199,7 @@ export default {
           `${action}确认`,
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        const url = isBan ? `/admin/users/${row.id}/ban` : `/admin/users/${row.id}/unban`
+        const url = isBan ? `/users/${row.id}/ban` : `/users/${row.id}/unban`
         await request.post(url)
         ElMessage.success(`${action}成功`)
         this.fetchList()
@@ -224,7 +224,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/users/export', { params, responseType: 'blob' })
+        const res = await request.get('/users/export', { params, responseType: 'blob' })
         const url = window.URL.createObjectURL(new Blob([res]))
         const link = document.createElement('a')
         link.href = url

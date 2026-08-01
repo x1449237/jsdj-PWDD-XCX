@@ -82,7 +82,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/v1/admin/club/deposit_list', { page: this.page, limit: this.limit, ...this.searchForm })
+        const res = await request.get('/club/deposit_list', { page: this.page, limit: this.limit, ...this.searchForm })
         this.tableData = res.data?.list || []
         this.total = res.data?.total || 0
       } catch (e) { ElMessage.error('加载失败') }
@@ -91,7 +91,7 @@ export default {
     async handleConfirm(row) {
       try {
         await ElMessageBox.confirm(`确认俱乐部"${row.club_name}"保证金${row.deposit_amount}元已到账？`, '确认到账', { type: 'success' })
-        await request.put('/v1/admin/club/confirm_deposit', { id: row.id })
+        await request.put('/club/confirm_deposit', { id: row.id })
         ElMessage.success('已确认到账，俱乐部已激活')
         this.fetchList()
       } catch (e) { /* cancel */ }
@@ -99,7 +99,7 @@ export default {
     async handleRefund(row) {
       try {
         const { value: reason } = await ElMessageBox.prompt('请输入退还原因', '退还保证金', { type: 'warning' })
-        await request.put('/v1/admin/club/refund_deposit', { id: row.id, reason })
+        await request.put('/club/refund_deposit', { id: row.id, reason })
         ElMessage.success('保证金已退还')
         this.fetchList()
       } catch (e) { /* cancel */ }

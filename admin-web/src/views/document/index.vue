@@ -228,7 +228,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/v1/admin/document/list', {
+        const res = await request.get('/document/list', {
           doc_type: this.searchForm.docType
         })
         this.tableData = res.data || []
@@ -283,7 +283,7 @@ export default {
         formData.append('doc_type', this.uploadForm.docType)
         formData.append('title', this.uploadForm.title.trim())
 
-        await request.post('/v1/admin/document/upload', formData, {
+        await request.post('/document/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         ElMessage.success('上传成功')
@@ -342,7 +342,7 @@ export default {
         formData.append('id', this.replaceForm.id)
         formData.append('file', this.replaceForm.file)
 
-        await request.put('/v1/admin/document/replace', formData, {
+        await request.put('/document/replace', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         ElMessage.success('替换成功')
@@ -371,7 +371,7 @@ export default {
       this.versionsVisible = true
       this.versionsLoading = true
       try {
-        const res = await request.get('/v1/admin/document/versions', {
+        const res = await request.get('/document/versions', {
           document_id: row.id
         })
         this.versionsData = res.data || []
@@ -391,7 +391,7 @@ export default {
       const action = row.is_active ? '禁用' : '启用'
       try {
         await ElMessageBox.confirm(`确定${action}文档"${row.title}"吗？`, `确认${action}`)
-        await request.put('/v1/admin/document/toggle', { id: row.id })
+        await request.put('/document/toggle', { id: row.id })
         ElMessage.success(`已${action}`)
         this.fetchList()
       } catch (e) {
@@ -407,7 +407,7 @@ export default {
           '确认删除',
           { type: 'warning', confirmButtonText: '确认删除' }
         )
-        await request.delete('/v1/admin/document/delete', { data: { id: row.id } })
+        await request.delete('/document/delete', { data: { id: row.id } })
         ElMessage.success('已删除')
         this.fetchList()
       } catch (e) {

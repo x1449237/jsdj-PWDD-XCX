@@ -203,7 +203,7 @@ export default {
           page: this.pagination.page,
           pageSize: this.pagination.pageSize
         }
-        const res = await request.get('/admin/admins', { params })
+        const res = await request.get('/admins', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -214,7 +214,7 @@ export default {
     },
     async fetchRoles() {
       try {
-        const res = await request.get('/admin/roles')
+        const res = await request.get('/roles')
         this.roleList = (res.data || []).map(r => ({
           value: r.id || r.value,
           label: r.name || r.label
@@ -262,10 +262,10 @@ export default {
           delete payload.password
         }
         if (this.isEdit) {
-          await request.put(`/admin/admins/${this.currentEditId}`, payload)
+          await request.put(`/admins/${this.currentEditId}`, payload)
           ElMessage.success('管理员信息已更新')
         } else {
-          await request.post('/admin/admins', payload)
+          await request.post('/admins', payload)
           ElMessage.success('管理员创建成功')
         }
         this.dialogVisible = false
@@ -283,7 +283,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete(`/admin/admins/${row.id}`)
+        await request.delete(`/admins/${row.id}`)
         ElMessage.success('删除成功')
         this.fetchList()
       } catch (err) {
@@ -300,7 +300,7 @@ export default {
     async handleRoleSubmit() {
       this.roleSubmitLoading = true
       try {
-        await request.put(`/admin/admins/${this.currentRoleUserId}/role`, {
+        await request.put(`/admins/${this.currentRoleUserId}/role`, {
           role: this.currentRoleValue
         })
         ElMessage.success('角色分配成功')
@@ -316,7 +316,7 @@ export default {
       this.currentPasskeyUserId = row.id
       this.passkeyDialogVisible = true
       try {
-        const res = await request.get(`/admin/admins/${row.id}/passkeys`)
+        const res = await request.get(`/admins/${row.id}/passkeys`)
         this.passkeyList = res.data || []
       } catch (err) {
         console.error('获取通行密钥失败:', err)
@@ -330,7 +330,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
-        await request.delete(`/admin/admins/${this.currentPasskeyUserId}/passkeys/${pkRow.id}`)
+        await request.delete(`/admins/${this.currentPasskeyUserId}/passkeys/${pkRow.id}`)
         ElMessage.success('通行密钥已删除')
         this.passkeyList = this.passkeyList.filter(p => p.id !== pkRow.id)
       } catch (err) {

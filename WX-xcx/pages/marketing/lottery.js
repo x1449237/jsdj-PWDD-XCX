@@ -29,7 +29,7 @@ Page({
   },
 
   loadActivity() {
-    request.get('/api/v1/lottery/activity').then((res) => {
+    request.get('/lottery/activities').then((res) => {
       const activity = res.data?.activity;
       const prizes = res.data?.prizes || [];
       this.setData({
@@ -45,7 +45,7 @@ Page({
   },
 
   loadRecords() {
-    request.get('/api/v1/lottery/records', { limit: 10 }).then((res) => {
+    request.get('/lottery/records', { limit: 10 }).then((res) => {
       this.setData({
         records: res.data?.list || []
       });
@@ -65,7 +65,7 @@ Page({
 
     this.setData({ isDrawing: true });
 
-    request.post('/api/v1/lottery/draw', {
+    request.post('/lottery/draw', {
       activity_id: this.data.activity.id
     }).then((res) => {
       const result = res.data;

@@ -34,7 +34,7 @@
         <!-- 第一步：生成二维码 -->
         <div class="step-section" v-if="!confirming">
           <el-divider content-position="left">
-            <el-icon><Qrcode /></el-icon>
+            <el-icon><Iphone /></el-icon>
             <span style="margin-left: 6px;">扫码确认</span>
           </el-divider>
           <p class="step-desc">
@@ -133,7 +133,7 @@
 
 <script>
 import request from '@/utils/request'
-import { Qrcode, Clock, Loading } from '@element-plus/icons-vue'
+import { Iphone, Clock, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
 
@@ -160,7 +160,7 @@ export default {
   emits: ['update:modelValue', 'confirmed'],
   data() {
     return {
-      Qrcode,
+      Iphone,
       Clock,
       Loading,
       qrLoading: false,
@@ -224,7 +224,7 @@ export default {
     async handleGenerateQr() {
       this.qrLoading = true
       try {
-        const res = await request.post('/admin/orders/batch', {
+        const res = await request.post('/orders/batch', {
           operationType: this.operationType,
           orderIds: this.orderIds
         })
@@ -272,7 +272,7 @@ export default {
     },
     async checkConfirmStatus() {
       try {
-        const res = await request.get(`/admin/orders/batch/confirm/${this.batchId}`)
+        const res = await request.get(`/orders/batch/confirm/${this.batchId}`)
         const status = res.data?.status
         if (status === 'confirmed') {
           this.clearPollTimer()

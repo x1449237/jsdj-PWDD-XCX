@@ -37,7 +37,7 @@ Page({
 
     this.setData({ loading: true });
     try {
-      const res = await request.get('/api/v1/parent_guardian/consume_report', {
+      const res = await request.get('/guardian/consume_report', {
         bind_id: bindId,
         month: month
       });

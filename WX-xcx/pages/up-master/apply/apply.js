@@ -38,7 +38,7 @@ Page({
   // 加载我所属的俱乐部
   async loadClubs() {
     try {
-      const res = await request.get('/api/v1/up_master/my_clubs');
+      const res = await request.get('/up_master/my_clubs');
       this.setData({ clubs: res.data || [] });
       if (this.data.clubs.length === 0) {
         wx.showToast({ title: '您尚未加入任何俱乐部', icon: 'none' });
@@ -51,7 +51,7 @@ Page({
   // 加载等级配置
   async loadTierConfigs() {
     try {
-      const res = await request.get('/api/v1/up_master/tier_configs');
+      const res = await request.get('/up_master/tier_configs');
       this.setData({ tierConfigs: res.data || [] });
     } catch (e) {
       console.error('加载等级配置失败', e);
@@ -121,7 +121,7 @@ Page({
     const promises = filePaths.map(path => {
       return new Promise((resolve, reject) => {
         wx.uploadFile({
-          url: request.getBaseUrl() + '/api/v1/upload/file',
+          url: request.baseURL + '/upload/file',
           filePath: path,
           name: 'file',
           header: {
@@ -129,7 +129,11 @@ Page({
           },
           success(res) {
             const data = JSON.parse(res.data);
-            resolve(data.data?.url || '');
+            if (data.code === 200) {
+              resolve(data.data?.url || '');
+            } else {
+              reject(new Error(data.msg || '上传失败'));
+            }
           },
           fail(err) {
             reject(err);
@@ -197,7 +201,7 @@ Page({
     this.setData({ submitting: true });
 
     try {
-      await request.post('/api/v1/up_master/submit', {
+      await request.post('/up_master/submit', {
         club_id: selectedClubId,
         fan_count: parseInt(fanCount),
         platform: platform,

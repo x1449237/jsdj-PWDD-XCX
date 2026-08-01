@@ -31,7 +31,7 @@ Page({
     if (this.data.loading) return;
     this.setData({ loading: true });
 
-    request.get('/api/v1/after_sale/list').then((res) => {
+    request.get('/after-sales').then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         intervene_label: this.getInterveneLabel(item.intervene_status),
@@ -87,7 +87,7 @@ Page({
   },
 
   loadCompletedOrders() {
-    request.get('/api/v1/order/completed_list', {
+    request.get('/orders/completed', {
       page: 1,
       page_size: 50
     }).then((res) => {
@@ -153,7 +153,7 @@ Page({
     }
 
     this.uploadImages(images).then((imageUrls) => {
-      return request.post('/api/v1/after_sale/create', {
+      return request.post('/after-sales', {
         order_id: order_id,
         reason: reason.trim(),
         images: imageUrls
@@ -173,30 +173,9 @@ Page({
   uploadImages(images) {
     if (images.length === 0) return Promise.resolve([]);
 
-    const token = wx.getStorageSync('token') || '';
     const uploadPromises = images.map((filePath) => {
-      return new Promise((resolve, reject) => {
-        wx.uploadFile({
-          url: 'https://api.example.com/api/v1/after_sale/upload',
-          filePath: filePath,
-          name: 'file',
-          header: {
-            'Authorization': 'Bearer ' + token
-          },
-          success: (res) => {
-            try {
-              const data = JSON.parse(res.data);
-              if (data.code === 0) {
-                resolve(data.data.url);
-              } else {
-                reject(new Error('上传失败'));
-              }
-            } catch (e) {
-              reject(e);
-            }
-          },
-          fail: reject
-        });
+      return request.upload('/after-sales/upload', filePath).then((data) => {
+        return data.url;
       });
     });
 

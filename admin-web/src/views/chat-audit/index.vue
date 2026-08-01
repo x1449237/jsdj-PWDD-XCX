@@ -352,7 +352,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/chat-audit/sessions', { params })
+        const res = await request.get('/chat-audit/sessions', { params })
         this.sessionList = res.data?.list || []
         this.sessionPagination.total = res.data?.total || 0
       } catch (err) {
@@ -378,7 +378,7 @@ export default {
       this.messageDialogVisible = true
       this.messageLoading = true
       try {
-        const res = await request.get(`/admin/chat-audit/sessions/${row.sessionId}/messages`)
+        const res = await request.get(`/chat-audit/sessions/${row.sessionId}/messages`)
         this.messages = res.data?.list || []
       } catch (err) {
         console.error('获取消息列表失败:', err)
@@ -393,7 +393,7 @@ export default {
           page: this.riskUserPagination.page,
           pageSize: this.riskUserPagination.pageSize
         }
-        const res = await request.get('/admin/chat-audit/risk-users', { params })
+        const res = await request.get('/chat-audit/risk-users', { params })
         this.riskUserList = res.data?.list || []
         this.riskUserPagination.total = res.data?.total || 0
       } catch (err) {
@@ -419,7 +419,7 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         this.processLoading = true
-        await request.post(`/admin/chat-audit/risk-users/${this.currentRiskUser.id}/process`, {
+        await request.post(`/chat-audit/risk-users/${this.currentRiskUser.id}/process`, {
           action: this.processForm.action,
           remark: this.processForm.remark
         })

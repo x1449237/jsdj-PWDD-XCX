@@ -283,7 +283,7 @@ export default {
           groupType: this.searchForm.groupType || undefined,
           status: this.searchForm.status || undefined
         }
-        const res = await request.get('/v1/admin/group-monitor/groups', { params })
+        const res = await request.get('/group-monitor/groups', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -309,7 +309,7 @@ export default {
       this.detailDrawerVisible = true
       this.detailLoading = true
       try {
-        const res = await request.get(`/v1/admin/group-monitor/groups/${row.id}`)
+        const res = await request.get(`/group-monitor/groups/${row.id}`)
         this.groupDetail = res.data || {}
         this.groupMembers = res.data?.members || []
       } catch (err) {
@@ -332,7 +332,7 @@ export default {
           page: this.messagePagination.page,
           pageSize: this.messagePagination.pageSize
         }
-        const res = await request.get(`/v1/admin/group-monitor/groups/${this.currentGroupId}/messages`, { params })
+        const res = await request.get(`/group-monitor/groups/${this.currentGroupId}/messages`, { params })
         this.messages = res.data?.list || []
         this.messagePagination.total = res.data?.total || 0
       } catch (err) {
@@ -348,7 +348,7 @@ export default {
           '解散确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/v1/admin/group-monitor/groups/${row.id}/disband`)
+        await request.post(`/group-monitor/groups/${row.id}/disband`)
         ElMessage.success('解散成功')
         this.fetchList()
       } catch (err) {
@@ -366,7 +366,7 @@ export default {
           inputErrorMessage: '请输入有效的分钟数'
         })
         .then(async ({ value }) => {
-          await request.post(`/v1/admin/group-monitor/groups/${this.currentGroupId}/mute`, {
+          await request.post(`/group-monitor/groups/${this.currentGroupId}/mute`, {
             userId: member.userId,
             duration: Number(value)
           })
@@ -386,7 +386,7 @@ export default {
           '解除禁言',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
         )
-        await request.post(`/v1/admin/group-monitor/groups/${this.currentGroupId}/unmute`, {
+        await request.post(`/group-monitor/groups/${this.currentGroupId}/unmute`, {
           userId: member.userId
         })
         ElMessage.success('已解除禁言')
@@ -404,7 +404,7 @@ export default {
           '移出成员',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/v1/admin/group-monitor/groups/${this.currentGroupId}/remove-member`, {
+        await request.post(`/group-monitor/groups/${this.currentGroupId}/remove-member`, {
           userId: member.userId
         })
         ElMessage.success('移出成功')
@@ -422,7 +422,7 @@ export default {
           '封禁用户',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/v1/admin/group-monitor/users/${member.userId}/ban`)
+        await request.post(`/group-monitor/users/${member.userId}/ban`)
         ElMessage.success('封禁成功')
         this.handleViewDetail({ id: this.currentGroupId })
       } catch (err) {
@@ -438,7 +438,7 @@ export default {
           '冻结资金',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/v1/admin/group-monitor/users/${member.userId}/freeze-funds`)
+        await request.post(`/group-monitor/users/${member.userId}/freeze-funds`)
         ElMessage.success('冻结资金成功')
         this.handleViewDetail({ id: this.currentGroupId })
       } catch (err) {

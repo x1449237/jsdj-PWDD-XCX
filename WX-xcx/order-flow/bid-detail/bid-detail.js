@@ -25,13 +25,13 @@ Page({
   },
 
   checkUserRole() {
-    request.get('/api/v1/user/profile').then((res) => {
+    request.get('/user/profile').then((res) => {
       this.setData({ isPlayer: res.is_player || false });
     }).catch(() => {});
   },
 
   loadOrderDetail() {
-    request.get(`/api/v1/order/detail/${this.data.orderId}`).then((res) => {
+    request.get(`/orders/${this.data.orderId}`).then((res) => {
       const orderInfo = {
         ...res,
         amount_text: util.fenToYuan(res.order_amount),
@@ -48,7 +48,7 @@ Page({
   },
 
   loadBidList() {
-    request.get(`/api/v1/order/${this.data.orderId}/bids`).then((res) => {
+    request.get(`/orders/${this.data.orderId}/bids`).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         bid_price_text: util.fenToYuan(item.bid_price),
@@ -132,7 +132,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/player/bid', {
+    request.post('/player/bid', {
       order_id: orderId,
       bid_price: bidPrice
     }).then(() => {
@@ -153,7 +153,7 @@ Page({
       content: '确定要取消此次竞价吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/player/cancel_bid', {
+          request.post('/player/bid/cancel', {
             order_id: this.data.orderId
           }).then(() => {
             wx.showToast({ title: '已取消', icon: 'success' });
@@ -173,7 +173,7 @@ Page({
       content: '确定选择该打手中标吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post(`/api/v1/order/${this.data.orderId}/select_winner`, {
+          request.post(`/orders/${this.data.orderId}/select-winner`, {
             bid_id: bidId
           }).then(() => {
             wx.showToast({ title: '选择成功', icon: 'success' });

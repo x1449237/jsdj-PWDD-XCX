@@ -249,7 +249,7 @@ export default {
     async fetchConfig() {
       this.loading = true
       try {
-        const res = await request.get('/admin/finance/config')
+        const res = await request.get('/finance/config')
         const data = res.data || {}
         if (data.withdraw) {
           this.formData.withdraw = { ...this.formData.withdraw, ...data.withdraw }
@@ -279,7 +279,7 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         this.saveLoading = true
-        await request.put('/admin/finance/config', {
+        await request.put('/finance/config', {
           withdraw: this.formData.withdraw,
           commission: this.formData.commission,
           largeOrder: this.formData.largeOrder,

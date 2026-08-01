@@ -1,31 +1,36 @@
+const auth = require('./auth');
+
 let socketTask = null;
 let isConnecting = false;
 let reconnectTimer = null;
 let heartbeatTimer = null;
+let timeoutTimer = null;
 let messageQueue = [];
 let listeners = {};
+let offlinePuller = null;
 
-const WS_URL = 'wss://ws.example.com/ws';
-const HEARTBEAT_INTERVAL = 25000;
-const RECONNECT_INTERVAL = 3000;
+// Go 后端 WebSocket 服务地址
+const WS_URL = 'wss://your-domain.com/api/v1/ws';
+const HEARTBEAT_INTERVAL = 25000;   // 心跳间隔 25 秒
+const TIMEOUT = 70000;              // 超时时间 70 秒，超过未收到服务端消息则判定断线
+const RECONNECT_INTERVAL = 3000;    // 重连间隔
 const MAX_RECONNECT_COUNT = 10;
 
 let reconnectCount = 0;
+let lastReceivedAt = 0;
 
 const connect = () => {
   if (isConnecting || (socketTask && socketTask.readyState === 1)) {
     return;
   }
 
-  isConnecting = true;
-
-  const app = getApp();
-  const token = app.globalData.token;
-
+  const token = auth.getToken();
   if (!token) {
     isConnecting = false;
     return;
   }
+
+  isConnecting = true;
 
   socketTask = wx.connectSocket({
     url: `${WS_URL}?token=${token}`,
@@ -43,12 +48,21 @@ const connect = () => {
     console.log('WebSocket 连接成功');
     isConnecting = false;
     reconnectCount = 0;
-    app.globalData.wsConnected = true;
+    lastReceivedAt = Date.now();
+    const app = getApp();
+    if (app && app.globalData) {
+      app.globalData.wsConnected = true;
+    }
     startHeartbeat();
+    startTimeoutWatch();
     flushMessageQueue();
+    // 断线重连后拉取离线消息
+    pullOfflineMessages();
+    notify('reconnected', { time: Date.now() });
   });
 
   socketTask.onMessage((res) => {
+    lastReceivedAt = Date.now();
     try {
       const data = JSON.parse(res.data);
       handleMessage(data);
@@ -60,16 +74,24 @@ const connect = () => {
   socketTask.onClose((res) => {
     console.log('WebSocket 连接关闭:', res);
     isConnecting = false;
-    app.globalData.wsConnected = false;
+    const app = getApp();
+    if (app && app.globalData) {
+      app.globalData.wsConnected = false;
+    }
     stopHeartbeat();
+    stopTimeoutWatch();
     scheduleReconnect();
   });
 
   socketTask.onError((err) => {
     console.error('WebSocket 错误:', err);
     isConnecting = false;
-    app.globalData.wsConnected = false;
+    const app = getApp();
+    if (app && app.globalData) {
+      app.globalData.wsConnected = false;
+    }
     stopHeartbeat();
+    stopTimeoutWatch();
     scheduleReconnect();
   });
 };
@@ -106,6 +128,32 @@ const stopHeartbeat = () => {
   }
 };
 
+// 超时看门狗：超过 TIMEOUT 未收到任何服务端消息则主动断开并重连
+const startTimeoutWatch = () => {
+  stopTimeoutWatch();
+  timeoutTimer = setInterval(() => {
+    if (Date.now() - lastReceivedAt > TIMEOUT) {
+      console.warn('WebSocket 心跳超时，主动断开重连');
+      stopHeartbeat();
+      stopTimeoutWatch();
+      if (socketTask) {
+        try {
+          socketTask.close({});
+        } catch (e) {}
+      }
+      isConnecting = false;
+      scheduleReconnect();
+    }
+  }, HEARTBEAT_INTERVAL);
+};
+
+const stopTimeoutWatch = () => {
+  if (timeoutTimer) {
+    clearInterval(timeoutTimer);
+    timeoutTimer = null;
+  }
+};
+
 const handleMessage = (data) => {
   const { type } = data;
 
@@ -137,6 +185,27 @@ const handleMessage = (data) => {
   if (listeners['*']) {
     listeners['*'].forEach(callback => callback(data));
   }
+};
+
+const notify = (type, data) => {
+  if (listeners[type]) {
+    listeners[type].forEach(callback => callback(data));
+  }
+};
+
+// 离线消息拉取：重连成功后调用外部注册的拉取函数
+const pullOfflineMessages = () => {
+  if (typeof offlinePuller === 'function') {
+    try {
+      offlinePuller();
+    } catch (e) {
+      console.error('拉取离线消息失败:', e);
+    }
+  }
+};
+
+const setOfflinePuller = (fn) => {
+  offlinePuller = fn;
 };
 
 const flushMessageQueue = () => {
@@ -183,6 +252,7 @@ const off = (type, callback) => {
 
 const close = () => {
   stopHeartbeat();
+  stopTimeoutWatch();
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
@@ -194,7 +264,9 @@ const close = () => {
   }
   isConnecting = false;
   const app = getApp();
-  app.globalData.wsConnected = false;
+  if (app && app.globalData) {
+    app.globalData.wsConnected = false;
+  }
 };
 
 module.exports = {
@@ -202,5 +274,6 @@ module.exports = {
   send,
   on,
   off,
-  close
+  close,
+  setOfflinePuller
 };

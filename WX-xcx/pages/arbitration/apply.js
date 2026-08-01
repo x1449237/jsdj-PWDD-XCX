@@ -36,7 +36,7 @@ Page({
   },
 
   loadEvidenceTpl(disputeType) {
-    request.get('/api/v1/arbitration/evidence_tpl', {
+    request.get('/arbitration/evidence_tpl', {
       dispute_type: disputeType
     }).then(res => {
       const tpl = Array.isArray(res) && res.length > 0 ? res[0] : null;
@@ -82,7 +82,7 @@ Page({
     wx.showLoading({ title: '上传中...', mask: true });
     const token = wx.getStorageSync('token') || '';
     wx.uploadFile({
-      url: getApp().globalData.baseUrl + '/api/v1/upload/image',
+      url: request.baseURL + '/upload/image',
       filePath: filePath,
       name: 'file',
       header: {
@@ -91,7 +91,7 @@ Page({
       success: (res) => {
         try {
           const data = JSON.parse(res.data);
-          if (data.code === 0) {
+          if (data.code === 200) {
             const evidence = {
               id: Date.now() + Math.random(),
               type: type,
@@ -158,7 +158,7 @@ Page({
     }
 
     this.setData({ submitting: true });
-    request.post('/api/v1/arbitration/apply', {
+    request.post('/arbitration/apply', {
       order_id: this.data.orderId,
       session_id: this.data.sessionId,
       respondent_id: this.data.respondentId,

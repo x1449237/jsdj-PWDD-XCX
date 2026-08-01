@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'auth_token';
+const TOKEN_KEY = 'token';
 const USER_INFO_KEY = 'user_info';
 const AGREEMENT_KEY = 'agreement_accepted';
 
@@ -90,7 +90,44 @@ const getPhoneNumber = (e) => {
   });
 };
 
-module.exports = {
+// 以下接口对接 Go 后端 /api/v1，懒加载 request 以避免与 request.js 形成循环依赖
+const loginWithWx = (phoneDetail) => {
+  // phoneDetail: { code, encryptedData, iv }，code 由 wxLogin() 获取
+  const request = require('./request');
+  return wxLogin().then((code) => {
+    return request.post('/auth/wx-login', {
+      code: code,
+      encrypted_data: phoneDetail.encryptedData,
+      iv: phoneDetail.iv
+    });
+  }).then((res) => {
+    if (res && res.token) {
+      setToken(res.token);
+      if (res.user_info) {
+        setStoredUserInfo(res.user_info);
+      }
+    }
+    return res;
+  });
+};
+
+const register = (data) => {
+  // data: { nickname, avatar, invite_code, role }
+  const request = require('./request');
+  return request.post('/auth/register', data).then((res) => {
+    if (res && res.user_info) {
+      setStoredUserInfo(res.user_info);
+    }
+    return res;
+  });
+};
+
+const getRealnameStatus = () => {
+  const request = require('./request');
+  return request.get('/user/realname/status');
+};
+
+const auth = {
   getToken,
   setToken,
   removeToken,
@@ -100,5 +137,10 @@ module.exports = {
   isAgreementAccepted,
   acceptAgreement,
   wxLogin,
-  getPhoneNumber
+  getPhoneNumber,
+  loginWithWx,
+  register,
+  getRealnameStatus
 };
+
+module.exports = auth;

@@ -156,8 +156,8 @@ export default {
         is_active: 0
       },
       rules: {
-        role: [{ required: true, message: '请选择角色', trigger: 'change' },
-        agreement_type: [{ required: true, message: '请选择协议类型', trigger: 'change' },
+        role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+        agreement_type: [{ required: true, message: '请选择协议类型', trigger: 'change' }],
         content: [{ required: true, message: '请输入协议内容', trigger: 'blur' }]
       }
     }
@@ -168,7 +168,7 @@ export default {
   methods: {
     loadData() {
       this.loading = true
-      request.get('/api/v1/admin/compliance/agreement_version_list', {
+      request.get('/compliance/agreement_version_list', {
         params: {
           role: this.searchForm.role,
           agreement_type: this.searchForm.agreement_type
@@ -215,7 +215,7 @@ export default {
           type: 'warning'
         }
       ).then(() => {
-        request.post('/api/v1/admin/compliance/agreement_version_publish', {
+        request.post('/compliance/agreement_version_publish', {
           id: row.id
         }).then(() => {
           ElMessage.success('发布成功')
@@ -227,7 +227,7 @@ export default {
       this.$refs.formRef.validate(valid => {
         if (!valid) return
         this.submitting = true
-        request.post('/api/v1/admin/compliance/agreement_version_create', {
+        request.post('/compliance/agreement_version_create', {
           role: this.form.role,
           agreement_type: this.form.agreement_type,
           content: this.form.content

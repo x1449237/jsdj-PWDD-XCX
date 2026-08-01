@@ -24,7 +24,7 @@ Page({
   },
 
   checkUserAge() {
-    request.get('/api/v1/user/profile').then((res) => {
+    request.get('/user/profile').then((res) => {
       if (res.is_minor) {
         this.setData({ isMinor: true });
       }
@@ -44,7 +44,7 @@ Page({
     if (this.data.loading) return;
     this.setData({ loading: true });
 
-    request.get('/api/v1/group/list').then((res) => {
+    request.get('/groups').then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         group_type_label: this.getGroupTypeLabel(item.group_type),
@@ -122,7 +122,7 @@ Page({
       content: '确定要退出「' + group.group_name + '」吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/group/quit', {
+          request.post('/groups/quit', {
             group_id: group.group_id
           }).then(() => {
             wx.showToast({ title: '已退出', icon: 'success' });
@@ -164,7 +164,7 @@ Page({
       return;
     }
 
-    request.post('/api/v1/group/create', {
+    request.post('/groups', {
       name: name.trim(),
       type: type
     }).then((res) => {

@@ -264,7 +264,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/admin/marketing/coupon/list', {
+        const res = await request.get('/marketing/coupon/list', {
           params: {
             page: this.pagination.page,
             limit: this.pagination.pageSize,
@@ -311,8 +311,8 @@ export default {
       this.submitLoading = true
       try {
         const url = this.form.id
-          ? '/admin/marketing/coupon/update'
-          : '/admin/marketing/coupon/create'
+          ? '/marketing/coupon/update'
+          : '/marketing/coupon/create'
         const method = this.form.id ? 'put' : 'post'
         const res = await request[method](url, this.form)
         if (res.code === 200) {
@@ -333,7 +333,7 @@ export default {
     async handleToggle(row) {
       this.$set(this.toggleLoading, row.id, true)
       try {
-        const res = await request.put('/admin/marketing/coupon/toggle', { id: row.id })
+        const res = await request.put('/marketing/coupon/toggle', { id: row.id })
         if (res.code === 200) {
           row.status = res.data.status
           ElMessage.success('状态更新成功')
@@ -346,12 +346,12 @@ export default {
       }
     },
     handleDelete(row) {
-      ElMessageBox.confirm(`确定删除优惠券「${row.name}」吗？', '删除确认', {
+      ElMessageBox.confirm(`确定删除优惠券「${row.name}」吗？`, '删除确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(async () => {
-        const res = await request.delete('/admin/marketing/coupon/delete', { data: { id: row.id } })
+        const res = await request.delete('/marketing/coupon/delete', { data: { id: row.id } })
         if (res.code === 200) {
           ElMessage.success('删除成功')
           this.fetchList()

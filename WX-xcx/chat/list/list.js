@@ -94,7 +94,7 @@ Page({
       params.keyword = this.data.searchKeyword.trim();
     }
 
-    request.get('/api/v1/chat/conversations', params).then((res) => {
+    request.get('/chat/conversations', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         last_time: this.formatChatTime(item.last_time),
@@ -164,7 +164,7 @@ Page({
   },
 
   markAsRead(conversationId) {
-    request.post('/api/v1/chat/read', {
+    request.post('/chat/read', {
       conversation_id: conversationId
     }).then(() => {
       this.loadConversations();
@@ -177,7 +177,7 @@ Page({
       content: '删除后将清空聊天记录',
       success: (res) => {
         if (res.confirm) {
-          request.del('/api/v1/chat/conversations/' + conversationId).then(() => {
+          request.del('/chat/conversations/' + conversationId).then(() => {
             wx.showToast({ title: '已删除', icon: 'success' });
             this.setData({ page: 1, hasMore: true, conversationList: [] });
             this.loadConversations();

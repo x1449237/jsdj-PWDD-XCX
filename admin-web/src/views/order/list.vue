@@ -337,7 +337,7 @@ export default {
           endDate: this.searchForm.dateRange?.[1] || undefined,
           tab: this.activeTab === 'large_failed' ? 'large_failed' : undefined
         }
-        const res = await request.get('/admin/orders', { params })
+        const res = await request.get('/orders', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -384,7 +384,7 @@ export default {
       if (!valid) return
       this.forceStatusLoading = true
       try {
-        await request.post(`/admin/orders/${this.currentForceRow.id}/force-status`, {
+        await request.post(`/orders/${this.currentForceRow.id}/force-status`, {
           targetStatus: this.forceStatusForm.targetStatus,
           reason: this.forceStatusForm.reason
         })
@@ -410,7 +410,7 @@ export default {
       if (!valid) return
       this.refundLoading = true
       try {
-        await request.post(`/admin/orders/${this.currentRefundRow.id}/refund`, {
+        await request.post(`/orders/${this.currentRefundRow.id}/refund`, {
           refundAmount: this.refundForm.refundAmount,
           reason: this.refundForm.reason
         })

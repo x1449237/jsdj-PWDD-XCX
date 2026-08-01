@@ -265,7 +265,7 @@ export default {
           interventionStatus: this.searchForm.interventionStatus || undefined,
           isHighRisk: this.searchForm.isHighRisk !== '' ? this.searchForm.isHighRisk : undefined
         }
-        const res = await request.get('/v1/admin/after-sale/sessions', { params })
+        const res = await request.get('/after-sale/sessions', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -290,7 +290,7 @@ export default {
       this.detailDialogVisible = true
       this.detailLoading = true
       try {
-        const res = await request.get(`/v1/admin/after-sale/sessions/${row.sessionId}`)
+        const res = await request.get(`/after-sale/sessions/${row.sessionId}`)
         this.sessionDetail = res.data || {}
         this.chatMessages = res.data?.messages || []
       } catch (err) {
@@ -304,7 +304,7 @@ export default {
       this.recordsDialogVisible = true
       this.recordsLoading = true
       try {
-        const res = await request.get(`/v1/admin/after-sale/sessions/${row.sessionId}/records`)
+        const res = await request.get(`/after-sale/sessions/${row.sessionId}/records`)
         this.interventionRecords = res.data?.list || []
       } catch (err) {
         console.error('获取介入记录失败:', err)
@@ -331,7 +331,7 @@ export default {
       }
       this.processLoading = true
       try {
-        await request.post(`/v1/admin/after-sale/sessions/${this.currentSessionId}/process`, {
+        await request.post(`/after-sale/sessions/${this.currentSessionId}/process`, {
           result: this.processForm.result,
           action: this.processForm.action
         })
@@ -356,7 +356,7 @@ export default {
           interventionStatus: this.searchForm.interventionStatus || undefined,
           isHighRisk: this.searchForm.isHighRisk !== '' ? this.searchForm.isHighRisk : undefined
         }
-        const res = await request.get('/v1/admin/after-sale/sessions/export', {
+        const res = await request.get('/after-sale/sessions/export', {
           params,
           responseType: 'blob'
         })

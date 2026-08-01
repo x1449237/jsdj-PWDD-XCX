@@ -120,7 +120,7 @@ const getBarHeight = (value, type) => {
 
 const fetchDashboard = async () => {
   try {
-    const res = await request.get('/admin/club/operation_data', { days: selectedDays.value })
+    const res = await request.get('/club/operation_data', { days: selectedDays.value })
     Object.assign(stats, res)
     trendData.value = res.trend || []
   } catch (e) {

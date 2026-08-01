@@ -220,7 +220,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/audit/distributors', { params })
+        const res = await request.get('/audit/distributors', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -244,7 +244,7 @@ export default {
           '审核通过确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
         )
-        await request.post(`/admin/audit/distributors/${row.id}/approve`)
+        await request.post(`/audit/distributors/${row.id}/approve`)
         ElMessage.success('审核通过')
         this.fetchList()
       } catch (err) {
@@ -263,7 +263,7 @@ export default {
       if (!valid) return
       this.rejectLoading = true
       try {
-        await request.post(`/admin/audit/distributors/${this.currentRejectId}/reject`, {
+        await request.post(`/audit/distributors/${this.currentRejectId}/reject`, {
           reason: this.rejectForm.reason
         })
         ElMessage.success('已拒绝')
@@ -279,7 +279,7 @@ export default {
       this.detailDialogVisible = true
       this.detailLoading = true
       try {
-        const res = await request.get(`/admin/audit/distributors/${row.id}`)
+        const res = await request.get(`/audit/distributors/${row.id}`)
         this.detailData = res.data || {}
       } catch (err) {
         console.error('获取分销商详情失败:', err)
@@ -294,7 +294,7 @@ export default {
           '强制下架确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post(`/admin/audit/distributors/${row.id}/delist`)
+        await request.post(`/audit/distributors/${row.id}/delist`)
         ElMessage.success('已下架')
         this.fetchList()
       } catch (err) {

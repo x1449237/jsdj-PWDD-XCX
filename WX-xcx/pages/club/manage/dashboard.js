@@ -23,8 +23,8 @@ Page({
     this.setData({ loading: true });
     try {
       const [dashRes, trendRes] = await Promise.all([
-        request.get('/api/v1/club/manage/dashboard', { club_id: this.data.clubId }),
-        request.get('/api/v1/club/manage/trend', { club_id: this.data.clubId, days: this.data.days })
+        request.get('/club/manage/dashboard', { club_id: this.data.clubId }),
+        request.get('/club/manage/trend', { club_id: this.data.clubId, days: this.data.days })
       ]);
 
       this.setData({
@@ -47,7 +47,7 @@ Page({
 
   async loadTrend() {
     try {
-      const res = await request.get('/api/v1/club/manage/trend', {
+      const res = await request.get('/club/manage/trend', {
         club_id: this.data.clubId,
         days: this.data.days
       });

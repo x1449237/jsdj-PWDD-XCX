@@ -205,7 +205,7 @@ export default {
           type: this.searchForm.type || undefined,
           status: this.searchForm.status !== '' ? this.searchForm.status : undefined
         }
-        const res = await request.get('/admin/chat/quick_cards', { params })
+        const res = await request.get('/chat/quick_cards', { params })
         this.cardList = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -252,7 +252,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete('/admin/chat/quick_card', { data: { id: row.id } })
+        await request.delete('/chat/quick_card', { data: { id: row.id } })
         ElMessage.success('删除成功')
         this.fetchList()
       } catch (err) {
@@ -279,10 +279,10 @@ export default {
           }
         }
         if (this.dialogMode === 'add') {
-          await request.post('/admin/chat/quick_card', submitData)
+          await request.post('/chat/quick_card', submitData)
           ElMessage.success('创建成功')
         } else {
-          await request.put('/admin/chat/quick_card', submitData)
+          await request.put('/chat/quick_card', submitData)
           ElMessage.success('更新成功')
         }
         this.dialogVisible = false

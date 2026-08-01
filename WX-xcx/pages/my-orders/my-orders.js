@@ -68,7 +68,7 @@ Page({
       params.status = status;
     }
 
-    request.get('/api/v1/orders', params).then((res) => {
+    request.get('/orders', params).then((res) => {
       const list = (res.list || []).map((item) => ({
         ...item,
         statusText: util.getOrderStatusText(item.status),
@@ -165,7 +165,7 @@ Page({
       content: '确定取消该订单吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post(`/api/v1/orders/${id}/cancel`).then(() => {
+          request.post(`/orders/${id}/cancel`).then(() => {
             wx.showToast({ title: '订单已取消', icon: 'success' });
             this.setData({ page: 1, orders: [], noMore: false });
             this.loadOrders();
@@ -189,7 +189,7 @@ Page({
       content: '确认服务已完成，进行验收？',
       success: (res) => {
         if (res.confirm) {
-          request.post(`/api/v1/orders/${id}/confirm`).then(() => {
+          request.post(`/orders/${id}/confirm`).then(() => {
             wx.showToast({ title: '验收成功', icon: 'success' });
             this.setData({ page: 1, orders: [], noMore: false });
             this.loadOrders();

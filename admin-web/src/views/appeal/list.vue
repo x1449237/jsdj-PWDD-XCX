@@ -266,7 +266,7 @@ export default {
           startDate: this.searchForm.dateRange?.[0] || undefined,
           endDate: this.searchForm.dateRange?.[1] || undefined
         }
-        const res = await request.get('/admin/appeals', { params })
+        const res = await request.get('/appeals', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -296,7 +296,7 @@ export default {
       this.communicationList = []
       this.sendMessage = ''
       try {
-        const res = await request.get(`/admin/appeals/${row.id}`)
+        const res = await request.get(`/appeals/${row.id}`)
         this.currentAppeal = res.data?.appeal || {}
         this.urgeRecords = res.data?.urgeRecords || []
         this.communicationList = res.data?.communications || []
@@ -313,7 +313,7 @@ export default {
           '办结确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.put(`/admin/appeals/${row.id}/complete`)
+        await request.put(`/appeals/${row.id}/complete`)
         ElMessage.success('办结成功')
         this.fetchList()
       } catch (err) {
@@ -329,13 +329,13 @@ export default {
       }
       this.sendLoading = true
       try {
-        await request.post(`/admin/appeals/${this.currentAppeal.id}/communications`, {
+        await request.post(`/appeals/${this.currentAppeal.id}/communications`, {
           content: this.sendMessage
         })
         ElMessage.success('发送成功')
         this.sendMessage = ''
         // 刷新沟通记录
-        const res = await request.get(`/admin/appeals/${this.currentAppeal.id}`)
+        const res = await request.get(`/appeals/${this.currentAppeal.id}`)
         this.communicationList = res.data?.communications || []
       } catch (err) {
         console.error('发送失败:', err)

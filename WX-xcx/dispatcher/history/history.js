@@ -68,7 +68,7 @@ Page({
       cancelled: '#cccccc'
     };
 
-    request.get('/api/v1/dispatcher/dispatch-records', params).then((res) => {
+    request.get('/dispatcher/dispatch-records', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
         statusText: statusTextMap[item.status] || '未知',

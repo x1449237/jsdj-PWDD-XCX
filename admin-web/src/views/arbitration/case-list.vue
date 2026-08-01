@@ -230,7 +230,7 @@ export default {
   methods: {
     loadData() {
       this.loading = true
-      request.get('/api/v1/admin/arbitration/case_list', {
+      request.get('/arbitration/case_list', {
         params: {
           status: this.searchForm.status,
           dispute_type: this.searchForm.disputeType,
@@ -261,7 +261,7 @@ export default {
     handleViewDetail(row) {
       this.detailLoading = true
       this.detailDialogVisible = true
-      request.get('/api/v1/admin/arbitration/case_detail', {
+      request.get('/arbitration/case_detail', {
         params: { case_id: row.id }
       }).then(res => {
         this.caseDetail = res
@@ -275,7 +275,7 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        request.post('/api/v1/admin/arbitration/process_case', {
+        request.post('/arbitration/process_case', {
           case_id: row.id
         }).then(() => {
           ElMessage.success('受理成功')
@@ -308,7 +308,7 @@ export default {
       }
       this.resolving = true
       const penalties = this.resolveForm.penalties.filter(p => p.penalty_type)
-      request.post('/api/v1/admin/arbitration/resolve_case', {
+      request.post('/arbitration/resolve_case', {
         case_id: this.resolveForm.caseId,
         result: this.resolveForm.result,
         penalties: JSON.stringify(penalties)

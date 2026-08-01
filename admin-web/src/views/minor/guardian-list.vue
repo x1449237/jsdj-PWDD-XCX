@@ -162,7 +162,7 @@ export default {
           params.status = this.filterForm.status
         }
 
-        const res = await request.get('/admin/minor/guardian_list', { params })
+        const res = await request.get('/minor/guardian_list', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -200,7 +200,7 @@ export default {
           '强制解绑确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.post('/admin/minor/force_unbind', { bind_id: row.id })
+        await request.post('/minor/force_unbind', { bind_id: row.id })
         ElMessage.success('解绑成功')
         this.fetchList()
       } catch (err) {

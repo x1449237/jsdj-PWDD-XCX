@@ -281,7 +281,7 @@ export default {
           page: this.pagination.page,
           pageSize: this.pagination.pageSize
         }
-        const res = await request.get('/v1/admin/after-sale/keywords', { params })
+        const res = await request.get('/after-sale/keywords', { params })
         this.tableData = res.data?.list || []
         this.pagination.total = res.data?.total || 0
       } catch (err) {
@@ -292,7 +292,7 @@ export default {
     },
     async fetchSwitchStatus() {
       try {
-        const res = await request.get('/v1/admin/after-sale/keywords/switch-status')
+        const res = await request.get('/after-sale/keywords/switch-status')
         this.globalSwitch = res.data?.globalSwitch ?? true
         this.testMode = res.data?.testMode ?? false
       } catch (err) {
@@ -301,7 +301,7 @@ export default {
     },
     async handleGlobalSwitchChange(val) {
       try {
-        await request.post('/v1/admin/after-sale/keywords/global-switch', { enabled: val })
+        await request.post('/after-sale/keywords/global-switch', { enabled: val })
         ElMessage.success(val ? '已开启自动介入' : '已关闭自动介入')
       } catch (err) {
         this.globalSwitch = !val
@@ -310,7 +310,7 @@ export default {
     },
     async handleTestModeChange(val) {
       try {
-        await request.post('/v1/admin/after-sale/keywords/test-mode', { enabled: val })
+        await request.post('/after-sale/keywords/test-mode', { enabled: val })
         ElMessage.success(val ? '已开启测试模式' : '已关闭测试模式')
       } catch (err) {
         this.testMode = !val
@@ -362,10 +362,10 @@ export default {
           payload.regexPattern = this.form.regexPattern
         }
         if (this.isEdit) {
-          await request.put(`/v1/admin/after-sale/keywords/${this.editId}`, payload)
+          await request.put(`/after-sale/keywords/${this.editId}`, payload)
           ElMessage.success('编辑成功')
         } else {
-          await request.post('/v1/admin/after-sale/keywords', payload)
+          await request.post('/after-sale/keywords', payload)
           ElMessage.success('添加成功')
         }
         this.dialogVisible = false
@@ -383,7 +383,7 @@ export default {
           '删除确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        await request.delete(`/v1/admin/after-sale/keywords/${row.id}`)
+        await request.delete(`/after-sale/keywords/${row.id}`)
         ElMessage.success('删除成功')
         this.fetchList()
       } catch (err) {
@@ -417,7 +417,7 @@ export default {
         formData.append('file', this.importFile)
         formData.append('category', this.importForm.category)
         formData.append('matchType', this.importForm.matchType)
-        const res = await request.post('/v1/admin/after-sale/keywords/import', formData, {
+        const res = await request.post('/after-sale/keywords/import', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         ElMessage.success(`导入成功，共导入 ${res.data?.count || 0} 个关键词`)
@@ -443,7 +443,7 @@ export default {
       this.testLoading = true
       this.testSubmitted = true
       try {
-        const res = await request.post('/v1/admin/after-sale/keywords/test-match', {
+        const res = await request.post('/after-sale/keywords/test-match', {
           text: this.testForm.text
         })
         this.testResult = res.data?.list || []

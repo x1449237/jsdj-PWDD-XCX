@@ -84,7 +84,7 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Calculator" @click="handleCalculate">计算</el-button>
+          <el-button type="primary" :icon="Coin" @click="handleCalculate">计算</el-button>
         </el-form-item>
       </el-form>
 
@@ -211,7 +211,7 @@
 
 <script>
 import request from '@/utils/request'
-import { Search, Calculator } from '@element-plus/icons-vue'
+import { Search, Coin } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 export default {
@@ -219,7 +219,7 @@ export default {
   data() {
     return {
       Search,
-      Calculator,
+      Coin,
       tableData: [],
       loading: false,
       calculatorForm: {
@@ -255,7 +255,7 @@ export default {
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/admin/tax/config_list')
+        const res = await request.get('/tax/config_list')
         this.tableData = res.data || []
       } catch (err) {
         console.error('获取个税配置失败:', err)
@@ -269,7 +269,7 @@ export default {
     },
     async handleSave(row) {
       try {
-        await request.put('/admin/tax/config_update', {
+        await request.put('/tax/config_update', {
           role: row.role,
           tax_rate: row.taxRate,
           threshold: row.threshold,
@@ -282,7 +282,7 @@ export default {
       }
     },
     handleToggle(row, val) {
-      request.put('/admin/tax/config_update', {
+      request.put('/tax/config_update', {
         role: row.role,
         status: val
       }).then(() => {
@@ -314,7 +314,7 @@ export default {
           role: this.taxSearchForm.role || undefined,
           month: this.taxSearchForm.month || undefined
         }
-        const res = await request.get('/admin/tax/record_list', { params })
+        const res = await request.get('/tax/record_list', { params })
         this.taxRecordList = res.data?.list || []
         this.taxPagination.total = res.data?.total || 0
       } catch (err) {
@@ -339,7 +339,7 @@ export default {
     async handleCompleteSubmit() {
       this.completeLoading = true
       try {
-        await request.put('/admin/tax/record_complete', {
+        await request.put('/tax/record_complete', {
           id: this.completeRow.id,
           certificate_no: this.completeForm.certificateNo
         })

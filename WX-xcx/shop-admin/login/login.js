@@ -72,7 +72,7 @@ Page({
 
     this.setData({ loading: true });
 
-    request.post('/api/v1/shop-admin/login', {
+    request.post('/shop-admin/login', {
       account: account.trim(),
       password: password.trim(),
       shop_code: shopCode.trim()

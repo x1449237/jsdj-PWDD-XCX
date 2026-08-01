@@ -140,7 +140,7 @@ Page({
   },
 
   loadSessionDetail() {
-    request.get('/api/v1/after_sale/detail', {
+    request.get('/after-sales/detail', {
       session_id: this.data.sessionId
     }).then((res) => {
       this.setData({
@@ -158,7 +158,7 @@ Page({
   },
 
   loadMessages() {
-    request.get('/api/v1/after_sale/messages', {
+    request.get('/after-sales/messages', {
       session_id: this.data.sessionId,
       page: this.data.page,
       page_size: this.data.pageSize
@@ -265,7 +265,7 @@ Page({
     });
     this.scrollToBottom();
 
-    request.post('/api/v1/after_sale/send_text', {
+    request.post('/after-sales/send-text', {
       session_id: this.data.sessionId,
       content: text
     }).then((res) => {
@@ -337,39 +337,16 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/after_sale/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/after_sale/send_image', {
-              session_id: this.data.sessionId,
-              image_url: data.data.url
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/after-sales/upload', filePath).then((data) => {
+      return request.post('/after-sales/send-image', {
+        session_id: this.data.sessionId,
+        image_url: data.url
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -424,39 +401,17 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/after_sale/upload',
-      filePath: filePath,
-      name: 'file',
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/after_sale/send_voice', {
-              session_id: this.data.sessionId,
-              voice_url: data.data.url,
-              duration: Math.round(duration / 1000)
-            }).then((res) => {
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
-        }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+    request.upload('/after-sales/upload', filePath).then((data) => {
+      return request.post('/after-sales/send-voice', {
+        session_id: this.data.sessionId,
+        voice_url: data.url,
+        duration: Math.round(duration / 1000)
+      }).then((res) => {
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -530,7 +485,7 @@ Page({
       content: '撤回后对方将无法看到此消息',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/after_sale/recall', {
+          request.post('/after-sales/recall', {
             msg_id: msg.msg_id,
             session_id: this.data.sessionId
           }).then(() => {
@@ -566,7 +521,7 @@ Page({
       content: '申请后平台方将在48小时内强行介入，确定要申请吗？',
       success: (res) => {
         if (res.confirm) {
-          request.post('/api/v1/after_sale/request_intervene', {
+          request.post('/after-sales/request-intervene', {
             session_id: this.data.sessionId
           }).then(() => {
             this.setData({ interveneStatus: 1 });
@@ -680,49 +635,25 @@ Page({
     });
     this.scrollToBottom();
 
-    const token = wx.getStorageSync('token') || '';
-    wx.uploadFile({
-      url: 'https://api.example.com/api/v1/after_sale/upload_file',
-      filePath: filePath,
-      name: 'file',
-      formData: {
+    request.upload('/after-sales/upload-file', filePath, {
+      session_id: this.data.sessionId,
+      file_name: fileName
+    }).then((data) => {
+      return request.post('/after-sales/send-file', {
         session_id: this.data.sessionId,
-        file_name: fileName
-      },
-      header: {
-        'Authorization': 'Bearer ' + token
-      },
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data.code === 0) {
-            request.post('/api/v1/after_sale/send_file', {
-              session_id: this.data.sessionId,
-              file_url: data.data.url,
-              file_name: fileName,
-              file_size: fileSize,
-              file_type: data.data.file_type || 'document'
-            }).then((res) => {
-              if (res.anti_fraud_risky) {
-                this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
-              }
-              this.updateMessageStatus(tempMsgId, res);
-            }).catch(() => {
-              this.removeMessage(tempMsgId);
-              wx.showToast({ title: '发送失败', icon: 'none' });
-            });
-          } else {
-            this.removeMessage(tempMsgId);
-            wx.showToast({ title: data.msg || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          this.removeMessage(tempMsgId);
+        file_url: data.url,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: data.file_type || 'document'
+      }).then((res) => {
+        if (res.anti_fraud_risky) {
+          this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
         }
-      },
-      fail: () => {
-        this.removeMessage(tempMsgId);
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
+        this.updateMessageStatus(tempMsgId, res);
+      });
+    }).catch(() => {
+      this.removeMessage(tempMsgId);
+      wx.showToast({ title: '发送失败', icon: 'none' });
     });
   },
 
@@ -804,35 +735,9 @@ Page({
     wx.showLoading({ title: '提交中...' });
 
     const uploadPromises = fileList.map(file => {
-      return new Promise((resolve, reject) => {
-        const token = wx.getStorageSync('token') || '';
-        wx.uploadFile({
-          url: 'https://api.example.com/api/v1/after_sale/upload_evidence',
-          filePath: file.path,
-          name: 'file',
-          formData: {
-            session_id: this.data.sessionId,
-            description: this.data.evidenceDescription
-          },
-          header: {
-            'Authorization': 'Bearer ' + token
-          },
-          success: (res) => {
-            try {
-              const data = JSON.parse(res.data);
-              if (data.code === 0) {
-                resolve(data.data);
-              } else {
-                reject(data.msg);
-              }
-            } catch (e) {
-              reject(e);
-            }
-          },
-          fail: (err) => {
-            reject(err);
-          }
-        });
+      return request.upload('/after-sales/upload-evidence', file.path, {
+        session_id: this.data.sessionId,
+        description: this.data.evidenceDescription
       });
     });
 

@@ -42,7 +42,7 @@ Page({
     });
 
     // 调用活体检测接口
-    request.post('/api/v1/auth/liveness', {
+    request.post('/user/realname/face-verify', {
       real_name: realName,
       id_card: idCard
     }).then((res) => {
@@ -69,7 +69,7 @@ Page({
 
     this.setData({ submitting: true });
 
-    request.post('/api/v1/auth/realname', {
+    request.post('/user/realname/submit', {
       real_name: realName,
       id_card: idCard
     }).then((res) => {

@@ -1,0 +1,81 @@
+# ============================================================
+# 戟三电竞平台 - 配置文件模板
+# ============================================================
+app:
+  name: "戟三电竞"
+  env: "dev"                  # dev / test / prod
+  port: 8080                  # HTTP 服务端口
+  pprof_port: 6060            # pprof 性能监控端口
+  read_timeout: 15            # 读超时(秒)
+  write_timeout: 15           # 写超时(秒)
+  graceful_timeout: 30        # 优雅关闭等待时间(秒)
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  username: "root"
+  password: "root"
+  database: "jisan_esports"
+  charset: "utf8mb4"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600     # 连接最大存活时间(秒)
+  log_level: "warn"           # silent / error / warn / info
+  # 读写分离(不启用则置空)
+  read_host: ""
+  read_port: 3306
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 100
+  min_idle_conns: 10
+
+jwt:
+  secret: "jisan-esports-secret-key-change-me"
+  expire_hours: 168           # 普通用户 token 有效期(小时) 7天
+  admin_expire_hours: 24      # 管理员 token 有效期(小时)
+  issuer: "jisan-esports"
+
+oss:
+  provider: "aliyun"          # aliyun / tencent
+  endpoint: "oss-cn-hangzhou.aliyuncs.com"
+  access_key: ""
+  secret_key: ""
+  bucket: "jisan-esports"
+  region: "cn-hangzhou"
+  cdn_domain: "https://cdn.jisan.com"
+  sign_expire: 300             # 签名 URL 有效期(秒)
+
+wechat:
+  app_id: ""
+  app_secret: ""
+  mch_id: ""                  # 商户号
+  mch_key: ""                 # 商户密钥
+  notify_url: "https://api.jisan.com/api/v1/payment/notify"
+
+websocket:
+  heartbeat_seconds: 25       # 心跳间隔(秒)
+  timeout_seconds: 70         # 连接超时(秒)
+  max_conn_per_user: 3        # 单用户最大连接数
+  probe_interval_seconds: 300 # 活跃度探针间隔(秒) 5分钟
+  probe_max_miss: 3           # 连续无响应次数阈值
+  write_buffer_size: 10240
+  read_buffer_size: 10240
+  alert_threshold: 80         # 连接数告警阈值(%)
+
+log:
+  level: "info"               # debug / info / warn / error
+  encoding: "console"         # json / console
+  directory: "./logs"
+  max_size: 100               # 单文件最大大小(MB)
+  max_backups: 10             # 保留备份数
+  max_age: 30                 # 保留天数
+
+rate_limit:
+  user_qps: 20                # 普通用户 QPS
+  player_qps: 30              # 打手 QPS
+  admin_qps: 100              # 管理员 QPS
+  burst: 50                   # 突发桶容量
