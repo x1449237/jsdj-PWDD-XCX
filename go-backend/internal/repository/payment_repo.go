@@ -35,6 +35,50 @@ func (r *PaymentRepo) FindPaymentByOutTradeNo(no string) (*model.Payment, error)
 	return &p, nil
 }
 
+// FindPaidPaymentByOrderID 根据订单ID查询已支付的支付记录(用于退款)
+// 退款应按 order_id + status=paid 查询,而非 out_trade_no(订单号与支付单号不一致)
+func (r *PaymentRepo) FindPaidPaymentByOrderID(orderID int64) (*model.Payment, error) {
+	var p model.Payment
+	if err := r.db.Where("order_id = ? AND status = ?", orderID, model.PaymentStatusPaid).
+		Order("id DESC").First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+// FindRefundablePaymentByOrderID 根据订单ID查询可退款的支付记录
+// 安全修复:原 FindPaidPaymentByOrderID 仅查 status=paid,
+// 部分退款后状态变为 partial_refund,导致无法继续退款至全额
+// 现改为查询 status IN (paid, partial_refund)
+func (r *PaymentRepo) FindRefundablePaymentByOrderID(orderID int64) (*model.Payment, error) {
+	var p model.Payment
+	if err := r.db.Where("order_id = ? AND status IN ?", orderID,
+		[]string{model.PaymentStatusPaid, model.PaymentStatusPartialRef}).
+		Order("id DESC").First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+// FindPendingPaymentByOrderID 根据订单ID查询待支付的支付记录(防重复创建)
+func (r *PaymentRepo) FindPendingPaymentByOrderID(orderID int64) (*model.Payment, error) {
+	var p model.Payment
+	if err := r.db.Where("order_id = ? AND status = ?", orderID, model.PaymentStatusPending).
+		Order("id DESC").First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
 // FindPaymentByTxnID 根据第三方交易号查询支付记录
 func (r *PaymentRepo) FindPaymentByTxnID(txnID string) (*model.Payment, error) {
 	var p model.Payment

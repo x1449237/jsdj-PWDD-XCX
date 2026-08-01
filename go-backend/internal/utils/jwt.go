@@ -2,11 +2,26 @@ package utils
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// weakSecretBlacklist 默认/弱密钥黑名单(禁止使用)
+var weakSecretBlacklist = map[string]bool{
+	"":                true,
+	"secret":          true,
+	"your-secret-key": true,
+	"change-me":       true,
+	"jwt-secret":      true,
+	"jwt_secret":      true,
+	"default":         true,
+	"test":            true,
+	"123456":          true,
+}
 
 // JWT 用户类型常量
 const (
@@ -33,7 +48,22 @@ type JWTManager struct {
 }
 
 // NewJWTManager 创建 JWT 管理器
+// 安全修复:
+// 1. 优先从环境变量 JWT_SECRET 读取密钥(避免硬编码在配置文件/提交到 git)
+// 2. 启动期强制校验:密钥长度 >= 32 字节,且不在弱密钥黑名单中
+// 3. 不合规直接 panic(fail-fast,密钥不合规不应启动服务)
 func NewJWTManager(secret string, expireHours, adminExpireHours int, issuer string) *JWTManager {
+	// 优先环境变量(生产环境密钥不应落入配置文件/git)
+	if envSecret := os.Getenv("JWT_SECRET"); envSecret != "" {
+		secret = envSecret
+	}
+	// 启动期密钥校验
+	if weakSecretBlacklist[secret] {
+		panic("JWT 密钥不合规: 禁止使用默认/弱密钥,请通过环境变量 JWT_SECRET 配置高强度密钥(>=32字节)")
+	}
+	if len(secret) < 32 {
+		panic(fmt.Sprintf("JWT 密钥不合规: 长度仅 %d 字节,要求至少 32 字节,请通过环境变量 JWT_SECRET 配置高强度随机密钥", len(secret)))
+	}
 	return &JWTManager{
 		secret:           secret,
 		expireHours:      expireHours,

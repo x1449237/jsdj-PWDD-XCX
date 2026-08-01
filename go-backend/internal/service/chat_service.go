@@ -17,6 +17,7 @@ func GetChatSessions(userID int64, page, pageSize int) ([]model.ChatSession, int
 }
 
 // GetChatMessages 会话消息列表(校验会话参与权)
+// 安全修复:补齐所有会话类型的归属校验(原仅校验订单会话,售后/群聊会话任意用户可读)
 func GetChatMessages(sessionID, userID int64, page, pageSize int) ([]model.ChatMessage, int64, error) {
 	s, err := chatRepo.FindSessionByID(sessionID)
 	if err != nil {
@@ -25,16 +26,55 @@ func GetChatMessages(sessionID, userID int64, page, pageSize int) ([]model.ChatM
 	if s == nil {
 		return nil, 0, errors.New("会话不存在")
 	}
-	// 订单会话:校验客户/打手归属
-	if s.SessionType == model.SessionTypeOrder {
-		o, _ := orderRepo.FindByID(s.RefID)
-		if o == nil || (o.UserID != userID && o.PlayerID != userID) {
-			return nil, 0, errors.New("无权查看该会话消息")
-		}
+	// 校验会话参与权(所有会话类型)
+	if err := verifySessionAccess(s, userID); err != nil {
+		return nil, 0, err
 	}
 	// 标记已读
 	_ = chatRepo.MarkRead(sessionID, userID)
 	return chatRepo.ListMessages(sessionID, page, pageSize)
+}
+
+// verifySessionAccess 校验用户是否有权访问该会话
+// 订单会话:校验客户/打手归属
+// 售后会话:校验订单参与方 + 俱乐部客服身份
+// 群聊会话:校验群成员身份
+func verifySessionAccess(s *model.ChatSession, userID int64) error {
+	switch s.SessionType {
+	case model.SessionTypeOrder:
+		o, _ := orderRepo.FindByID(s.RefID)
+		if o == nil || (o.UserID != userID && o.PlayerID != userID) {
+			return errors.New("无权查看该会话消息")
+		}
+	case model.SessionTypeAfterSale:
+		// 售后会话:校验订单参与方
+		o, _ := orderRepo.FindByID(s.RefID)
+		if o != nil && (o.UserID == userID || o.PlayerID == userID) {
+			return nil // 订单参与方放行
+		}
+		// 俱乐部客服:校验是否为该俱乐部 shop_admin
+		if s.ClubID > 0 {
+			var cnt int64
+			_ = db.Model(&model.ShopAdminAccount{}).
+				Where("club_id = ? AND user_id = ? AND status = 1", s.ClubID, userID).Count(&cnt).Error
+			if cnt > 0 {
+				return nil
+			}
+		}
+		return errors.New("无权查看该售后会话")
+	case model.SessionTypeGroupInternal, model.SessionTypeGroupCategory:
+		// 群聊:校验群成员身份
+		var cnt int64
+		_ = db.Model(&model.GroupChatMember{}).
+			Where("group_id = ? AND user_id = ? AND status = 1", s.RefID, userID).Count(&cnt).Error
+		if cnt == 0 {
+			return errors.New("非群成员,无权查看群聊消息")
+		}
+	default:
+		// 安全修复:未知会话类型默认拒绝(原直接 return nil 放行,存在越权读取风险)
+		return errors.New("不支持的会话类型,无权访问")
+	}
+	return nil
 }
 
 // SendMessageInput 发送消息入参
@@ -48,6 +88,7 @@ type SendMessageInput struct {
 }
 
 // SendMessage 发送聊天消息(含敏感词风控、WebSocket 推送)
+// 安全修复:校验会话归属,防止向任意会话注入消息
 func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.ChatMessage, error) {
 	if in.Content == "" && in.MediaURL == "" {
 		return nil, errors.New("消息内容不能为空")
@@ -63,6 +104,17 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 		if in.Duration > 60 {
 			return nil, errors.New("语音消息时长不能超过 60 秒")
 		}
+	}
+	// 会话归属校验:防止向任意会话注入消息
+	s, err := chatRepo.FindSessionByID(in.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if s == nil {
+		return nil, errors.New("会话不存在")
+	}
+	if err := verifySessionAccess(s, userID); err != nil {
+		return nil, err
 	}
 	// 防代练检测(聊天消息)
 	if in.Content != "" {
@@ -96,7 +148,6 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 
 	// WebSocket 推送给会话所有参与者（所有 session_type 全量覆盖）
 	if hub != nil {
-		s, _ := chatRepo.FindSessionByID(in.SessionID)
 		if s != nil {
 			switch s.SessionType {
 			case model.SessionTypeOrder:

@@ -18,6 +18,12 @@ import (
 	"github.com/jisan/e-sports-platform/pkg/websocket"
 )
 
+// HandleWxPayCallback 处理微信支付回调(已校验签名后调用)
+// 安全修复:
+// 1. 仅 SUCCESS 状态才入账(原非 SUCCESS 也入账)
+// 2. 校验回调金额与支付记录金额一致(防 1 分钱攻击)
+// 3. 解密失败不再回退到 mock 数据,直接返回错误
+// 4. 不再从原始 body 提取 out_trade_no 作为回退(防伪造)
 func HandleWxPayCallback(body []byte) error {
 	if len(body) == 0 {
 		return errors.New("回调内容为空")
@@ -25,45 +31,38 @@ func HandleWxPayCallback(body []byte) error {
 
 	var cb WxPayCallbackRequest
 	if err := json.Unmarshal(body, &cb); err != nil {
-		outTradeNo, txnID := parseWxPayNotify(body)
-		if outTradeNo == "" {
-			return errors.New("回调缺少商户订单号")
-		}
-		return MarkPaymentPaid(outTradeNo, txnID)
+		return fmt.Errorf("回调 JSON 解析失败: %w", err)
 	}
 
 	apiV3Key := ""
 	if cfg != nil {
-		apiV3Key = cfg.WeChat.MchKey
+		apiV3Key = cfg.WeChat.ApiV3Key
 	}
 
 	decrypted, err := DecryptWxPayResource(cb.Resource, apiV3Key)
 	if err != nil {
-		outTradeNo, txnID := parseWxPayNotify(body)
-		if outTradeNo != "" {
-			return MarkPaymentPaid(outTradeNo, txnID)
-		}
 		return fmt.Errorf("解密 resource 失败: %w", err)
 	}
 
-	if decrypted.TradeState != "SUCCESS" && decrypted.TradeState != "REFUND" {
-		outTradeNo, txnID := parseWxPayNotify(body)
-		if outTradeNo != "" {
-			return MarkPaymentPaid(outTradeNo, txnID)
-		}
+	// 仅 SUCCESS 状态才入账(原逻辑反了,非 SUCCESS 也入账)
+	if decrypted.TradeState != "SUCCESS" {
+		return fmt.Errorf("交易状态非 SUCCESS(当前:%s),忽略回调", decrypted.TradeState)
 	}
 
 	outTradeNo := decrypted.OutTradeNo
 	txnID := decrypted.TransactionID
 	if outTradeNo == "" {
-		outTradeNo, txnID = parseWxPayNotify(body)
-	}
-	if outTradeNo == "" {
 		return errors.New("回调缺少商户订单号")
 	}
-	return MarkPaymentPaid(outTradeNo, txnID)
+	// 金额校验:回调金额传入 MarkPaymentPaid 进行二次校验
+	return MarkPaymentPaid(outTradeNo, txnID, decrypted.Amount.Total)
 }
 
+// HandleWxPayCallbackWithHeaders 带请求头的微信支付回调处理
+// 安全修复:
+// 1. 强制校验签名(原忽略签名校验结果)
+// 2. 使用 ApiV3Key 解密(原用 MchKey)
+// 3. 签名校验失败直接返回错误
 func HandleWxPayCallbackWithHeaders(body []byte, headers map[string]string) error {
 	if len(body) == 0 {
 		return errors.New("回调内容为空")
@@ -88,10 +87,13 @@ func HandleWxPayCallbackWithHeaders(body []byte, headers map[string]string) erro
 
 	apiV3Key := ""
 	if cfg != nil {
-		apiV3Key = cfg.WeChat.MchKey
+		apiV3Key = cfg.WeChat.ApiV3Key
 	}
 
-	_ = VerifyWxPaySignature(timestamp, nonce, string(body), signature, serialNo, apiV3Key)
+	// 强制校验签名(原忽略校验结果)
+	if !VerifyWxPaySignature(timestamp, nonce, string(body), signature, serialNo, apiV3Key) {
+		return errors.New("微信支付回调签名校验失败")
+	}
 
 	return HandleWxPayCallback(body)
 }
@@ -137,12 +139,14 @@ func ProxyWxPayCallback(r *http.Request) error {
 	return HandleWxPayCallbackWithHeaders(body, headers)
 }
 
+// DecryptWxPayResourceAESGCM 使用 AES-GCM 解密微信支付回调资源
+// 安全修复:解密失败不再回退到 mock,直接返回错误
 func DecryptWxPayResourceAESGCM(r WxPayResource, apiV3Key string) (*WxPayDecryptedResource, error) {
 	if apiV3Key == "" {
-		apiV3Key = "sandbox_mock_api_v3_key_32_bytes_padding!"
+		return nil, errors.New("apiV3Key 未配置")
 	}
 	if len(apiV3Key) < 32 {
-		apiV3Key = apiV3Key + strings.Repeat("0", 32-len(apiV3Key))
+		return nil, errors.New("apiV3Key 长度不足 32 字节")
 	}
 	keyBytes := []byte(apiV3Key)[:32]
 
@@ -179,7 +183,8 @@ func DecryptWxPayResourceAESGCM(r WxPayResource, apiV3Key string) (*WxPayDecrypt
 
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, associatedData)
 	if err != nil {
-		return DecryptWxPayResource(r, apiV3Key)
+		// 安全修复:解密失败直接返回错误,不再回退到 mock
+		return nil, fmt.Errorf("AES-GCM 解密失败(密文可能被篡改): %w", err)
 	}
 
 	var result WxPayDecryptedResource
@@ -189,21 +194,25 @@ func DecryptWxPayResourceAESGCM(r WxPayResource, apiV3Key string) (*WxPayDecrypt
 	return &result, nil
 }
 
+// VerifyWxPaySignatureV3 微信支付 V3 签名校验
+// 安全修复:原恒返回 true,现改为:
+// 1. 沙箱模式跳过校验
+// 2. 生产模式未配置公钥则拒绝
+// TODO: 接入 wechatpay-go SDK 进行真正的 RSA 签名校验
 func VerifyWxPaySignatureV3(timestamp, nonce, body, signature, serialNo, publicKeyPEM string) bool {
 	if timestamp == "" || nonce == "" || signature == "" {
 		return false
 	}
-	message := fmt.Sprintf("%s\n%s\n%s\n", timestamp, nonce, body)
-	sigBytes, err := base64.StdEncoding.DecodeString(signature)
-	if err != nil {
+	// 沙箱模式跳过
+	if cfg != nil && cfg.WeChat.MchID != "" && strings.HasPrefix(cfg.WeChat.MchID, "sandbox") {
 		return true
 	}
-	_ = message
-	_ = sigBytes
-	_ = publicKeyPEM
-	_ = serialNo
-	_ = sha256.New
-	return true
+	// 生产模式未配置公钥则拒绝(安全失败)
+	if publicKeyPEM == "" {
+		return false
+	}
+	// TODO: 接入真正 RSA 验签
+	return false
 }
 
 func sha256Hex(s string) string {

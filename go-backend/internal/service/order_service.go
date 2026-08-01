@@ -11,6 +11,65 @@ import (
 	"github.com/jisan/e-sports-platform/internal/model"
 )
 
+// validOrderTransitions 订单状态机白名单
+// key=当前状态, value=允许转换的目标状态集合
+// 防止任意状态跳转(如已结算改回待接单、已退款改成已完成)
+var validOrderTransitions = map[int8]map[int8]bool{
+	model.OrderStatusPending: {
+		model.OrderStatusAccepted:    true,
+		model.OrderStatusTimeout:     true,
+		model.OrderStatusCanceled:    true,
+		model.OrderStatusVerifyFail:  true,
+	},
+	model.OrderStatusTeamPending: {
+		model.OrderStatusAccepted:    true,
+		model.OrderStatusTimeout:     true,
+		model.OrderStatusCanceled:    true,
+	},
+	model.OrderStatusAccepted: {
+		model.OrderStatusInProgress:  true,
+		model.OrderStatusTimeout:     true,
+		model.OrderStatusCanceled:    true,
+		model.OrderStatusRefunded:    true,
+	},
+	model.OrderStatusInProgress: {
+		model.OrderStatusToVerify:    true,
+		model.OrderStatusCompleted:   true,
+		model.OrderStatusTimeout:     true,
+		model.OrderStatusRefunded:    true,
+	},
+	model.OrderStatusToVerify: {
+		model.OrderStatusToSettle:    true,
+		model.OrderStatusCompleted:   true,
+		model.OrderStatusVerifyFail:  true,
+		model.OrderStatusRefunded:    true,
+	},
+	model.OrderStatusVerifyFail: {
+		model.OrderStatusToVerify:    true,
+		model.OrderStatusRefunded:    true,
+	},
+	model.OrderStatusCompleted: {
+		model.OrderStatusToSettle:    true,
+		model.OrderStatusSettled:     true,
+	},
+	model.OrderStatusToSettle: {
+		model.OrderStatusSettled:     true,
+	},
+	// 终态:已结算/已退款/已超时/已取消 不允许再转换
+}
+
+// canTransition 校验订单状态转换是否合法
+func canTransition(from, to int8) bool {
+	if from == to {
+		return true // 幂等
+	}
+	allowed, ok := validOrderTransitions[from]
+	if !ok {
+		return false // from 为终态或未知状态,禁止转换
+	}
+	return allowed[to]
+}
+
 // CreateOrderInput 创建订单入参
 type CreateOrderInput struct {
 	Type            int8       `json:"type"`
@@ -407,6 +466,7 @@ func AdminGetOrders(page, pageSize int, status int8, keyword string) ([]model.Or
 }
 
 // AdminForceUpdateOrderStatus 平台强制更新订单状态
+// 安全修复:加入状态机校验,防止任意状态跳转(如已结算改回待接单)
 func AdminForceUpdateOrderStatus(orderID, adminID int64, status int8, reason string) error {
 	o, err := orderRepo.FindByID(orderID)
 	if err != nil {
@@ -414,6 +474,10 @@ func AdminForceUpdateOrderStatus(orderID, adminID int64, status int8, reason str
 	}
 	if o == nil {
 		return errors.New("订单不存在")
+	}
+	// 状态机校验:禁止非法状态转换
+	if !canTransition(o.Status, status) {
+		return fmt.Errorf("非法状态转换: %d -> %d,订单当前状态不允许转换为目标状态", o.Status, status)
 	}
 	old := o.Status
 	if err := orderRepo.Update(orderID, map[string]interface{}{
@@ -435,22 +499,41 @@ func AdminGetFailedOrders(page, pageSize int) ([]model.Order, int64, error) {
 }
 
 // AdminBatchOrderOperation 批量订单操作
+// 安全修复:加入状态机校验,跳过非法转换的订单
 func AdminBatchOrderOperation(adminID int64, orderIDs []int64, action string) (int, error) {
 	if len(orderIDs) == 0 {
 		return 0, errors.New("未选择订单")
 	}
 	success := 0
 	for _, oid := range orderIDs {
-		var fields map[string]interface{}
+		// 查询订单当前状态做状态机校验
+		o, err := orderRepo.FindByID(oid)
+		if err != nil || o == nil {
+			continue
+		}
+		var targetStatus int8
 		switch action {
 		case "complete":
-			fields = map[string]interface{}{"status": model.OrderStatusCompleted, "ended_at": nowTimePtr(), "updated_at": nowTimePtr()}
+			targetStatus = model.OrderStatusCompleted
 		case "cancel":
-			fields = map[string]interface{}{"status": model.OrderStatusTimeout, "updated_at": nowTimePtr()}
+			targetStatus = model.OrderStatusTimeout
 		default:
 			continue
 		}
+		// 状态机校验
+		if !canTransition(o.Status, targetStatus) {
+			continue // 跳过非法转换
+		}
+		fields := map[string]interface{}{"status": targetStatus, "updated_at": nowTimePtr()}
+		if action == "complete" {
+			fields["ended_at"] = nowTimePtr()
+		}
 		if err := orderRepo.Update(oid, fields); err == nil {
+			_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
+				OrderID: oid, FromStatus: o.Status, ToStatus: targetStatus,
+				OperatorID: adminID, OperatorType: "admin", Reason: "批量" + action,
+				CreatedAt: nowTimePtr(),
+			})
 			success++
 		}
 	}
@@ -482,9 +565,36 @@ func ShopGetFailedOrders(clubID int64, page, pageSize int) ([]model.Order, int64
 	return orderRepo.ListByClub(clubID, page, pageSize, model.OrderStatusVerifyFail, "")
 }
 
-// ShopUpdateOrderStatus 内置管理端更新订单状态(创始人专属由 handler 校验角色)
-func ShopUpdateOrderStatus(orderID, adminID int64, status int8, reason string) error {
-	return AdminForceUpdateOrderStatus(orderID, adminID, status, reason)
+// ShopUpdateOrderStatus 内置管理端更新订单状态
+// 安全修复:校验订单归属(防跨俱乐部越权)+ 状态机校验
+func ShopUpdateOrderStatus(orderID, clubID, adminID int64, status int8, reason string) error {
+	o, err := orderRepo.FindByID(orderID)
+	if err != nil {
+		return err
+	}
+	if o == nil {
+		return errors.New("订单不存在")
+	}
+	// 俱乐部归属校验:防跨俱乐部越权
+	if clubID > 0 && o.ClubID != clubID {
+		return errors.New("无权操作该订单")
+	}
+	// 状态机校验
+	if !canTransition(o.Status, status) {
+		return fmt.Errorf("非法状态转换: %d -> %d", o.Status, status)
+	}
+	old := o.Status
+	if err := orderRepo.Update(orderID, map[string]interface{}{
+		"status":     status,
+		"updated_at": nowTimePtr(),
+	}); err != nil {
+		return err
+	}
+	return orderRepo.CreateStatusLog(&model.OrderStatusLog{
+		OrderID: orderID, FromStatus: old, ToStatus: status,
+		OperatorID: adminID, OperatorType: "shop_admin", Reason: reason,
+		CreatedAt: nowTimePtr(),
+	})
 }
 
 // ShopGetAfterSaleOrders 售后订单列表

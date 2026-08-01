@@ -323,15 +323,16 @@ type AddAdminShopAccountRequest struct {
 	Role     int8   `json:"role"`
 }
 
-// AdminAddShopAccount 平台代建内置管理端账号(复用 ShopAddAdmin)
+// AdminAddShopAccount 平台代建内置管理端账号
 // POST /api/v1/admin/shop-admins
+// 安全修复:改用平台代建专用函数(ShopAddAdmin 现要求创始人身份,平台超管不适用)
 func (h *AdminAuditHandler) AdminAddShopAccount(c *gin.Context) {
 	var req AddAdminShopAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	a, err := service.ShopAddAdmin(req.ClubID, req.Username, req.Password, req.RealName, req.Phone, req.Role)
+	a, err := service.AdminAddShopAccountByPlatform(req.ClubID, req.Username, req.Password, req.RealName, req.Phone, req.Role)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return

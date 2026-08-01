@@ -46,6 +46,7 @@ const (
 	OrderStatusTimeout     int8 = 10 // 超时取消
 	OrderStatusVerifyFail  int8 = 11 // 大额验证失败
 	OrderStatusRefunded    int8 = 12 // 已退款
+	OrderStatusCanceled    int8 = 13 // 已取消(用户主动取消)
 )
 
 // 订单类型常量

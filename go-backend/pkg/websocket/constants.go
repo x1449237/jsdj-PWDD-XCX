@@ -33,6 +33,9 @@ const (
 
 	// OfflineMsgTTL 离线消息保留时长 7 天
 	OfflineMsgTTL = 7 * 24 * time.Hour
+
+	// MaxOfflineMsgPerUser 单用户离线消息最大保留数量(超过则淘汰最早消息)
+	MaxOfflineMsgPerUser = 500
 )
 
 // 消息类型常量(对应 message.go 中 Message.Type)

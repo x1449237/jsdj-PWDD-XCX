@@ -91,12 +91,14 @@ type startExamRequest struct {
 
 // StartExam 开始考核
 // POST /api/v1/shop/applications/:id/exam/start
+// 安全修复:传入 clubID 校验申请归属
 func (h *ShopHandler) StartExam(c *gin.Context) {
 	applicationID := parseInt64Path(c, "id")
 	var req startExamRequest
 	_ = c.ShouldBindJSON(&req)
+	clubID := getClubID(c)
 	examinerID := getCurrentUserID(c)
-	if err := service.ShopStartExam(applicationID, examinerID, req.Requirement); err != nil {
+	if err := service.ShopStartExam(clubID, applicationID, examinerID, req.Requirement); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -112,6 +114,7 @@ type submitExamResultRequest struct {
 
 // SubmitExamResult 提交考核结果
 // POST /api/v1/shop/applications/:id/exam/submit
+// 安全修复:传入 clubID 校验申请归属
 func (h *ShopHandler) SubmitExamResult(c *gin.Context) {
 	applicationID := parseInt64Path(c, "id")
 	var req submitExamResultRequest
@@ -119,8 +122,9 @@ func (h *ShopHandler) SubmitExamResult(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
+	clubID := getClubID(c)
 	examinerID := getCurrentUserID(c)
-	if err := service.ShopSubmitExamResult(applicationID, examinerID, req.Result, req.Remark, req.VideoURL); err != nil {
+	if err := service.ShopSubmitExamResult(clubID, applicationID, examinerID, req.Result, req.Remark, req.VideoURL); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -129,9 +133,11 @@ func (h *ShopHandler) SubmitExamResult(c *gin.Context) {
 
 // ApproveApplication 通过入会申请
 // POST /api/v1/shop/applications/:id/approve
+// 安全修复:传入 clubID 校验申请归属
 func (h *ShopHandler) ApproveApplication(c *gin.Context) {
 	applicationID := parseInt64Path(c, "id")
-	if err := service.ShopApproveApplication(applicationID); err != nil {
+	clubID := getClubID(c)
+	if err := service.ShopApproveApplication(clubID, applicationID); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -145,11 +151,13 @@ type rejectApplicationRequest struct {
 
 // RejectApplication 驳回入会申请
 // POST /api/v1/shop/applications/:id/reject
+// 安全修复:传入 clubID 校验申请归属
 func (h *ShopHandler) RejectApplication(c *gin.Context) {
 	applicationID := parseInt64Path(c, "id")
 	var req rejectApplicationRequest
 	_ = c.ShouldBindJSON(&req)
-	if err := service.ShopRejectApplication(applicationID, req.Reason); err != nil {
+	clubID := getClubID(c)
+	if err := service.ShopRejectApplication(clubID, applicationID, req.Reason); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -242,6 +250,7 @@ type addShopAdminRequest struct {
 
 // AddAdmin 添加内置管理端账号(创始人专属)
 // POST /api/v1/shop/admins
+// 安全修复:传入 operatorID 校验操作者是创始人
 func (h *ShopHandler) AddAdmin(c *gin.Context) {
 	var req addShopAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -249,7 +258,8 @@ func (h *ShopHandler) AddAdmin(c *gin.Context) {
 		return
 	}
 	clubID := getClubID(c)
-	a, err := service.ShopAddAdmin(clubID, req.Username, req.Password, req.RealName, req.Phone, req.Role)
+	operatorID := getCurrentUserID(c)
+	a, err := service.ShopAddAdmin(clubID, operatorID, req.Username, req.Password, req.RealName, req.Phone, req.Role)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
@@ -259,10 +269,12 @@ func (h *ShopHandler) AddAdmin(c *gin.Context) {
 
 // RemoveAdmin 移除管理员
 // POST /api/v1/shop/admins/:id/remove
+// 安全修复:传入 operatorID 校验操作者是创始人
 func (h *ShopHandler) RemoveAdmin(c *gin.Context) {
 	adminID := parseInt64Path(c, "id")
 	clubID := getClubID(c)
-	if err := service.ShopRemoveAdmin(clubID, adminID); err != nil {
+	operatorID := getCurrentUserID(c)
+	if err := service.ShopRemoveAdmin(clubID, operatorID, adminID); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -276,6 +288,7 @@ type resetShopAdminPwdRequest struct {
 
 // ResetAdminPassword 重置管理员密码
 // POST /api/v1/shop/admins/:id/reset-password
+// 安全修复:传入 operatorID 校验操作者是创始人
 func (h *ShopHandler) ResetAdminPassword(c *gin.Context) {
 	adminID := parseInt64Path(c, "id")
 	var req resetShopAdminPwdRequest
@@ -284,7 +297,8 @@ func (h *ShopHandler) ResetAdminPassword(c *gin.Context) {
 		return
 	}
 	clubID := getClubID(c)
-	if err := service.ShopResetAdminPassword(clubID, adminID, req.Password); err != nil {
+	operatorID := getCurrentUserID(c)
+	if err := service.ShopResetAdminPassword(clubID, operatorID, adminID, req.Password); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -330,9 +344,11 @@ func (h *ShopHandler) CreateGroup(c *gin.Context) {
 
 // GetGroupMembers 群成员列表
 // GET /api/v1/shop/groups/:id/members
+// 安全修复:传入 clubID 校验群归属
 func (h *ShopHandler) GetGroupMembers(c *gin.Context) {
 	groupID := parseInt64Path(c, "id")
-	list, err := service.ShopGetGroupMembers(groupID)
+	clubID := getClubID(c)
+	list, err := service.ShopGetGroupMembers(clubID, groupID)
 	if err != nil {
 		utils.Fail(c, utils.CodeServerError, err.Error())
 		return
@@ -349,6 +365,7 @@ type sendGroupMessageRequest struct {
 
 // SendGroupMessage 群发消息
 // POST /api/v1/shop/groups/:id/messages
+// 安全修复:传入 clubID 校验群归属
 func (h *ShopHandler) SendGroupMessage(c *gin.Context) {
 	groupID := parseInt64Path(c, "id")
 	var req sendGroupMessageRequest
@@ -356,8 +373,9 @@ func (h *ShopHandler) SendGroupMessage(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
+	clubID := getClubID(c)
 	senderID := getCurrentUserID(c)
-	m, err := service.ShopSendGroupMessage(groupID, senderID, req.MsgType, req.Content, req.MediaURL)
+	m, err := service.ShopSendGroupMessage(clubID, groupID, senderID, req.MsgType, req.Content, req.MediaURL)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
@@ -372,6 +390,7 @@ type publishAnnouncementRequest struct {
 
 // PublishAnnouncement 发布群公告
 // PUT /api/v1/shop/groups/:id/announcement
+// 安全修复:传入 clubID 校验群归属
 func (h *ShopHandler) PublishAnnouncement(c *gin.Context) {
 	groupID := parseInt64Path(c, "id")
 	var req publishAnnouncementRequest
@@ -379,7 +398,8 @@ func (h *ShopHandler) PublishAnnouncement(c *gin.Context) {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := service.ShopPublishAnnouncement(groupID, req.Announcement); err != nil {
+	clubID := getClubID(c)
+	if err := service.ShopPublishAnnouncement(clubID, groupID, req.Announcement); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -469,7 +489,8 @@ func (h *ShopHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 	adminID := getCurrentUserID(c)
-	if err := service.ShopUpdateOrderStatus(orderID, adminID, req.Status, req.Reason); err != nil {
+	clubID := getClubID(c)
+	if err := service.ShopUpdateOrderStatus(orderID, clubID, adminID, req.Status, req.Reason); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}
@@ -483,12 +504,14 @@ type shopProcessRefundRequest struct {
 
 // ProcessRefund 内置管理端处理退款
 // POST /api/v1/shop/orders/:id/refund
+// 安全修复:传入 clubID 校验订单归属,防跨俱乐部退款
 func (h *ShopHandler) ProcessRefund(c *gin.Context) {
 	orderID := parseInt64Path(c, "id")
 	var req shopProcessRefundRequest
 	_ = c.ShouldBindJSON(&req)
 	adminID := getCurrentUserID(c)
-	p, err := service.ShopProcessRefund(orderID, adminID, req.RefundAmount)
+	clubID := getClubID(c)
+	p, err := service.ShopProcessRefundWithClub(orderID, adminID, req.RefundAmount, clubID)
 	if err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return

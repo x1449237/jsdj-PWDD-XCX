@@ -211,6 +211,10 @@ type PersonalRegistrationForm struct {
 // 4. 入驻锁定检查
 // 5. 防重复提交:同一用户已有审核中/待审核的俱乐部不可重复提交
 func SubmitPersonalRegistration(userID int64, form PersonalRegistrationForm) (*model.PersonalRegistration, error) {
+	// 安全修复:校验入驻总开关(超管关闭后拒绝新入驻,防前端绕过)
+	if enabled, err := CheckClubSwitch(); err != nil || !enabled {
+		return nil, errors.New("俱乐部入驻功能暂未开放")
+	}
 	// 0. 基础校验
 	if strings.TrimSpace(form.RealName) == "" {
 		return nil, errors.New("真实姓名不能为空")
@@ -268,7 +272,7 @@ func SubmitPersonalRegistration(userID int64, form PersonalRegistrationForm) (*m
 		BankCard:           form.BankCard,
 		BankName:           form.BankName,
 		BankPhone:          form.BankPhone,
-		FaceVerifyStatus:   form.FaceVerifyStatus,
+		FaceVerifyStatus:   0, // 安全修复:不信任前端传入的活体状态,强制置0(待后端独立校验活体认证记录/人工审核)
 		SelfDeclarationURL: form.SelfDeclarationURL,
 		Status:             model.RegistrationStatusPending,
 		CreatedAt:          now,
@@ -522,6 +526,10 @@ type EnterpriseRegistrationForm struct {
 // 3. 对公小额打款验证(必须已 verified)
 // 4. 入驻锁定检查
 func SubmitEnterpriseRegistration(userID int64, form EnterpriseRegistrationForm) (*model.EnterpriseRegistration, error) {
+	// 安全修复:校验入驻总开关(超管关闭后拒绝新入驻,防前端绕过)
+	if enabled, err := CheckClubSwitch(); err != nil || !enabled {
+		return nil, errors.New("俱乐部入驻功能暂未开放")
+	}
 	// 基础校验
 	if strings.TrimSpace(form.LegalPersonName) == "" {
 		return nil, errors.New("法人姓名不能为空")
@@ -545,6 +553,13 @@ func SubmitEnterpriseRegistration(userID int64, form EnterpriseRegistrationForm)
 	// 2. 入驻锁定检查
 	if err := checkClubJoinLocked(form.ClubID); err != nil {
 		return nil, err
+	}
+	// 安全修复:防重复提交(同一用户已有进行中企业入驻申请)
+	var existingEntClub model.Club
+	if err := db.Where("founder_uid = ? AND status IN ?", userID,
+		[]int8{model.ClubStatusReviewing, model.ClubStatusApproved},
+	).First(&existingEntClub).Error; err == nil {
+		return nil, fmt.Errorf("您已有入驻申请正在审核中(俱乐部ID:%d),请勿重复提交", existingEntClub.ID)
 	}
 
 	// 创建/复用俱乐部
@@ -599,9 +614,9 @@ func SubmitEnterpriseRegistration(userID int64, form EnterpriseRegistrationForm)
 // checkLegalPersonFaceValid 校验法人活体认证在 72h 有效期内
 // 超时则打款验证、资料全部失效,需重新提交
 func checkLegalPersonFaceValid(clubID int64, legalPersonName, legalPersonIDCard, faceVerifyToken string) error {
+	// 安全修复:移除 clubID<=0 跳过分支(原可绕过活体校验)
 	if clubID <= 0 {
-		// 首次创建俱乐部场景下尚未有 club_id，跳过(后续步骤校验)
-		return nil
+		return errors.New("俱乐部未创建,无法校验法人活体认证")
 	}
 	var lpfv model.LegalPersonFaceVerify
 	err := db.Where("club_id = ? AND legal_person_name = ? AND legal_person_id_card = ?",
@@ -632,8 +647,11 @@ func checkLegalPersonFaceValid(clubID int64, legalPersonName, legalPersonIDCard,
 			}).Error
 		return errors.New("法人活体认证已过期，打款验证与资料全部失效，需重新提交")
 	}
-	// 校验 token 一致(若前端传入)
-	if faceVerifyToken != "" && lpfv.VerifyToken != "" && lpfv.VerifyToken != faceVerifyToken {
+	// 安全修复:token 必传且强制比对(原任一为空即跳过,攻击者不传 token 即可绕过)
+	if faceVerifyToken == "" {
+		return errors.New("缺少活体认证 token")
+	}
+	if lpfv.VerifyToken == "" || lpfv.VerifyToken != faceVerifyToken {
 		return errors.New("法人活体认证 token 不匹配")
 	}
 	return nil

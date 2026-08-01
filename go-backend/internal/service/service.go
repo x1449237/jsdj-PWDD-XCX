@@ -8,6 +8,7 @@ import (
 	"github.com/jisan/e-sports-platform/internal/repository"
 	"github.com/jisan/e-sports-platform/internal/utils"
 	"github.com/jisan/e-sports-platform/pkg/cache"
+	"github.com/jisan/e-sports-platform/pkg/lock"
 	"github.com/jisan/e-sports-platform/pkg/queue"
 	"github.com/jisan/e-sports-platform/pkg/websocket"
 )
@@ -36,6 +37,7 @@ var (
 	jwtMgr *utils.JWTManager
 	logger *zap.Logger
 	cfg    *config.Config
+	distLock *lock.DistributedLock // 安全的分布式锁(基于 Redis SetNX + Lua 释放)
 
 	userRepo       *repository.UserRepo
 	adminRepo      *repository.AdminRepo
@@ -58,6 +60,11 @@ func Init(d *Deps) {
 	jwtMgr = d.JWT
 	logger = d.Logger
 	cfg = d.Config
+
+	// 初始化安全的分布式锁
+	if redis != nil {
+		distLock = lock.NewDistributedLock(redis)
+	}
 
 	userRepo = repository.NewUserRepo(db)
 	adminRepo = repository.NewAdminRepo(db)

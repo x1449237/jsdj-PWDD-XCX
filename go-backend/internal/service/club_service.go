@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -164,13 +165,17 @@ func ShopGetApplicationDetail(applicationID, clubID int64) (*model.JoinApplicati
 }
 
 // ShopStartExam 开始考核(申请状态 -> examining)
-func ShopStartExam(applicationID, examinerID int64, requirement string) error {
+// 安全修复:新增 clubID 参数,校验申请归属(防跨俱乐部操作他人申请)
+func ShopStartExam(clubID, applicationID, examinerID int64, requirement string) error {
 	a, err := clubRepo.FindApplication(applicationID)
 	if err != nil {
 		return err
 	}
 	if a == nil {
 		return errors.New("申请不存在")
+	}
+	if a.ClubID != clubID {
+		return errors.New("无权操作该俱乐部的申请")
 	}
 	if a.Status != model.JoinStatusPending {
 		return errors.New("申请状态不允许开始考核")
@@ -191,13 +196,17 @@ func ShopStartExam(applicationID, examinerID int64, requirement string) error {
 }
 
 // ShopSubmitExamResult 提交考核结果
-func ShopSubmitExamResult(applicationID, examinerID int64, result, remark, videoURL string) error {
+// 安全修复:新增 clubID 参数,校验申请归属(防跨俱乐部操作他人申请)
+func ShopSubmitExamResult(clubID, applicationID, examinerID int64, result, remark, videoURL string) error {
 	a, err := clubRepo.FindApplication(applicationID)
 	if err != nil {
 		return err
 	}
 	if a == nil {
 		return errors.New("申请不存在")
+	}
+	if a.ClubID != clubID {
+		return errors.New("无权操作该俱乐部的申请")
 	}
 	if a.Status != model.JoinStatusExamining {
 		return errors.New("申请未在考核中")
@@ -218,13 +227,17 @@ func ShopSubmitExamResult(applicationID, examinerID int64, result, remark, video
 }
 
 // ShopApproveApplication 通过入会申请(加入俱乐部为打手)
-func ShopApproveApplication(applicationID int64) error {
+// 安全修复:新增 clubID 参数,校验申请归属(防跨俱乐部审批他人申请)
+func ShopApproveApplication(clubID, applicationID int64) error {
 	a, err := clubRepo.FindApplication(applicationID)
 	if err != nil {
 		return err
 	}
 	if a == nil {
 		return errors.New("申请不存在")
+	}
+	if a.ClubID != clubID {
+		return errors.New("无权操作该俱乐部的申请")
 	}
 	if a.Status == model.JoinStatusApproved {
 		return nil
@@ -258,7 +271,18 @@ func ShopApproveApplication(applicationID int64) error {
 }
 
 // ShopRejectApplication 驳回入会申请
-func ShopRejectApplication(applicationID int64, reason string) error {
+// 安全修复:新增 clubID 参数,校验申请归属(原直接更新无任何校验,任意俱乐部可驳回他人申请)
+func ShopRejectApplication(clubID, applicationID int64, reason string) error {
+	a, err := clubRepo.FindApplication(applicationID)
+	if err != nil {
+		return err
+	}
+	if a == nil {
+		return errors.New("申请不存在")
+	}
+	if a.ClubID != clubID {
+		return errors.New("无权操作该俱乐部的申请")
+	}
 	return clubRepo.UpdateApplication(applicationID, map[string]interface{}{
 		"status":     model.JoinStatusRejected,
 		"updated_at": nowTimePtr(),
@@ -375,7 +399,18 @@ func ShopGetAdmins(clubID int64) ([]model.ShopAdminAccount, error) {
 }
 
 // ShopAddAdmin 添加内置管理端账号(创始人专属)
-func ShopAddAdmin(clubID int64, username, password, realName, phone string, role int8) (*model.ShopAdminAccount, error) {
+// 安全修复:
+// 1. 新增 operatorID 参数,校验操作者必须是创始人(原任意管理员可添加,导致权限提升)
+// 2. 禁止创建创始人角色账号(防普通管理员通过创建创始人账号夺取俱乐部控制权)
+func ShopAddAdmin(clubID, operatorID int64, username, password, realName, phone string, role int8) (*model.ShopAdminAccount, error) {
+	// 校验操作者是创始人
+	if err := assertShopFounder(clubID, operatorID); err != nil {
+		return nil, err
+	}
+	// 禁止创建创始人角色(防权限提升,创始人只能由系统在俱乐部入驻时创建)
+	if role == model.ShopAdminRoleFounder {
+		return nil, errors.New("不可创建创始人角色账号")
+	}
 	// 校验账号唯一
 	exist, _ := clubRepo.FindShopAdminByUsername(username)
 	if exist != nil {
@@ -406,8 +441,79 @@ func ShopAddAdmin(clubID int64, username, password, realName, phone string, role
 	return a, nil
 }
 
-// ShopRemoveAdmin 移除管理员(不可移除创始人)
-func ShopRemoveAdmin(clubID, adminID int64) error {
+// AdminAddShopAccountByPlatform 平台超管代建内置管理端账号
+// 与 ShopAddAdmin 的区别:不校验操作者是否创始人(平台超管权限更高),
+// 但仍禁止创建创始人角色(防权限提升)
+func AdminAddShopAccountByPlatform(clubID int64, username, password, realName, phone string, role int8) (*model.ShopAdminAccount, error) {
+	// 禁止创建创始人角色(创始人只能由系统在俱乐部入驻时创建)
+	if role == model.ShopAdminRoleFounder {
+		return nil, errors.New("不可创建创始人角色账号")
+	}
+	// 校验账号唯一
+	exist, _ := clubRepo.FindShopAdminByUsername(username)
+	if exist != nil {
+		return nil, errors.New("账号已存在")
+	}
+	// 校验俱乐部存在
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return nil, errors.New("俱乐部不存在")
+	}
+	hash, err := hashPwd(password)
+	if err != nil {
+		return nil, err
+	}
+	a := &model.ShopAdminAccount{
+		Username:  username,
+		Password:  hash,
+		ClubID:    clubID,
+		Role:      role,
+		RealName:  realName,
+		Phone:     phone,
+		Status:    1,
+		CreatedAt: nowTimePtr(),
+		UpdatedAt: nowTimePtr(),
+	}
+	if a.Role == 0 {
+		a.Role = model.ShopAdminRoleAdmin
+	}
+	if err := clubRepo.CreateShopAdmin(a); err != nil {
+		return nil, err
+	}
+	a.Password = ""
+	return a, nil
+}
+
+// assertShopFounder 校验操作者是该俱乐部的创始人(且账号有效)
+func assertShopFounder(clubID, operatorID int64) error {
+	if operatorID <= 0 {
+		return errors.New("操作者身份无效")
+	}
+	op, err := clubRepo.FindShopAdminByID(operatorID)
+	if err != nil || op == nil {
+		return errors.New("操作者账号不存在")
+	}
+	if op.ClubID != clubID {
+		return errors.New("操作者不属于该俱乐部")
+	}
+	if op.Status != 1 {
+		return errors.New("操作者账号已被禁用")
+	}
+	if op.Role != model.ShopAdminRoleFounder {
+		return errors.New("仅创始人可执行该操作")
+	}
+	return nil
+}
+
+// ShopRemoveAdmin 移除管理员(不可移除创始人,仅创始人可操作)
+// 安全修复:新增 operatorID 参数,校验操作者是创始人(原任意管理员可移除他人,导致权限滥用)
+func ShopRemoveAdmin(clubID, operatorID, adminID int64) error {
+	if err := assertShopFounder(clubID, operatorID); err != nil {
+		return err
+	}
+	if operatorID == adminID {
+		return errors.New("不可移除自己")
+	}
 	a, err := clubRepo.FindShopAdminByID(adminID)
 	if err != nil {
 		return err
@@ -424,8 +530,14 @@ func ShopRemoveAdmin(clubID, adminID int64) error {
 	return clubRepo.DeleteShopAdmin(adminID)
 }
 
-// ShopResetAdminPassword 重置管理员密码
-func ShopResetAdminPassword(clubID, adminID int64, newPassword string) error {
+// ShopResetAdminPassword 重置管理员密码(仅创始人可操作,不可重置创始人密码)
+// 安全修复:
+// 1. 新增 operatorID 参数,校验操作者是创始人
+// 2. 禁止重置创始人密码(防普通管理员重置创始人密码夺取控制权)
+func ShopResetAdminPassword(clubID, operatorID, adminID int64, newPassword string) error {
+	if err := assertShopFounder(clubID, operatorID); err != nil {
+		return err
+	}
 	a, err := clubRepo.FindShopAdminByID(adminID)
 	if err != nil {
 		return err
@@ -435,6 +547,9 @@ func ShopResetAdminPassword(clubID, adminID int64, newPassword string) error {
 	}
 	if a.ClubID != clubID {
 		return errors.New("无权操作")
+	}
+	if a.Role == model.ShopAdminRoleFounder && operatorID != adminID {
+		return errors.New("不可重置其他创始人的密码")
 	}
 	hash, err := hashPwd(newPassword)
 	if err != nil {
@@ -485,13 +600,35 @@ func ShopCreateGroup(clubID, creatorID int64, groupName, groupType, categoryType
 }
 
 // ShopGetGroupMembers 群成员列表
-func ShopGetGroupMembers(groupID int64) ([]model.GroupChatMember, error) {
+// 安全修复:新增 clubID 参数,校验群归属(防跨俱乐部查看他人群成员)
+func ShopGetGroupMembers(clubID, groupID int64) ([]model.GroupChatMember, error) {
+	g, err := chatRepo.FindGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if g == nil {
+		return nil, errors.New("群聊不存在")
+	}
+	if g.ClubID != clubID {
+		return nil, errors.New("无权查看该俱乐部的群成员")
+	}
 	return chatRepo.ListGroupMembers(groupID)
 }
 
 // ShopSendGroupMessage 群发消息
 // - 群聊内容防代练 + 敏感词风控扫描
-func ShopSendGroupMessage(groupID, senderID int64, msgType, content, mediaURL string) (*model.GroupChatMessage, error) {
+// 安全修复:新增 clubID 参数,校验群归属(防跨俱乐部向他人群注入消息)
+func ShopSendGroupMessage(clubID, groupID, senderID int64, msgType, content, mediaURL string) (*model.GroupChatMessage, error) {
+	g, err := chatRepo.FindGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if g == nil {
+		return nil, errors.New("群聊不存在")
+	}
+	if g.ClubID != clubID {
+		return nil, errors.New("无权向该俱乐部的群聊发送消息")
+	}
 	if content != "" {
 		// 防代练检测
 		hit, _, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeAnnouncement, senderID, content)
@@ -517,7 +654,18 @@ func ShopSendGroupMessage(groupID, senderID int64, msgType, content, mediaURL st
 }
 
 // ShopPublishAnnouncement 发布群公告
-func ShopPublishAnnouncement(groupID int64, announcement string) error {
+// 安全修复:新增 clubID 参数,校验群归属(防跨俱乐部篡改他人群公告)
+func ShopPublishAnnouncement(clubID, groupID int64, announcement string) error {
+	g, err := chatRepo.FindGroup(groupID)
+	if err != nil {
+		return err
+	}
+	if g == nil {
+		return errors.New("群聊不存在")
+	}
+	if g.ClubID != clubID {
+		return errors.New("无权修改该俱乐部的群公告")
+	}
 	// 发布公告前防代练检测
 	if announcement != "" {
 		hit, _, abErr := CheckContentAntiBoosting(AntiBoostingContentTypeAnnouncement, 0, announcement)
@@ -755,7 +903,22 @@ func AdminGetClubChangeLogs(clubID int64, page, pageSize int) ([]model.ClubInfoC
 }
 
 // AdminApproveClub 审核通过俱乐部 + 点亮 V 标
+// 安全修复:
+// 1. 状态机校验:仅"审核中"可通过(原可对已驳回/冻结/注销的俱乐部执行通过)
+// 2. 保证金校验:必须已缴纳保证金(deposit_status==1)才能审核通过上线
 func AdminApproveClub(clubID, adminID int64) error {
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	// 状态机校验:仅审核中可通过
+	if c.Status != model.ClubStatusReviewing {
+		return fmt.Errorf("俱乐部当前状态(%d)不允许审核通过,仅审核中可通过", c.Status)
+	}
+	// 保证金校验:必须已缴纳才能上线接单
+	if c.DepositStatus != 1 {
+		return errors.New("俱乐部尚未缴纳保证金,不可审核通过")
+	}
 	if err := clubRepo.Update(clubID, map[string]interface{}{
 		"status":     model.ClubStatusApproved,
 		"updated_at": nowTimePtr(),
@@ -763,20 +926,22 @@ func AdminApproveClub(clubID, adminID int64) error {
 		return err
 	}
 	// 审核通过后点亮 V 标
-	c, _ := clubRepo.FindByID(clubID)
-	if c != nil {
-		_ = GrantClubVBadge(clubID, int64(c.Type))
-	}
+	_ = GrantClubVBadge(clubID, int64(c.Type))
 	_ = adminID
 	return nil
 }
 
 // AdminRejectClub 驳回俱乐部 + 撤销 V 标
 // 驳回次数 reject_count++，达到 3 次时设置 locked_until = NOW() + 7 天
+// 安全修复:状态机校验,仅"审核中"可驳回(原可驳回已通过/已注销的俱乐部)
 func AdminRejectClub(clubID int64, reason string) error {
 	c, _ := clubRepo.FindByID(clubID)
 	if c == nil {
 		return errors.New("俱乐部不存在")
+	}
+	// 状态机校验:仅审核中可驳回
+	if c.Status != model.ClubStatusReviewing {
+		return fmt.Errorf("俱乐部当前状态(%d)不允许驳回,仅审核中可驳回", c.Status)
 	}
 	now := nowTimePtr()
 	fields := map[string]interface{}{
@@ -841,17 +1006,23 @@ func AdminFreezeClub(clubID int64, reason string) error {
 }
 
 // AdminUnfreezeClub 解冻俱乐部 + 恢复 V 标
+// 安全修复:状态机校验,仅"冻结"状态可解冻(原可将审核中/已注销的俱乐部直接变更为通过)
 func AdminUnfreezeClub(clubID int64) error {
+	c, _ := clubRepo.FindByID(clubID)
+	if c == nil {
+		return errors.New("俱乐部不存在")
+	}
+	// 状态机校验:仅冻结状态可解冻
+	if c.Status != model.ClubStatusFrozen {
+		return fmt.Errorf("俱乐部当前状态(%d)不允许解冻,仅冻结状态可解冻", c.Status)
+	}
 	if err := clubRepo.Update(clubID, map[string]interface{}{
 		"status":     model.ClubStatusApproved,
 		"updated_at": nowTimePtr(),
 	}); err != nil {
 		return err
 	}
-	c, _ := clubRepo.FindByID(clubID)
-	if c != nil {
-		_ = GrantClubVBadge(clubID, int64(c.Type))
-	}
+	_ = GrantClubVBadge(clubID, int64(c.Type))
 	return nil
 }
 

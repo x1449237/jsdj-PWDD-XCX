@@ -7,6 +7,7 @@ type ChatSession struct {
 	ID          int64      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 	SessionType string     `gorm:"column:session_type;index:idx_session_type;size:32;not null;default:''" json:"session_type"` // 会话类型 order/after_sale/group_internal/group_category
 	RefID       int64      `gorm:"column:ref_id;index:idx_ref_id;not null;default:0" json:"ref_id"`        // 关联ID(订单ID或群ID)
+	ClubID      int64      `gorm:"column:club_id;index:idx_club_id;not null;default:0" json:"club_id"`    // 俱乐部ID(售后会话用,0表示无)
 	Status      int8       `gorm:"column:status;not null;default:1" json:"status"`                       // 状态 1正常 0关闭
 	CreatedAt   *time.Time `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
 	UpdatedAt   *time.Time `gorm:"column:updated_at" json:"updated_at"`

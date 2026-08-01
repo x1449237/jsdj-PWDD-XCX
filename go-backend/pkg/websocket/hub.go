@@ -46,6 +46,16 @@ func (h *Hub) Register(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	// 安全:系统总连接数限制(防海量连接耗尽资源/DoS)
+	if h.maxConnLimit > 0 && atomic.LoadInt64(&h.connCount) >= h.maxConnLimit {
+		h.logger.Warn("WebSocket 总连接数已达上限,拒绝新连接",
+			zap.Int64("user_id", client.userID),
+			zap.Int64("current", atomic.LoadInt64(&h.connCount)),
+			zap.Int64("max", h.maxConnLimit))
+		_ = client.conn.Close()
+		return
+	}
+
 	// 单用户连接数限制
 	if len(h.clients[client.userID]) >= MaxConnPerUser {
 		// 踢掉最早的一个连接(简单实现：随机取一个关闭)
@@ -121,16 +131,35 @@ func (h *Hub) SendToUser(ctx context.Context, userID int64, msg *Message) error 
 	return h.storeOffline(ctx, userID, data)
 }
 
+// luaTrimOffline 离线消息裁剪+TTL Lua 脚本(原子执行)
+// 保留最新的 max 条(score 升序删除多余),并刷新 TTL
+const luaTrimOffline = `
+local cnt = redis.call('ZCARD', KEYS[1])
+local max = tonumber(ARGV[1])
+if cnt > max then
+  redis.call('ZREMRANGEBYRANK', KEYS[1], 0, cnt - max - 1)
+end
+return redis.call('EXPIRE', KEYS[1], ARGV[2])
+`
+
 // storeOffline 存储离线消息到 Redis Sorted Set
+// 安全修复:
+// 1. 限制单用户离线消息数量(MaxOfflineMsgPerUser),超过则淘汰最早消息(防内存膨胀/恶意灌入)
+// 2. 设置 TTL(OfflineMsgTTL=7天),到期自动清理(原无限期保留)
+// 3. 用 Lua 原子执行裁剪+TTL,避免并发竞态
 func (h *Hub) storeOffline(ctx context.Context, userID int64, data []byte) error {
 	if h.redis == nil {
 		return nil
 	}
+	key := h.offlineKey(userID)
 	score := float64(time.Now().UnixMilli())
-	if err := h.redis.ZAdd(ctx, h.offlineKey(userID), score, string(data)); err != nil {
+	if err := h.redis.ZAdd(ctx, key, score, string(data)); err != nil {
 		h.logger.Warn("存储离线消息失败", zap.Int64("user_id", userID), zap.Error(err))
 		return err
 	}
+	// 裁剪超额 + 刷新 TTL(原子)
+	ttlSec := int64(OfflineMsgTTL / time.Second)
+	_, _ = h.redis.Eval(ctx, luaTrimOffline, []string{key}, MaxOfflineMsgPerUser, ttlSec)
 	return nil
 }
 

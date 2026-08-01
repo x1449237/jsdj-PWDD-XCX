@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -308,7 +309,7 @@ func ForgotAccount(email string) (string, error) {
 		return "", err
 	}
 	// 生成6位验证码并发送邮件
-	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	code := genVerifyCode() // 安全:crypto/rand 生成,不可预测
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = redis.Set(ctx, cacheKey("captcha:forgot:"+email), code+":"+a.Username, 5*time.Minute)
@@ -335,7 +336,7 @@ func ForgotPassword(username string) error {
 		return errors.New("账号未绑定邮箱，无法重置")
 	}
 	// 生成 6 位验证码并存入 Redis(5 分钟)
-	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	code := genVerifyCode() // 安全:crypto/rand 生成,不可预测
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = redis.Set(ctx, cacheKey("captcha:reset:"+a.Email), code, 5*time.Minute)
@@ -540,7 +541,7 @@ func AdminBindEmail(adminID int64, email string) error {
 	if a == nil {
 		return errors.New("管理员不存在")
 	}
-	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	code := genVerifyCode() // 安全:crypto/rand 生成,不可预测
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = redis.Set(ctx, cacheKey("captcha:email:"+fmt.Sprint(adminID)), code+":"+email, 5*time.Minute)
@@ -566,22 +567,51 @@ func AdminBindEmail(adminID int64, email string) error {
 	return nil
 }
 
+// genVerifyCode 生成 6 位数字验证码(使用 crypto/rand,不可预测)
+// 安全修复:原使用 time.Now().UnixNano()%1000000 基于时间可预测,
+// 攻击者知道请求时间即可推算验证码,导致邮箱绑定/密码重置可被绕过
+func genVerifyCode() string {
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	n := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	return fmt.Sprintf("%06d", n%1000000)
+}
+
+// captchaMaxTry 验证码最大尝试次数(防暴力破解 6 位数字验证码)
+const captchaMaxTry = 5
+
 // AdminVerifyEmail 校验邮箱验证码并完成绑定
+// 安全修复:增加尝试次数限制(5 次错误后验证码失效),防暴力破解
 func AdminVerifyEmail(adminID int64, code string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	val, err := redis.Get(ctx, cacheKey("captcha:email:"+fmt.Sprint(adminID)))
+	cacheK := cacheKey("captcha:email:" + fmt.Sprint(adminID))
+	val, err := redis.Get(ctx, cacheK)
 	if err != nil || val == "" {
 		return errors.New("验证码已过期，请重新获取")
 	}
 	parts := strings.SplitN(val, ":", 2)
 	if len(parts) != 2 || parts[0] != code {
-		return errors.New("验证码错误")
+		// 安全:尝试次数限制(防暴力破解 6 位验证码)
+		tryK := cacheKey("captcha:email:try:" + fmt.Sprint(adminID))
+		tryStr, _ := redis.Get(ctx, tryK)
+		tryCnt := int64(0)
+		if tryStr != "" {
+			tryCnt, _ = strconv.ParseInt(tryStr, 10, 64)
+		}
+		tryCnt++
+		_ = redis.Set(ctx, tryK, fmt.Sprint(tryCnt), 5*time.Minute)
+		if tryCnt >= captchaMaxTry {
+			_ = redis.Del(ctx, cacheK, tryK)
+			return errors.New("验证码错误次数过多,已失效,请重新获取")
+		}
+		return fmt.Errorf("验证码错误(剩余尝试 %d 次)", captchaMaxTry-tryCnt)
 	}
 	if err := adminRepo.Update(adminID, map[string]interface{}{"email": parts[1], "is_init": 1}); err != nil {
 		return err
 	}
-	_ = redis.Del(ctx, cacheKey("captcha:email:"+fmt.Sprint(adminID)))
+	_ = redis.Del(ctx, cacheK)
+	_ = redis.Del(ctx, cacheKey("captcha:email:try:"+fmt.Sprint(adminID)))
 	return nil
 }
 

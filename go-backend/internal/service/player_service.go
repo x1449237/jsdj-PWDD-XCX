@@ -2,9 +2,11 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/jisan/e-sports-platform/internal/model"
 )
@@ -19,19 +21,41 @@ func GetGrabOrderList(playerID, clubID int64, page, pageSize int) ([]model.Order
 
 // GrabOrder 打手抢单(原子操作 + 分布式锁防并发)
 // 支持普通订单（一单一打手）和车队订单（多人匹配 TeamCount）
-func GrabOrder(orderID, playerID int64) error {
-	// 分布式锁防并发抢单
-	lockKey := cacheKey("grab:" + itoa(orderID))
-	ctx, cancel := contextWithTimeout()
-	defer cancel()
-	ok, err := redis.SetNX(ctx, lockKey, playerID, 5*time.Second)
+// 安全修复:
+// 1. 新增 playerClubID 参数,校验打手所属俱乐部与订单俱乐部一致(防跨俱乐部抢单)
+// 2. 校验 playerID != o.UserID(防客户抢自己的单)
+// 3. 校验打手身份(必须是打手角色)
+// 4. 使用安全的分布式锁(原 SetNX+Del 不安全,可能误删他人锁)
+// 5. 车队满员用条件更新 WHERE status=team_pending(防并发双触发)
+func GrabOrder(orderID, playerID, playerClubID int64) error {
+	if orderID <= 0 || playerID <= 0 {
+		return errors.New("参数无效")
+	}
+	// 校验打手身份
+	u, err := userRepo.FindByID(playerID)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return errors.New("订单正在被抢，请稍后")
+	if u == nil {
+		return errors.New("用户不存在")
 	}
-	defer redis.Del(ctx, lockKey)
+	if u.Role&model.RolePlayer == 0 {
+		return errors.New("仅打手可抢单")
+	}
+	if u.Status != 1 {
+		return errors.New("账号已被禁用")
+	}
+	// 使用安全的分布式锁(基于项目已实现的 DistributedLock)
+	if distLock != nil {
+		lockKey := cacheKey("grab:" + itoa(orderID))
+		ctx, cancel := contextWithTimeout()
+		defer cancel()
+		token, err := distLock.TryLock(ctx, lockKey, 10*time.Second)
+		if err != nil {
+			return errors.New("订单正在被抢,请稍后")
+		}
+		defer distLock.Unlock(ctx, token)
+	}
 
 	o, err := orderRepo.FindByID(orderID)
 	if err != nil {
@@ -39,6 +63,18 @@ func GrabOrder(orderID, playerID int64) error {
 	}
 	if o == nil {
 		return errors.New("订单不存在")
+	}
+	// 校验订单状态:仅待接单/车队匹配中可抢
+	if o.Status != model.OrderStatusPending && o.Status != model.OrderStatusTeamPending {
+		return errors.New("订单状态不允许抢单")
+	}
+	// 校验打手不能抢自己的单(防套利)
+	if o.UserID == playerID {
+		return errors.New("不可抢自己下的订单")
+	}
+	// 俱乐部归属校验:订单指定了俱乐部时,打手必须属于该俱乐部
+	if o.ClubID > 0 && playerClubID > 0 && o.ClubID != playerClubID {
+		return errors.New("无权抢该俱乐部的订单")
 	}
 
 	// 车队订单(OrderTypeTeam 或 TeamCount>1)：加入 team_members，满员后再置已接单
@@ -73,17 +109,21 @@ func GrabOrder(orderID, playerID int64) error {
 		_ = db.Model(&model.OrderTeamMember{}).
 			Where("order_id = ? AND status = 1", orderID).Count(&current).Error
 		if current >= int64(tc) {
-			// 满员 -> 置为已接单
-			_ = orderRepo.Update(orderID, map[string]interface{}{
-				"player_id":  playerID, // 队长=最后入队者，实际可记录leader独立字段
-				"status":     model.OrderStatusAccepted,
-				"updated_at": now,
-			})
-			_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
-				OrderID: orderID, FromStatus: model.OrderStatusPending, ToStatus: model.OrderStatusAccepted,
-				OperatorID: playerID, OperatorType: "player", Reason: "车队满员，自动已接单",
-				CreatedAt: now,
-			})
+			// 满员 -> 置为已接单(条件更新防并发双触发)
+			res := db.Model(&model.Order{}).
+				Where("id = ? AND status = ?", orderID, model.OrderStatusTeamPending).
+				Updates(map[string]interface{}{
+					"player_id":  playerID,
+					"status":     model.OrderStatusAccepted,
+					"updated_at": now,
+				})
+			if res.Error == nil && res.RowsAffected > 0 {
+				_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
+					OrderID: orderID, FromStatus: model.OrderStatusTeamPending, ToStatus: model.OrderStatusAccepted,
+					OperatorID: playerID, OperatorType: "player", Reason: "车队满员,自动已接单",
+					CreatedAt: now,
+				})
+			}
 		} else if o.Status != model.OrderStatusTeamPending {
 			// 未满员标记车队等待状态
 			_ = orderRepo.Update(orderID, map[string]interface{}{
@@ -92,7 +132,7 @@ func GrabOrder(orderID, playerID int64) error {
 			})
 			_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
 				OrderID: orderID, FromStatus: o.Status, ToStatus: model.OrderStatusTeamPending,
-				OperatorID: playerID, OperatorType: "player", Reason: "车队匹配中（" + itoa(int64(current)) + "/" + itoa(int64(tc)) + "）",
+				OperatorID: playerID, OperatorType: "player", Reason: "车队匹配中(" + itoa(int64(current)) + "/" + itoa(int64(tc)) + ")",
 				CreatedAt: now,
 			})
 		}
@@ -105,7 +145,7 @@ func GrabOrder(orderID, playerID int64) error {
 		return err
 	}
 	if !grabbed {
-		return errors.New("抢单失败，订单已被他人接单或状态已变更")
+		return errors.New("抢单失败,订单已被他人接单或状态已变更")
 	}
 	_ = orderRepo.CreateStatusLog(&model.OrderStatusLog{
 		OrderID: orderID, FromStatus: model.OrderStatusPending, ToStatus: model.OrderStatusAccepted,
@@ -262,9 +302,16 @@ func GetFrozenEarnings(playerID int64) ([]model.Order, error) {
 }
 
 // ApplyWithdraw 申请提现
+// 安全修复:
+// 1. 事务内行锁用户记录,防并发超额提现(原余额校验在事务外,存在 TOCTOU)
+// 2. 冻结金额:提现申请时原子扣减用户余额并冻结,审核通过后转为已审核
+// 3. 余额校验改为读取锁定后的最新余额
 func ApplyWithdraw(userID int64, amount int64, channel string, bankInfo map[string]string) (*model.Withdraw, error) {
 	if amount <= 0 {
 		return nil, errors.New("提现金额必须大于 0")
+	}
+	if channel == "" {
+		return nil, errors.New("提现渠道不能为空")
 	}
 	u, err := userRepo.FindByID(userID)
 	if err != nil {
@@ -273,19 +320,13 @@ func ApplyWithdraw(userID int64, amount int64, channel string, bankInfo map[stri
 	if u == nil {
 		return nil, errors.New("用户不存在")
 	}
-	// 校验可提现余额
-	settled, _ := paymentRepo.SumSettledEarnings(userID)
-	var withdrawn int64
-	_ = db.Model(&model.Withdraw{}).Where("user_id = ? AND status IN ?", userID, []string{model.WithdrawStatusPending, model.WithdrawStatusApproved, model.WithdrawStatusPaid}).
-		Select("COALESCE(SUM(amount),0)").Scan(&withdrawn).Error
-	available := settled - withdrawn
-	if amount > available {
-		return nil, errors.New("可提现余额不足")
-	}
-	// 手续费与个税(简化:手续费 0.6%，个税 20%)
+	// 手续费与个税(简化:手续费 0.6%,个税 20%)
 	fee := amount * 6 / 1000
 	tax := (amount - fee) * 20 / 100
 	net := amount - fee - tax
+	if net <= 0 {
+		return nil, errors.New("提现金额不足抵扣手续费")
+	}
 	w := &model.Withdraw{
 		UserID:    userID,
 		Amount:    amount,
@@ -302,7 +343,33 @@ func ApplyWithdraw(userID int64, amount int64, channel string, bankInfo map[stri
 		CreatedAt: nowTimePtr(),
 		UpdatedAt: nowTimePtr(),
 	}
-	if err := db.Create(w).Error; err != nil {
+	// 事务内:行锁用户 + 校验余额 + 原子扣减余额 + 创建提现记录
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 行锁用户记录
+		var locked model.User
+		if err := tx.Where("id = ?", userID).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked).Error; err != nil {
+			return err
+		}
+		// 余额校验(锁定后重读)
+		if locked.Balance < amount {
+			return fmt.Errorf("余额不足(当前:%d,需:%d)", locked.Balance, amount)
+		}
+		// 原子扣减余额(冻结金额,审核通过后转为已审核)
+		res := tx.Model(&model.User{}).
+			Where("id = ? AND balance >= ?", userID, amount).
+			UpdateColumn("balance", gorm.Expr("balance - ?", amount))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return errors.New("余额不足,提现失败")
+		}
+		// 创建提现记录
+		return tx.Create(w).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	return w, nil

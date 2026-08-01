@@ -28,10 +28,12 @@ func (h *PlayerHandler) GetGrabList(c *gin.Context) {
 
 // GrabOrder 打手抢单
 // POST /api/v1/player/grab-orders/:id
+// 安全修复:传入打手所属俱乐部ID,校验抢单归属
 func (h *PlayerHandler) GrabOrder(c *gin.Context) {
 	orderID := parseInt64Path(c, "id")
 	playerID := getCurrentUserID(c)
-	if err := service.GrabOrder(orderID, playerID); err != nil {
+	clubID := getClubID(c)
+	if err := service.GrabOrder(orderID, playerID, clubID); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error())
 		return
 	}

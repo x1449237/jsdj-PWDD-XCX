@@ -116,11 +116,14 @@ type OSSConfig struct {
 
 // WeChatConfig 微信小程序配置
 type WeChatConfig struct {
-	AppID     string `mapstructure:"app_id"`
-	AppSecret string `mapstructure:"app_secret"`
-	MchID     string `mapstructure:"mch_id"`      // 商户号
-	MchKey    string `mapstructure:"mch_key"`     // 商户密钥
-	NotifyURL string `mapstructure:"notify_url"`  // 支付回调地址
+	AppID           string `mapstructure:"app_id"`
+	AppSecret       string `mapstructure:"app_secret"`
+	MchID           string `mapstructure:"mch_id"`           // 商户号
+	MchKey          string `mapstructure:"mch_key"`          // 商户密钥
+	NotifyURL       string `mapstructure:"notify_url"`       // 支付回调地址
+	ApiV3Key        string `mapstructure:"api_v3_key"`       // APIv3 密钥(用于回调解密)
+	PlatformCertPath string `mapstructure:"platform_cert_path"` // 微信平台证书路径(用于回调验签)
+	SerialNo        string `mapstructure:"serial_no"`        // 商户证书序列号
 }
 
 // WSConfig WebSocket 配置
