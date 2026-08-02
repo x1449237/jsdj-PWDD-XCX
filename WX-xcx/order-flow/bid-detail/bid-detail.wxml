@@ -51,7 +51,7 @@
             <text class="time">{{item.bid_time_text}}</text>
           </view>
           <view wx:if="{{item.is_winner}}" class="winner-badge">
-            🏆 已中标
+            已中标
           </view>
         </view>
         <view class="bid-price-row">

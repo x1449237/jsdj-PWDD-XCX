@@ -363,9 +363,37 @@
   background: rgba(255, 107, 53, 0.2);
 }
 
-.favorite-icon {
-  font-size: 32rpx;
+.favorite-dot {
+  width: 36rpx;
+  height: 32rpx;
   margin-bottom: 4rpx;
+  position: relative;
+}
+.favorite-dot::after, .favorite-dot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 18rpx;
+  height: 28rpx;
+  border-radius: 18rpx 18rpx 0 0;
+}
+.favorite-dot::before {
+  left: 0;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
+}
+.favorite-dot::after {
+  right: 0;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
+}
+.favorite-dot.on::before,
+.favorite-dot.on::after {
+  background: #EF4444;
+}
+.favorite-dot.off::before,
+.favorite-dot.off::after {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .favorite-text {
@@ -397,7 +425,21 @@
   color: #666;
   margin-bottom: 12rpx;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
+.gl-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 3rpx;
+  flex-shrink: 0;
+}
+.gl-dot.game { background: #3B82F6; }
+.gl-dot.rank { background: #F59E0B; }
+.gl-dot.position { background: #10B981; }
+.gl-dot.voice { background: #8B5CF6; }
+.gl-dot.skill { background: #EC4899; }
 
 .tag-list {
   display: flex;

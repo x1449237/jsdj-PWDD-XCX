@@ -8,7 +8,7 @@
 
     <!-- 服务计时 -->
     <view class="service-timer" wx:if="{{serviceTimer && orderInfo.status === 2}}">
-      <view class="timer-icon">⏱️</view>
+      <view class="timer-icon-bg"></view>
       <view class="timer-info">
         <text class="timer-label">服务进行中</text>
         <text class="timer-duration">{{serviceDurationText}}</text>
@@ -81,7 +81,7 @@
     </view>
     <view class="evidence-card">
       <view wx:if="{{evidenceList.length === 0}}" class="empty-evidence">
-        <text class="empty-icon">📷</text>
+        <view class="empty-icon-bg camera"></view>
         <text class="empty-text">暂无凭证</text>
       </view>
       <view class="evidence-list" wx:else>
@@ -99,7 +99,7 @@
             mode="aspectFill"
           ></image>
           <view wx:else class="evidence-video">
-            <text class="video-icon">🎬</text>
+            <view class="video-icon-bg"></view>
             <text class="video-name">录屏视频</text>
           </view>
           <view class="evidence-info">
@@ -120,10 +120,10 @@
         <view class="p-info">
           <text class="p-role">打手</text>
           <text class="p-name">{{orderInfo.playerName}}</text>
-          <text class="p-rating">⭐ {{orderInfo.playerRating}}</text>
+          <view class="p-rating"><view class="mini-dot star"></view>{{orderInfo.playerRating}}</view>
         </view>
         <view class="p-contact" bindtap="onChatWithPlayer">
-          <text class="contact-icon">💬</text>
+          <view class="contact-icon-bg"></view>
           <text class="contact-text">联系</text>
         </view>
       </view>
@@ -142,7 +142,7 @@
 
   <!-- 聊天入口 -->
   <view class="chat-entry" bindtap="onChatWithPlayer">
-    <view class="chat-icon">💬</view>
+    <view class="chat-icon-bg"></view>
     <text class="chat-text">进入聊天</text>
     <text class="chat-arrow">></text>
   </view>

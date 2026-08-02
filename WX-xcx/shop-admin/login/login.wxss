@@ -152,3 +152,11 @@
   font-size: 22rpx;
   color: rgba(255, 255, 255, 0.3);
 }
+
+/* 密码眼睛 - 调整颜色适配深色背景 */
+.shop-login .eye-icon-bg {
+  border-color: rgba(255,255,255,0.4);
+}
+.shop-login .eye-icon-bg::after {
+  border-color: rgba(255,255,255,0.4);
+}

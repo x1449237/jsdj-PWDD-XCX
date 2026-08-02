@@ -15,7 +15,7 @@
 
   <!-- 介入警示横幅（客服端） -->
   <view class="intervene-banner" wx:if="{{showInterveneBanner}}">
-    <text class="intervene-banner-icon">⚠️</text>
+    <view class="banner-icon-bg warn"></view>
     <text class="intervene-banner-text">{{interveneBannerText}}</text>
   </view>
 
@@ -25,7 +25,8 @@
       <text class="intervene-btn-text">{{interveneStatus === 1 ? '平台已介入' : '申请平台介入'}}</text>
     </view>
     <view class="evidence-btn" bindtap="onUploadEvidence">
-      <text class="evidence-btn-text">📎 举证上传</text>
+      <view class="evidence-icon-bg"></view>
+      <text class="evidence-btn-text">举证上传</text>
     </view>
     <view class="arbitration-btn" bindtap="onApplyArbitration">
       <text class="arbitration-btn-text">申请仲裁</text>
@@ -130,7 +131,7 @@
             bindlongpress="onLongPressMessage"
             data-msg="{{item}}"
           >
-            <view class="file-icon">📄</view>
+            <view class="file-icon-bg file"></view>
             <view class="file-info">
               <text class="file-name">{{item.file_name}}</text>
               <text class="file-size">{{item.file_size_text}}</text>
@@ -147,12 +148,12 @@
 
           <!-- 敏感词拦截提示 -->
           <view wx:if="{{item.sensitive_blocked}}" class="sensitive-tip">
-            <text>⚠️ 消息含有敏感词，发送失败</text>
+            <text>消息含有敏感词，发送失败</text>
           </view>
 
           <!-- 飞单风险提示 -->
           <view wx:if="{{item.anti_fraud_risky && item.from_self}}" class="anti-fraud-tip">
-            <text>⚠️ 检测到风险内容，已自动屏蔽</text>
+            <text>检测到风险内容，已自动屏蔽</text>
           </view>
         </view>
 
@@ -181,7 +182,7 @@
 
     <view class="text-mode" wx:else>
       <view class="mode-switch" bindtap="onSwitchMode">
-        <text class="switch-icon">🎤</text>
+        <view class="switch-icon-bg mic"></view>
       </view>
       <view class="input-wrapper">
         <input
@@ -198,7 +199,7 @@
         />
       </view>
       <view class="image-btn" bindtap="onChooseImage">
-        <text class="image-icon">🖼</text>
+        <view class="image-btn-bg"></view>
       </view>
     </view>
 
@@ -222,23 +223,23 @@
   <!-- 更多操作面板 -->
   <view class="more-panel" wx:if="{{showMorePanel}}">
     <view class="panel-item" bindtap="onChooseImage">
-      <view class="panel-icon">📷</view>
+      <view class="panel-icon-bg camera"></view>
       <text class="panel-label">相册</text>
     </view>
     <view class="panel-item" bindtap="onTakePhoto">
-      <view class="panel-icon">📸</view>
+      <view class="panel-icon-bg photo"></view>
       <text class="panel-label">拍照</text>
     </view>
     <view class="panel-item" bindtap="onChooseFile">
-      <view class="panel-icon">📄</view>
+      <view class="panel-icon-bg file"></view>
       <text class="panel-label">文件</text>
     </view>
     <view class="panel-item" bindtap="onUploadEvidence">
-      <view class="panel-icon">📎</view>
+      <view class="panel-icon-bg evidence"></view>
       <text class="panel-label">举证上传</text>
     </view>
     <view class="panel-item" bindtap="onSwitchMode">
-      <view class="panel-icon">🎤</view>
+      <view class="panel-icon-bg mic"></view>
       <text class="panel-label">语音</text>
     </view>
   </view>
@@ -292,7 +293,7 @@
   <!-- 飞单风控警告弹窗 -->
   <view class="modal-mask" wx:if="{{showAntiFraudModal}}" bindtap="onCloseAntiFraudModal"></view>
   <view class="anti-fraud-modal" wx:if="{{showAntiFraudModal}}">
-    <view class="modal-icon">⚠️</view>
+    <view class="modal-icon-bg warn"></view>
     <view class="modal-title">风险提示</view>
     <view class="modal-content">
       <text>{{antiFraudModalContent}}</text>

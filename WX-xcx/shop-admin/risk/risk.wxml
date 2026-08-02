@@ -101,7 +101,7 @@
     </block>
 
     <view class="empty-state" wx:if="{{userList.length === 0 && !loading}}">
-      <text class="empty-state-icon">🛡️</text>
+      <view class="empty-icon-bg risk"></view>
       <text class="empty-state-text">暂无风险用户</text>
     </view>
 

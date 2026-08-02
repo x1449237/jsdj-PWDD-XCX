@@ -50,7 +50,7 @@
           bindtap="onSelectRole"
           data-role="user"
         >
-          <text class="role-icon">👤</text>
+          <view class="role-icon-bg user"><text class="role-icon-txt">U</text></view>
           <text class="role-name">普通用户</text>
           <text class="role-desc">下单找大神</text>
         </view>
@@ -59,7 +59,7 @@
           bindtap="onSelectRole"
           data-role="player"
         >
-          <text class="role-icon">🎮</text>
+          <view class="role-icon-bg player"><text class="role-icon-txt">P</text></view>
           <text class="role-name">打手</text>
           <text class="role-desc">接单赚钱</text>
         </view>

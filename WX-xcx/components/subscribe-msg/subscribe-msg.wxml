@@ -1,7 +1,7 @@
 <view class="subscribe-msg">
   <view class="subscribe-tip" wx:if="{{showTip && !subscribed}}">
     <view class="tip-content">
-      <text class="tip-icon">🔔</text>
+      <view class="tip-icon-bg bell"></view>
       <text class="tip-text">开启消息通知，不错过重要信息</text>
       <button class="tip-btn" bindtap="requestSubscribe">去开启</button>
       <text class="tip-close" bindtap="hideSubscribeTip">✕</text>

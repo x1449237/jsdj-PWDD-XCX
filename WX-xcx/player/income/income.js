@@ -147,18 +147,18 @@ Page({
 
   formatIncomeItem(item) {
     const typeMap = {
-      1: { text: '服务收入', icon: '💰', class: 'type-service' },
-      2: { text: '打赏', icon: '🎁', class: 'type-tip' },
-      3: { text: '佣金', icon: '💼', class: 'type-commission' }
+      1: { text: '服务收入', iconClass: 'service', class: 'type-service' },
+      2: { text: '打赏', iconClass: 'tip', class: 'type-tip' },
+      3: { text: '佣金', iconClass: 'commission', class: 'type-commission' }
     };
-    const typeInfo = typeMap[item.type] || { text: '其他', icon: '📋', class: 'type-service' };
+    const typeInfo = typeMap[item.type] || { text: '其他', iconClass: 'other', class: 'type-service' };
 
     return {
       ...item,
       amountFen: item.amount || 0,
       amountText: util.fenToYuan(Math.abs(item.amount || 0)),
       typeText: typeInfo.text,
-      typeIcon: typeInfo.icon,
+      typeIconClass: typeInfo.iconClass,
       typeClass: typeInfo.class,
       timeText: util.formatTime(item.createTime, 'MM-DD HH:mm'),
       statusText: item.status === 1 ? '已到账' : (item.status === 0 ? '冻结中' : '')

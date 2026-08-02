@@ -126,10 +126,10 @@ Page({
       order_count: 12,
       compare_mom: 12,
       category_list: [
-        { category: 'rank_boost', name: '段位代练', icon: '🏆', amount: 78600, count: 6, percent: 61 },
-        { category: 'companion', name: '陪玩娱乐', icon: '🎮', amount: 29900, count: 3, percent: 23 },
-        { category: 'reward', name: '打赏打手', icon: '🎁', amount: 12000, count: 2, percent: 9 },
-        { category: 'other', name: '其他消费', icon: '📦', amount: 8100, count: 1, percent: 7 }
+        { category: 'rank_boost', name: '段位代练', amount: 78600, count: 6, percent: 61 },
+        { category: 'companion', name: '陪玩娱乐', amount: 29900, count: 3, percent: 23 },
+        { category: 'reward', name: '打赏打手', amount: 12000, count: 2, percent: 9 },
+        { category: 'other', name: '其他消费', amount: 8100, count: 1, percent: 7 }
       ],
       daily_trend: [
         { date: '2025-01-05', amount: 8600 },

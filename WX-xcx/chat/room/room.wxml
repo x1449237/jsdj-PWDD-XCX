@@ -18,7 +18,7 @@
 
   <!-- 介入警示横幅 -->
   <view class="intervene-banner" wx:if="{{showInterveneBanner}}">
-    <text class="intervene-banner-icon">⚠️</text>
+    <view class="banner-icon-bg warn"></view>
     <text class="intervene-banner-text">{{interveneBannerText}}</text>
   </view>
 
@@ -121,7 +121,7 @@
             bindlongpress="onLongPressMessage"
             data-msg="{{item}}"
           >
-            <view class="file-icon">📄</view>
+            <view class="file-icon-bg file"></view>
             <view class="file-info">
               <text class="file-name">{{item.file_name}}</text>
               <text class="file-size">{{item.file_size_text}}</text>
@@ -136,7 +136,7 @@
             data-msg="{{item}}"
           >
             <view class="card-header">
-              <text class="card-icon">{{item.card_icon || '📋'}}</text>
+              <view class="card-icon-bg ci-{{item.card_type || 'default'}}"></view>
               <text class="card-title">{{item.card_title}}</text>
             </view>
             <view class="card-content">
@@ -157,12 +157,12 @@
 
           <!-- 敏感词拦截提示 -->
           <view wx:if="{{item.sensitive_blocked}}" class="sensitive-tip">
-            <text>⚠️ 消息含有敏感词，发送失败</text>
+            <text>消息含有敏感词，发送失败</text>
           </view>
 
           <!-- 飞单风险提示 -->
           <view wx:if="{{item.anti_fraud_risky && item.from_self}}" class="anti-fraud-tip">
-            <text>⚠️ 检测到风险内容，已自动屏蔽</text>
+            <text>检测到风险内容，已自动屏蔽</text>
           </view>
         </view>
 
@@ -193,7 +193,7 @@
     <!-- 文字输入模式 -->
     <view class="text-mode" wx:else>
       <view class="mode-switch" bindtap="onSwitchMode">
-        <text class="switch-icon">🎤</text>
+        <view class="switch-icon-bg mic"></view>
       </view>
       <view class="input-wrapper">
         <input
@@ -210,7 +210,7 @@
         />
       </view>
       <view class="image-btn" bindtap="onChooseImage">
-        <text class="image-icon">🖼</text>
+        <view class="image-btn-bg"></view>
       </view>
     </view>
 
@@ -235,23 +235,23 @@
   <!-- 更多操作面板 -->
   <view class="more-panel" wx:if="{{showMorePanel}}">
     <view class="panel-item" bindtap="onChooseImage">
-      <view class="panel-icon">📷</view>
+      <view class="panel-icon-bg camera"></view>
       <text class="panel-label">相册</text>
     </view>
     <view class="panel-item" bindtap="onTakePhoto">
-      <view class="panel-icon">📸</view>
+      <view class="panel-icon-bg photo"></view>
       <text class="panel-label">拍照</text>
     </view>
     <view class="panel-item" bindtap="onChooseFile">
-      <view class="panel-icon">📄</view>
+      <view class="panel-icon-bg file"></view>
       <text class="panel-label">文件</text>
     </view>
     <view class="panel-item" bindtap="onShowQuickCards">
-      <view class="panel-icon">💳</view>
+      <view class="panel-icon-bg card"></view>
       <text class="panel-label">快捷卡片</text>
     </view>
     <view class="panel-item" bindtap="onSwitchMode">
-      <view class="panel-icon">🎤</view>
+      <view class="panel-icon-bg mic"></view>
       <text class="panel-label">语音</text>
     </view>
   </view>
@@ -270,7 +270,7 @@
         bindtap="onSendQuickCard"
         data-card="{{item}}"
       >
-        <view class="card-item-icon">{{item.icon || '📋'}}</view>
+        <view class="card-item-icon-bg cii-{{item.type || 'default'}}"></view>
         <view class="card-item-title">{{item.title}}</view>
         <view class="card-item-content">{{item.content}}</view>
       </view>
@@ -280,7 +280,7 @@
   <!-- 飞单风控警告弹窗 -->
   <view class="modal-mask" wx:if="{{showAntiFraudModal}}" bindtap="onCloseAntiFraudModal"></view>
   <view class="anti-fraud-modal" wx:if="{{showAntiFraudModal}}">
-    <view class="modal-icon">⚠️</view>
+    <view class="modal-icon-bg warn"></view>
     <view class="modal-title">风险提示</view>
     <view class="modal-content">
       <text>{{antiFraudModalContent}}</text>

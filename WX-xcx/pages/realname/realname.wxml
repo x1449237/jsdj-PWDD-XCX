@@ -1,571 +1,369 @@
 <view class="realname-page">
-  <!-- 赛博扫描背景层 -->
-  <view class="bg-scan-layer">
-    <view class="scan-grid"></view>
-    <view class="scan-line-h"></view>
-  </view>
-
-  <!-- 顶部导航栏（HUD风） -->
-  <view class="top-nav">
-    <view class="nav-left" bindtap="onBack">
-      <view class="hex-btn">
-        <text class="hex-arrow">‹</text>
-      </view>
+  <!-- 顶部导航 -->
+  <view class="top-bar">
+    <view class="back-btn" bindtap="onBack">
+      <text class="back-icon">‹</text>
     </view>
-    <view class="nav-center">
-      <view class="brand-hex">
-        <text class="hex-logo">⚔</text>
-      </view>
-      <text class="nav-title">戟三实名认证</text>
-      <view class="security-tag">
-        <text class="tag-dot"></text>
-        <text>加密传输</text>
-      </view>
-    </view>
-    <view class="nav-right">
-      <view class="hex-btn small">
-        <text class="hex-icon">?</text>
-      </view>
+    <view class="top-title">实名认证</view>
+    <view class="top-right">
+      <text class="help-text">帮助</text>
     </view>
   </view>
 
-  <!-- 3 步流程指示器（HUD能量条风格） -->
-  <view class="stepper-bar">
-    <view class="step-item active">
-      <view class="step-hex">
-        <text class="step-num">1</text>
-      </view>
-      <text class="step-text">证件采集</text>
-      <view class="step-line"></view>
-    </view>
-    <view class="step-item">
-      <view class="step-hex">
-        <text class="step-num">2</text>
-      </view>
-      <text class="step-text">信息填写</text>
-      <view class="step-line"></view>
-    </view>
-    <view class="step-item last">
-      <view class="step-hex pay">
-        <text class="step-num">3</text>
-      </view>
-      <text class="step-text gold">付费活体</text>
-    </view>
+  <!-- 顶部说明条 -->
+  <view class="notice-bar">
+    <text class="notice-dot"></text>
+    <text>实名后可解锁陪玩、提现、俱乐部入驻等功能。信息仅用于公安联网核验，加密存储不外泄。</text>
   </view>
 
-  <!-- 六边形 HUD 认证卡（代替原盾形价签） -->
-  <view class="hud-cert-card">
-    <view class="hex-frame hex-tl"></view>
-    <view class="hex-frame hex-tr"></view>
-    <view class="hex-frame hex-bl"></view>
-    <view class="hex-frame hex-br"></view>
-
-    <view class="cert-head">
-      <view class="cert-badge-left">
-        <text class="badge-icon">🛡</text>
-        <text class="badge-text">三级核验</text>
-      </view>
-      <view class="cert-badge-right">
-        <text class="badge-text">公安部联网</text>
-        <text class="badge-icon right">🔗</text>
-      </view>
-    </view>
-
-    <view class="cert-price-row">
-      <view class="price-left">
+  <!-- 收费与步骤（合并成一个普通卡片） -->
+  <view class="main-card head-card">
+    <view class="head-price-row">
+      <view class="price-block">
         <text class="price-label">认证服务费</text>
-        <view class="price-tag-hex">
-          <text class="price-currency">¥</text>
-          <text class="price-value">2.00</text>
-          <text class="price-suffix">/次</text>
+        <view class="price-num">
+          <text class="price-sym">¥</text>
+          <text class="price-whole">2</text>
+          <text class="price-dec">.00</text>
+          <text class="price-unit">/ 次</text>
         </view>
-        <text class="price-sub">认证通过 7 天内申诉免费复审</text>
+        <text class="price-desc">认证通过后7天内因平台原因重审免费</text>
       </view>
-      <view class="price-right">
-        <view class="level-hex">
-          <text class="level-num">L3</text>
-          <text class="level-label">高级认证</text>
-        </view>
+      <view class="l3-tag">
+        <text class="l3-num">L3</text>
+        <text class="l3-name">高级认证</text>
       </view>
     </view>
-
-    <!-- 能量条完成度 -->
-    <view class="energy-bar">
-      <view class="energy-fill" style="width: {{completePercent}}%"></view>
-      <view class="energy-glow" style="left: {{completePercent}}%"></view>
-    </view>
-    <text class="energy-label">当前完成度 {{completePercent}}% · 请继续完善</text>
-  </view>
-
-  <!-- ============ 模块 1：证件图像采集（纵向布局，代替原左右两列） ============ -->
-  <view class="module-card">
-    <view class="module-head">
-      <view class="module-bar"></view>
-      <text class="module-title">证件图像采集</text>
-      <view class="module-tag">
-        <text class="tag-hex">01</text>
+    <view class="head-progress-wrap">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{completePercent}}%"></view>
       </view>
+      <text class="progress-text">{{completePercent}}% 已完成</text>
     </view>
-
-    <!-- 人像面（大图上方） -->
-    <view class="idcard-upload big" bindtap="onUploadIdCard" data-type="front">
-      <view class="idcard-frame {{idCardFront ? 'filled' : ''}}">
-        <!-- 四角 HUD 描边 -->
-        <view class="hud-corder tl"></view>
-        <view class="hud-corder tr"></view>
-        <view class="hud-corder bl"></view>
-        <view class="hud-corder br"></view>
-
-        <image wx:if="{{idCardFront}}" class="idcard-img" src="{{idCardFront}}" mode="aspectFit" />
-        <block wx:else>
-          <view class="upload-inner">
-            <view class="upload-icon-wrap">
-              <view class="icon-ring"></view>
-              <text class="upload-emoji">👤</text>
-            </view>
-            <text class="upload-title">身份证 · 人像面</text>
-            <text class="upload-desc">清晰拍摄含姓名、证件号码的一面</text>
-            <view class="upload-chip">
-              <text class="chip-line"></text>
-              <text class="chip-text">点击上传 / 拍照</text>
-              <text class="chip-line"></text>
-            </view>
-          </view>
-        </block>
-
-        <!-- 已上传的右上角状态标 -->
-        <view wx:if="{{idCardFront}}" class="uploaded-tag">
-          <text class="tag-icon">✓</text>
-          <text>采集完成</text>
-        </view>
+    <!-- 步骤 -->
+    <view class="step-bar">
+      <view class="step {{currentStep >= 1 ? 'active' : ''}} {{currentStep > 1 ? 'done' : ''}}">
+        <view class="step-circle"><text wx:if="{{currentStep > 1}}" class="ok-mark">✓</text><text wx:else class="step-n">1</text></view>
+        <text class="step-t">证件采集</text>
       </view>
-    </view>
-
-    <!-- 分隔：国徽面提示 -->
-    <view class="upload-divider">
-      <view class="divider-hex"></view>
-      <text>翻 转 · 国 徽 面</text>
-      <view class="divider-hex gold"></view>
-    </view>
-
-    <!-- 国徽面（下方） -->
-    <view class="idcard-upload big" bindtap="onUploadIdCard" data-type="back">
-      <view class="idcard-frame {{idCardBack ? 'filled' : ''}}">
-        <view class="hud-corder tl"></view>
-        <view class="hud-corder tr"></view>
-        <view class="hud-corder bl"></view>
-        <view class="hud-corder br"></view>
-
-        <image wx:if="{{idCardBack}}" class="idcard-img" src="{{idCardBack}}" mode="aspectFit" />
-        <block wx:else>
-          <view class="upload-inner">
-            <view class="upload-icon-wrap gold">
-              <view class="icon-ring gold"></view>
-              <text class="upload-emoji">🏛</text>
-            </view>
-            <text class="upload-title">身份证 · 国徽面</text>
-            <text class="upload-desc">清晰拍摄含签发机关、有效期的一面</text>
-            <view class="upload-chip gold">
-              <text class="chip-line gold"></text>
-              <text class="chip-text">点击上传 / 拍照</text>
-              <text class="chip-line gold"></text>
-            </view>
-          </view>
-        </block>
-
-        <view wx:if="{{idCardBack}}" class="uploaded-tag gold">
-          <text class="tag-icon">✓</text>
-          <text>采集完成</text>
-        </view>
+      <view class="step-line {{currentStep > 1 ? 'done' : ''}}"></view>
+      <view class="step {{currentStep >= 2 ? 'active' : ''}} {{currentStep > 2 ? 'done' : ''}}">
+        <view class="step-circle"><text wx:if="{{currentStep > 2}}" class="ok-mark">✓</text><text wx:else class="step-n">2</text></view>
+        <text class="step-t">信息填写</text>
       </view>
-    </view>
-
-    <!-- 图片上传要求 -->
-    <view class="upload-tips">
-      <view class="tip-item">
-        <text class="tip-hex">✓</text>
-        <text>四角完整 · 无反光 · 无遮挡</text>
-      </view>
-      <view class="tip-item">
-        <text class="tip-hex">✓</text>
-        <text>不接受截图、翻拍、复印件</text>
-      </view>
-      <view class="tip-item">
-        <text class="tip-hex">!</text>
-        <text class="warn">仅用于实名核验，平台加密存储不外泄</text>
+      <view class="step-line {{currentStep > 2 ? 'done' : ''}}"></view>
+      <view class="step {{currentStep >= 3 ? 'active' : ''}}">
+        <view class="step-circle pay"><text class="step-n">3</text></view>
+        <text class="step-t pay">付费活体</text>
       </view>
     </view>
   </view>
 
-  <!-- ============ 模块 2：身份信息填写 ============ -->
-  <view class="module-card">
-    <view class="module-head">
-      <view class="module-bar gold"></view>
-      <text class="module-title">身份信息填写</text>
-      <view class="module-tag gold">
-        <text class="tag-hex">02</text>
-      </view>
+  <!-- 一、证件图像采集 -->
+  <view class="main-card">
+    <view class="card-title">
+      <view class="title-line"></view>
+      <text class="title-text">证件图像采集</text>
+      <text class="title-num">01</text>
     </view>
 
-    <!-- 分段浮窗输入 -->
-    <view class="field-block">
-      <view class="field-head">
-        <text class="field-required">*</text>
-        <text class="field-name">证件有效期</text>
-        <text class="field-hint">请选择</text>
+    <view class="upload-area" bindtap="onUploadIdCard" data-type="front">
+      <image wx:if="{{idCardFront}}" src="{{idCardFront}}" class="uploaded-img" mode="aspectFit" />
+      <view wx:else class="upload-placeholder">
+        <view class="ph-icon-wrap">
+          <view class="ph-circle"></view>
+        </view>
+        <text class="ph-main">身份证人像面</text>
+        <text class="ph-sub">请拍摄含姓名、身份证号码的一面</text>
+        <view class="ph-btn">点击上传 / 拍照</view>
       </view>
-      <view class="field-body" bindtap="onValidityChange">
-        <text class="field-value {{validityType ? '' : 'ph'}}">
-          {{validityTypeText || '请选择有效期类型'}}
-        </text>
-        <view class="field-hex-btn">
-          <text class="hex-chev">›</text>
+      <view wx:if="{{idCardFront}}" class="upload-ok-tag">已采集</view>
+    </view>
+
+    <view class="divider-row">
+      <view class="div-line"></view>
+      <text class="div-text">翻转 · 国徽面</text>
+      <view class="div-line"></view>
+    </view>
+
+    <view class="upload-area" bindtap="onUploadIdCard" data-type="back">
+      <image wx:if="{{idCardBack}}" src="{{idCardBack}}" class="uploaded-img" mode="aspectFit" />
+      <view wx:else class="upload-placeholder bk">
+        <view class="ph-icon-wrap bk">
+          <view class="ph-circle bk"></view>
+        </view>
+        <text class="ph-main">身份证国徽面</text>
+        <text class="ph-sub">请拍摄含签发机关、有效期的一面</text>
+        <view class="ph-btn bk">点击上传 / 拍照</view>
+      </view>
+      <view wx:if="{{idCardBack}}" class="upload-ok-tag bk">已采集</view>
+    </view>
+
+    <view class="tips-list">
+      <view class="tip-item"><view class="ti-dot ok"></view><text>四角完整、无反光、无遮挡、无修图</text></view>
+      <view class="tip-item"><view class="ti-dot ok"></view><text>不接受截图、翻拍、复印件、临时身份证</text></view>
+      <view class="tip-item warn"><view class="ti-dot warn"></view><text>请确保与后续填写信息完全一致</text></view>
+    </view>
+  </view>
+
+  <!-- 二、信息填写 -->
+  <view class="main-card">
+    <view class="card-title">
+      <view class="title-line gold"></view>
+      <text class="title-text">身份信息填写</text>
+      <text class="title-num gold">02</text>
+    </view>
+
+    <view class="form-group">
+      <view class="form-row">
+        <view class="label-block">
+          <text class="label-required">*</text>
+          <text class="label-text">有效期类型</text>
+        </view>
+        <view class="picker-row" bindtap="onValidityChange">
+          <text class="picker-value {{validityType ? '' : 'ph'}}">{{validityTypeText || '请选择'}}</text>
+          <text class="picker-arrow">›</text>
         </view>
       </view>
     </view>
 
-    <view class="field-block">
-      <view class="field-head">
-        <text class="field-required">*</text>
-        <text class="field-name">真实姓名</text>
-        <text class="field-hint">与身份证一致</text>
+    <view class="form-group">
+      <view class="form-row">
+        <view class="label-block">
+          <text class="label-required">*</text>
+          <text class="label-text">真实姓名</text>
+          <text class="label-hint">与身份证一致</text>
+        </view>
       </view>
-      <view class="field-body input">
+      <view class="form-input-row {{nameErr ? 'error' : ''}}">
         <input
-          class="field-input"
-          placeholder="请输入身份证上的真实姓名"
-          placeholder-class="ph-text"
+          class="form-input"
+          placeholder="请输入您身份证上的姓名"
+          placeholder-class="input-ph"
           value="{{realName}}"
           bindinput="onNameInput"
           maxlength="20"
         />
       </view>
-      <view wx:if="{{nameErr}}" class="field-err">
-        <text class="err-dot">!</text>
-        <text>{{nameErr}}</text>
+      <view wx:if="{{nameErr}}" class="err-row">
+        <text class="err-mark">!</text>
+        <text class="err-text">{{nameErr}}</text>
       </view>
     </view>
 
-    <view class="field-block">
-      <view class="field-head">
-        <text class="field-required">*</text>
-        <text class="field-name">身份证号码</text>
-        <text class="field-hint mono">18 位</text>
+    <view class="form-group">
+      <view class="form-row">
+        <view class="label-block">
+          <text class="label-required">*</text>
+          <text class="label-text">身份证号</text>
+          <text class="label-hint mono">共 18 位</text>
+        </view>
       </view>
-      <view class="field-body input">
+      <view class="form-input-row {{idCardErr ? 'error' : ''}}">
         <input
-          class="field-input mono"
+          class="form-input mono"
           type="idcard"
           placeholder="请输入 18 位身份证号码"
-          placeholder-class="ph-text"
+          placeholder-class="input-ph"
           value="{{idCard}}"
           bindinput="onIdCardInput"
           bindblur="onIdCardBlur"
           maxlength="18"
         />
       </view>
-      <view wx:if="{{idCardErr}}" class="field-err">
-        <text class="err-dot">!</text>
-        <text>{{idCardErr}}</text>
+      <view wx:if="{{idCardErr}}" class="err-row">
+        <text class="err-mark">!</text>
+        <text class="err-text">{{idCardErr}}</text>
       </view>
     </view>
 
-    <view class="field-row">
-      <view class="field-block half">
-        <view class="field-head">
-          <text class="field-required">*</text>
-          <text class="field-name">起始日期</text>
-        </view>
-        <view class="field-body">
-          <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
-            <view class="field-picker">
-              <text class="field-value {{startDate ? '' : 'ph'}}">
-                {{startDate || '请选择'}}
-              </text>
-              <view class="field-hex-btn small">
-                <text class="hex-chev">›</text>
-              </view>
-            </view>
-          </picker>
-        </view>
-      </view>
-
-      <view class="field-block half" wx:if="{{validityType === 'non_permanent'}}">
-        <view class="field-head">
-          <text class="field-required">*</text>
-          <text class="field-name">截止日期</text>
-        </view>
-        <view class="field-body">
-          <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
-            <view class="field-picker">
-              <text class="field-value {{endDate ? '' : 'ph'}}">
-                {{endDate || '请选择'}}
-              </text>
-              <view class="field-hex-btn small">
-                <text class="hex-chev">›</text>
-              </view>
-            </view>
-          </picker>
-        </view>
-      </view>
-
-      <view class="field-block half" wx:if="{{validityType === 'permanent'}}">
-        <view class="field-head">
-          <text></text>
-          <text class="field-name">有效期</text>
-        </view>
-        <view class="field-body tag-only">
-          <view class="permanent-hex-tag">
-            <text class="perm-icon">∞</text>
-            <text>长期有效</text>
+    <view class="date-row">
+      <view class="form-group half">
+        <view class="form-row">
+          <view class="label-block">
+            <text class="label-required">*</text>
+            <text class="label-text small">起始日期</text>
           </view>
         </view>
+        <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+          <view class="date-box">
+            <text class="{{startDate ? '' : 'ph'}}">{{startDate || '请选择'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-group half" wx:if="{{validityType === 'non_permanent'}}">
+        <view class="form-row">
+          <view class="label-block">
+            <text class="label-required">*</text>
+            <text class="label-text small">截止日期</text>
+          </view>
+        </view>
+        <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
+          <view class="date-box">
+            <text class="{{endDate ? '' : 'ph'}}">{{endDate || '请选择'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-group half" wx:if="{{validityType === 'permanent'}}">
+        <view class="form-row">
+          <view class="label-block"><text class="label-text small">有效期</text></view>
+        </view>
+        <view class="perm-box">长期有效</view>
       </view>
     </view>
   </view>
 
-  <!-- ============ 模块 3：收费合规说明（独立浮窗，合法合规提示） ============ -->
-  <view class="compliance-card">
-    <view class="comp-head">
-      <view class="comp-icon-wrap">
-        <text class="comp-icon">⚖</text>
-      </view>
-      <view class="comp-title-wrap">
-        <text class="comp-title">合规收费说明</text>
-        <text class="comp-sub">依据《价格法》《网络安全法》公开透明</text>
-      </view>
-    </view>
-
-    <view class="comp-list">
-      <view class="comp-item">
-        <view class="comp-no">01</view>
-        <view class="comp-body">
-          <text class="comp-k">收费项目</text>
-          <text class="comp-v">实名核验 + 活体检测 技术服务费</text>
-        </view>
-      </view>
-      <view class="comp-item">
-        <view class="comp-no gold">02</view>
-        <view class="comp-body">
-          <text class="comp-k">收费标准</text>
-          <text class="comp-v gold">人民币 ¥2.00 元 / 每次认证</text>
-        </view>
-      </view>
-      <view class="comp-item">
-        <view class="comp-no">03</view>
-        <view class="comp-body">
-          <text class="comp-k">收费方式</text>
-          <text class="comp-v">点击"付费认证"后，从账户余额扣除；余额不足时可跳转充值</text>
-        </view>
-      </view>
-      <view class="comp-item">
-        <view class="comp-no">04</view>
-        <view class="comp-body">
-          <text class="comp-k">收费依据</text>
-          <text class="comp-v">第三方认证机构（公安部一所授权合作商）收取的核验成本费</text>
-        </view>
-      </view>
-      <view class="comp-item">
-        <view class="comp-no warn">05</view>
-        <view class="comp-body">
-          <text class="comp-k warn">不退款情形</text>
-          <text class="comp-v warn">付费成功即视为核验服务已调用，结果无论通过与否均不予退款</text>
-        </view>
-      </view>
-      <view class="comp-item">
-        <view class="comp-no">06</view>
-        <view class="comp-body">
-          <text class="comp-k">免费情形</text>
-          <text class="comp-v">认证通过后 7 天内因平台系统原因需重审的，免收二次费用</text>
+  <!-- 三、合规收费说明 -->
+  <view class="main-card fee-card">
+    <view class="fee-head">
+      <view class="fee-head-left">
+        <view class="fee-title-icon"></view>
+        <view>
+          <text class="fee-title">合规收费说明</text>
+          <text class="fee-sub">依据《价格法》《网络安全法》公开透明</text>
         </view>
       </view>
     </view>
-
-    <view class="third-party-statement">
-      <text class="tp-label">【第三方机构声明】</text>
+    <view class="fee-list">
+      <view class="fee-item">
+        <text class="fi-no">01</text>
+        <view class="fi-body"><text class="fi-k">收费项目</text><text class="fi-v">实名核验 + 活体检测技术服务费</text></view>
+      </view>
+      <view class="fee-item"><text class="fi-no">02</text>
+        <view class="fi-body"><text class="fi-k">收费标准</text><text class="fi-v gold">人民币 ¥2.00 元 / 每次认证</text></view>
+      </view>
+      <view class="fee-item"><text class="fi-no">03</text>
+        <view class="fi-body"><text class="fi-k">收费方式</text><text class="fi-v">点击付费认证后，从账户余额扣除；余额不足时可跳转充值</text></view>
+      </view>
+      <view class="fee-item"><text class="fi-no">04</text>
+        <view class="fi-body"><text class="fi-k">收费依据</text><text class="fi-v">第三方认证机构（公安授权合作商）收取的核验成本费</text></view>
+      </view>
+      <view class="fee-item warn"><text class="fi-no warn">05</text>
+        <view class="fi-body"><text class="fi-k warn">不退款情形</text><text class="fi-v warn">付费成功即视为核验服务已调用，结果无论通过与否均不予退款</text></view>
+      </view>
+      <view class="fee-item"><text class="fi-no">06</text>
+        <view class="fi-body"><text class="fi-k">免费情形</text><text class="fi-v">认证通过后 7 天内因平台系统原因需重审的，免收二次费用</text></view>
+      </view>
+    </view>
+    <view class="third-party-tip">
+      <text class="tp-tag">【第三方机构声明】</text>
       <text class="tp-text">本次实名核验及活体检测服务由具有合法资质的第三方认证机构提供，戟三电竞平台仅代为发起核验请求，不直接接触、不存储您的人脸生物特征原始数据。</text>
     </view>
   </view>
 
-  <!-- ============ 协议勾选 + 按钮 ============ -->
-  <view class="submit-zone">
-    <view class="agree-wrap" bindtap="toggleAgreement">
-      <view class="agree-hex {{agreementChecked ? 'checked' : ''}}">
-        <text wx:if="{{agreementChecked}}" class="agree-check">✓</text>
+  <!-- 四、协议 + 提交 -->
+  <view class="submit-wrap">
+    <view class="agree-row" bindtap="toggleAgreement">
+      <view class="agree-box {{agreementChecked ? 'on' : ''}}">
+        <text wx:if="{{agreementChecked}}" class="agree-ok">✓</text>
       </view>
       <view class="agree-text">
-        <text>我已阅读并同意</text>
-        <text class="link-blue">《戟三电竞用户服务协议》</text>
-        <text>、</text>
+        我已阅读并同意
+        <text class="link-blue">《戟三电竞用户服务协议》</text>、
         <text class="link-blue">《隐私政策》</text>
-        <text>及</text>
-        <text class="link-gold">《实名认证核验服务协议》</text>
-        <text>，授权平台委托第三方机构进行身份核验，已完整阅读并理解上述</text>
-        <text class="link-gold">合规收费说明</text>
-        <text>及不退款规则。</text>
+        及<text class="link-gold">《实名认证核验服务协议》</text>，
+        授权平台委托第三方机构进行身份核验，并已完整阅读理解上述
+        <text class="link-gold">合规收费说明</text>及不退款规则。
       </view>
     </view>
 
-    <!-- 六边形按钮（代替原切角按钮） -->
-    <view class="hex-pay-btn-wrap {{canSubmit ? '' : 'disabled'}}">
-      <view class="hpb-corner tl"></view>
-      <view class="hpb-corner tr"></view>
-      <view class="hpb-corner bl"></view>
-      <view class="hpb-corner br"></view>
-      <button
-        class="hex-pay-btn"
-        bindtap="onPayAndAuth"
-        loading="{{submitting}}"
-        disabled="{{!canSubmit}}"
-      >
-        <view class="hpb-inner">
-          <text class="hpb-icon-l">⚔</text>
-          <text class="hpb-text">{{submitting ? '认证处理中…' : '付费认证 ¥2.00'}}</text>
-          <text class="hpb-icon-r">⚔</text>
-        </view>
-        <view class="hpb-glow"></view>
-      </button>
-    </view>
+    <button
+      class="submit-btn {{canSubmit ? '' : 'disabled'}}"
+      bindtap="onPayAndAuth"
+      loading="{{submitting}}"
+      disabled="{{!canSubmit}}"
+    >
+      {{submitting ? '认证处理中…' : '付费认证 ¥2.00'}}
+    </button>
 
     <view class="support-row">
-      <text class="support-item">客服热线 400-XXX-XXXX</text>
-      <text class="support-dot">·</text>
-      <text class="support-item">工作日 9:00-21:00</text>
+      <text class="sp-item">客服热线 400-XXX-XXXX</text>
+      <text class="sp-dot">·</text>
+      <text class="sp-item">工作日 9:00-21:00</text>
     </view>
   </view>
 
-  <!-- ============ 活体检测弹层（赛博六边形风格） ============ -->
-  <view class="liveness-modal" wx:if="{{livenessModalVisible}}">
-    <view class="lv-mask" bindtap="onCloseLiveness"></view>
-    <view class="lv-panel">
-      <view class="lvp-hex tl"></view>
-      <view class="lvp-hex tr"></view>
-      <view class="lvp-hex bl"></view>
-      <view class="lvp-hex br"></view>
+  <!-- 活体弹层 -->
+  <view class="modal" wx:if="{{livenessModalVisible}}">
+    <view class="mask" bindtap="onCloseLiveness"></view>
+    <view class="modal-body live-body">
+      <view class="mb-title">
+        <text class="mbt-text">活体检测</text>
+        <text class="mbt-status {{livenessStatus}}">{{livenessStatusText}}</text>
+      </view>
 
-      <view class="lvp-title-row">
-        <view class="lvp-badge-hex">
-          <text>🛡</text>
+      <view class="live-scanner">
+        <view wx:if="{{livenessStatus === 'idle'}}" class="live-idle">
+          <view class="face-circle"></view>
+          <text class="li-main">请将面部置于圆形内</text>
+          <text class="li-sub">请在光线充足环境下进行，摘掉口罩、帽子、有色眼镜</text>
         </view>
-        <view class="lvp-title-wrap">
-          <text class="lvp-title">活体检测核验</text>
-          <text class="lvp-sub">J3-SAFE · 真人活体防伪造系统</text>
+        <view wx:if="{{livenessStatus === 'scanning'}}" class="live-scan">
+          <view class="scan-box">
+            <view class="scan-line"></view>
+            <view class="face-circle"></view>
+          </view>
+          <text class="li-main">活体特征提取中…</text>
+          <text class="li-sub">请保持面部居中，不要移动</text>
         </view>
-        <view class="lvp-status-hex {{livenessStatus}}">
-          <text class="st-text">{{livenessStatusText}}</text>
+        <view wx:if="{{livenessStatus === 'success'}}" class="live-res success">
+          <view class="res-circle success">✓</view>
+          <text class="lr-text">活体检测通过</text>
+        </view>
+        <view wx:if="{{livenessStatus === 'fail'}}" class="live-res fail">
+          <view class="res-circle fail">✗</view>
+          <text class="lr-text">活体检测未通过</text>
+          <text wx:if="{{livenessFailReason}}" class="lr-reason">{{livenessFailReason}}</text>
         </view>
       </view>
 
-      <view class="lvp-scanner {{livenessStatus}}">
-        <!-- 外六边形脉冲环 -->
-        <view class="hex-pulse hp1"></view>
-        <view class="hex-pulse hp2"></view>
-        <view class="hex-pulse hp3"></view>
-        <!-- 中央六边取景器 -->
-        <view class="hex-viewport">
-          <view wx:if="{{livenessStatus === 'idle'}}" class="vp-idle">
-            <text class="vp-face">😊</text>
-            <text class="vp-hint-main">请将面部置于六边形内</text>
-            <text class="vp-hint-sub">光线充足 · 摘下口罩帽子眼镜</text>
-          </view>
-          <view wx:if="{{livenessStatus === 'scanning'}}" class="vp-scan">
-            <view class="vp-scan-line"></view>
-            <view class="vp-grid"></view>
-            <text class="vp-scan-label">活体特征提取中…</text>
-          </view>
-          <view wx:if="{{livenessStatus === 'success'}}" class="vp-res ok">
-            <view class="res-hex ok">
-              <text class="res-mark">✓</text>
-            </view>
-            <text class="vp-res-text">活体检测通过</text>
-          </view>
-          <view wx:if="{{livenessStatus === 'fail'}}" class="vp-res fail">
-            <view class="res-hex fail">
-              <text class="res-mark">✗</text>
-            </view>
-            <text class="vp-res-text">活体检测未通过</text>
-            <text wx:if="{{livenessFailReason}}" class="vp-res-reason">{{livenessFailReason}}</text>
-          </view>
-        </view>
+      <view class="mb-actions">
+        <block wx:if="{{livenessStatus === 'idle' || livenessStatus === 'fail'}}">
+          <button class="mb-btn primary" bindtap="onStartLiveness" loading="{{livenessLoading}}">
+            {{livenessStatus === 'fail' ? '重新核验' : '开始核验 · 扣费 ¥2'}}
+          </button>
+        </block>
+        <block wx:if="{{livenessStatus === 'scanning'}}">
+          <view class="mb-btn disabled">核验中，请勿离开画面</view>
+        </block>
+        <block wx:if="{{livenessStatus === 'success'}}">
+          <button class="mb-btn success" bindtap="onSubmitAuth">提交认证结果</button>
+        </block>
       </view>
 
-      <view class="lvp-actions">
-        <button
-          wx:if="{{livenessStatus === 'idle' || livenessStatus === 'fail'}}"
-          class="lvp-btn primary"
-          bindtap="onStartLiveness"
-          loading="{{livenessLoading}}"
-        >
-          <text class="btn-pre-icon">🔒</text>
-          {{livenessStatus === 'fail' ? '重新核验' : '开始核验 · 扣费 ¥2'}}
-        </button>
-        <view
-          wx:if="{{livenessStatus === 'scanning'}}"
-          class="lvp-btn disabled"
-        >
-          核验中，请勿离开画面
-        </view>
-        <button
-          wx:if="{{livenessStatus === 'success'}}"
-          class="lvp-btn success"
-          bindtap="onSubmitAuth"
-        >
-          <text class="btn-pre-icon">✓</text>
-          提交认证结果
-        </button>
-      </view>
-
-      <view class="lvp-fee-tip">
-        <text class="fee-dot">!</text>
-        <text>点击"开始核验"将从您的账户扣除 ¥2.00 认证服务费，一经扣费不予退还</text>
+      <view class="mb-warn">
+        <text class="mw-mark">!</text>
+        <text class="mw-text">点击"开始核验"将从您的账户扣除 ¥2.00 认证服务费，一经扣费不予退还</text>
       </view>
     </view>
   </view>
 
-  <!-- 未成年人提示 -->
-  <view class="minor-modal" wx:if="{{isMinor && showMinorTip}}">
-    <view class="minor-mask" bindtap="onCloseMinorTip"></view>
-    <view class="minor-panel">
-      <view class="minor-head">
-        <view class="minor-head-hex">
-          <text class="mh-icon">⚖</text>
-        </view>
-        <text class="minor-title">未成年人保护提示</text>
+  <!-- 未成年人弹层 -->
+  <view class="modal" wx:if="{{isMinor && showMinorTip}}">
+    <view class="mask" bindtap="onCloseMinorTip"></view>
+    <view class="modal-body minor-body">
+      <view class="mb-head">
+        <view class="mh-icon-wrap"></view>
+        <text class="mh-title">未成年人保护提示</text>
       </view>
-      <view class="minor-body">
-        <text class="minor-lead">依据《未成年人保护法》第 74 条及文旅部新规，已为您的账号启用以下保护策略：</text>
-        <view class="minor-grid">
-          <view class="minor-card">
-            <text class="mc-num">01</text>
-            <text class="mc-title">单笔限额</text>
-            <text class="mc-val gold">¥100</text>
-            <text class="mc-desc">单次下单最高</text>
-          </view>
-          <view class="minor-card gold">
-            <text class="mc-num gold">02</text>
-            <text class="mc-title">月度累计</text>
-            <text class="mc-val gold">¥400</text>
-            <text class="mc-desc">每月消费上限</text>
-          </view>
-          <view class="minor-card warn">
-            <text class="mc-num warn">03</text>
-            <text class="mc-title">宵禁时段</text>
-            <text class="mc-val warn">22→08</text>
-            <text class="mc-desc">禁止使用陪玩</text>
-          </view>
+      <view class="mb-content">
+        <text class="mc-lead">依据《未成年人保护法》第 74 条及文旅部新规，已为您的账号启用以下保护策略：</text>
+        <view class="mc-row">
+          <view class="mc-card"><text class="mc-num">01</text><text class="mc-t">单笔限额</text><text class="mc-v">¥100</text><text class="mc-d">单次下单最高</text></view>
+          <view class="mc-card gold"><text class="mc-num gold">02</text><text class="mc-t">月度累计</text><text class="mc-v gold">¥400</text><text class="mc-d">每月消费上限</text></view>
+          <view class="mc-card warn"><text class="mc-num warn">03</text><text class="mc-t">宵禁时段</text><text class="mc-v warn">22→08</text><text class="mc-d">禁止使用陪玩</text></view>
         </view>
-        <view wx:if="{{overLimit}}" class="guardian-box">
-          <view class="gb-head">
-            <text class="gb-icon">👨‍👩‍👧</text>
-            <text class="gb-title">监护人验证通道</text>
-          </view>
+        <view wx:if="{{overLimit}}" class="guard-box">
+          <view class="gb-title">监护人验证通道</view>
           <text class="gb-desc">如需超额消费，请联系监护人完成身份验证</text>
           <button class="gb-btn" bindtap="onGoGuardian">前往监护人验证</button>
         </view>
       </view>
-      <view class="minor-foot">
-        <button class="minor-btn" bindtap="onCloseMinorTip">我已知晓并遵守</button>
-      </view>
+      <button class="mb-foot-btn" bindtap="onCloseMinorTip">我已知晓并遵守</button>
     </view>
   </view>
 </view>

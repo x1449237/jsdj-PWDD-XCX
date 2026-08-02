@@ -114,8 +114,10 @@
             <view class="dynamic-mini-title" wx:if="{{item.title}}">{{item.title}}</view>
             <view class="dynamic-mini-content" wx:if="{{item.content}}">{{item.content}}</view>
             <view class="dynamic-mini-footer">
-              <text>👍 {{item.like_count || 0}}</text>
-              <text>👁 {{item.view_count || 0}}</text>
+              <view class="mini-ic like"></view>
+              <text class="mini-label">{{item.like_count || 0}}</text>
+              <view class="mini-ic view"></view>
+              <text class="mini-label">{{item.view_count || 0}}</text>
             </view>
           </view>
         </view>

@@ -39,11 +39,11 @@
 
       <view class="dynamic-footer">
         <view class="footer-item" bindtap="handleLike" data-id="{{item.id}}" data-index="{{index}}">
-          <text class="footer-icon">👍</text>
+          <view class="footer-icon-bg like"></view>
           <text class="footer-text">{{item.like_count || 0}}</text>
         </view>
         <view class="footer-item">
-          <text class="footer-icon">👁</text>
+          <view class="footer-icon-bg view"></view>
           <text class="footer-text">{{item.view_count || 0}}</text>
         </view>
       </view>

@@ -24,7 +24,7 @@
 
   <view class="package-content">
     <view wx:if="{{!loading && packageList.length === 0}}" class="empty-state">
-      <text class="empty-icon">📦</text>
+      <view class="empty-icon-bg pkg"></view>
       <text class="empty-text">暂无套餐</text>
     </view>
 

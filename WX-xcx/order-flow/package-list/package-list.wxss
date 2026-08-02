@@ -167,3 +167,23 @@
   font-size: 26rpx;
   border-radius: 28rpx;
 }
+
+/* 套餐金额角标 */
+.amount-icon-bg {
+  width: 32rpx; height: 32rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  margin-right: 8rpx;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+}
+.amount-icon-bg::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 14rpx; height: 14rpx;
+  border: 3rpx solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}

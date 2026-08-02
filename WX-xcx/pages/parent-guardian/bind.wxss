@@ -63,8 +63,30 @@
   border-radius: 24rpx;
 }
 
-.scan-icon {
-  font-size: 26rpx;
+.scan-icon-bg {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 6rpx;
+  position: relative;
+}
+.scan-icon-bg::after {
+  content: "";
+  position: absolute;
+  inset: 4rpx 4rpx 4rpx 4rpx;
+  border: 3rpx solid #409eff;
+  border-radius: 4rpx;
+}
+.scan-icon-bg::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 8rpx solid transparent;
+  border-right: 10rpx solid #409eff;
+  border-bottom: 8rpx solid transparent;
+  transform: translate(-30%, -50%);
 }
 
 .scan-text {

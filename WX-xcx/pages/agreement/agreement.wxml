@@ -34,7 +34,7 @@
           bindtap="onOpenDoc"
           data-doc="{{item}}"
         >
-          <view class="doc-icon">📄</view>
+          <view class="doc-icon-bg agreement"></view>
           <view class="doc-info">
             <text class="doc-title">{{item.title}}</text>
             <text class="doc-meta">版本 v{{item.version}} · {{item.update_time}}</text>
@@ -57,7 +57,7 @@
           bindtap="onOpenDoc"
           data-doc="{{item}}"
         >
-          <view class="doc-icon">📋</view>
+          <view class="doc-icon-bg"></view>
           <view class="doc-info">
             <text class="doc-title">{{item.title}}</text>
             <text class="doc-meta">版本 v{{item.version}} · {{item.update_time}}</text>

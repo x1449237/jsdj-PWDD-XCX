@@ -4,7 +4,7 @@
       <picker mode="date" fields="month" value="{{month}}" bindchange="onMonthChange">
         <view class="picker-row">
           <view class="picker-label-wrap">
-            <text class="picker-icon">📅</text>
+            <view class="picker-icon-bg"></view>
             <text class="picker-value">{{month}}</text>
           </view>
           <text class="picker-arrow">切换月份 ›</text>
@@ -15,7 +15,7 @@
 
   <view class="summary-card">
     <view class="summary-header">
-      <text class="summary-icon">💰</text>
+      <view class="summary-icon-bg"></view>
       <text class="summary-title">本月消费汇总</text>
     </view>
     <view class="summary-amount-row">
@@ -75,7 +75,7 @@
   <view wx:if="{{activeTab === 0}}" class="tab-content">
     <view class="category-card" wx:if="{{categoryList.length > 0}}">
       <view class="section-title">
-        <text class="icon">📊</text>
+        <view class="icon-bg category"></view>
         消费分类
       </view>
       <view class="category-list">
@@ -85,7 +85,7 @@
           class="category-item"
         >
           <view class="category-left">
-            <view class="category-icon">{{item.icon}}</view>
+            <view class="category-icon cate-{{item.category}}"></view>
             <view class="category-info">
               <view class="category-name">{{item.name}}</view>
               <view class="category-count">{{item.count}} 笔 · {{item.percent}}%</view>
@@ -100,7 +100,7 @@
 
     <view class="trend-card" wx:if="{{dailyTrend.length > 0}}">
       <view class="section-title">
-        <text class="icon">📈</text>
+        <view class="icon-bg trend"></view>
         每日消费趋势
       </view>
       <view class="trend-chart">
@@ -132,7 +132,7 @@
   <view wx:if="{{activeTab === 1}}" class="tab-content">
     <view class="orders-card">
       <view wx:if="{{orders.length === 0 && !loading}}" class="empty-orders">
-        <view class="empty-icon">📦</view>
+        <view class="empty-icon-block order-empty"></view>
         <view class="empty-text">当月暂无订单记录</view>
       </view>
 
@@ -150,14 +150,14 @@
         <view class="order-main">
           <view class="order-info">
             <view class="order-game">
-              <text class="game-icon">🎮</text>
+              <view class="game-icon-dot"></view>
               {{item.game_name || item.service_name || '代练服务'}}
             </view>
             <view class="order-desc" wx:if="{{item.rank || item.desc}}">
               {{item.rank || item.desc || ''}}
             </view>
             <view class="order-time">
-              <text class="time-icon">🕐</text>
+              <view class="time-icon-dot"></view>
               {{item.create_time}}
             </view>
           </view>
@@ -177,28 +177,28 @@
   <view wx:if="{{activeTab === 2}}" class="tab-content">
     <view class="chat-card">
       <view class="card-notice">
-        <text class="notice-icon">🔒</text>
+        <view class="notice-icon-block"></view>
         <text class="notice-text">聊天记录已脱敏处理，仅用于监护参考</text>
       </view>
 
       <view wx:if="{{chatSummary.total_count > 0}}">
         <view class="chat-overview">
           <view class="overview-item">
-            <text class="overview-icon">💬</text>
+            <view class="overview-icon-dot chat"></view>
             <view class="overview-info">
               <view class="overview-value">{{chatSummary.total_count}}</view>
               <view class="overview-label">总消息</view>
             </view>
           </view>
           <view class="overview-item">
-            <text class="overview-icon">👥</text>
+            <view class="overview-icon-dot chat-count"></view>
             <view class="overview-info">
               <view class="overview-value">{{chatSummary.chat_count}}</view>
               <view class="overview-label">会话数</view>
             </view>
           </view>
           <view class="overview-item">
-            <text class="overview-icon">⚠️</text>
+            <view class="overview-icon-dot sens"></view>
             <view class="overview-info">
               <view class="overview-value danger" wx:if="{{chatSummary.sensitive_count > 0}}">
                 {{chatSummary.sensitive_count}}
@@ -230,9 +230,7 @@
               <view class="chat-preview">
                 <text class="msg-mask" wx:if="{{item.last_msg_masked}}">{{item.last_msg_masked}}</text>
                 <text wx:else class="no-msg">无消息记录</text>
-                <text wx:if="{{item.sensitive_count > 0}}" class="sensitive-tag">
-                  ⚠ {{item.sensitive_count}}条敏感
-                </text>
+                <text wx:if="{{item.sensitive_count > 0}}" class="sensitive-tag">{{item.sensitive_count}}条敏感</text>
               </view>
             </view>
             <view class="unread-dot" wx:if="{{item.unread > 0}}">{{item.unread}}</view>
@@ -241,7 +239,7 @@
       </view>
 
       <view wx:else class="empty-orders">
-        <view class="empty-icon">💭</view>
+        <view class="empty-icon-block chat-empty"></view>
         <view class="empty-text">当月无聊天记录</view>
       </view>
     </view>

@@ -278,7 +278,7 @@ Page({
       wx.showToast({ title: '开团成功', icon: 'success' });
       setTimeout(() => {
         wx.showModal({
-          title: '🎉 开团成功',
+          title: '开团成功',
           content: '快去分享给好友，邀请他们一起拼团吧！',
           confirmText: '立即分享',
           cancelText: '稍后再说',

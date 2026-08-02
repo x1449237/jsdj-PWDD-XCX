@@ -89,7 +89,7 @@
       </view>
 
       <view class="empty-tip" wx:if="{{!loading && activityList.length === 0}}">
-        <text class="empty-icon">🎁</text>
+        <view class="empty-icon-bg activity"></view>
         <text class="empty-text">暂无拼团活动，敬请期待</text>
       </view>
     </view>
@@ -147,7 +147,7 @@
       </view>
 
       <view class="empty-tip" wx:if="{{!loading && myGroupList.length === 0}}">
-        <text class="empty-icon">📦</text>
+        <view class="empty-icon-bg group"></view>
         <text class="empty-text">暂无拼团记录</text>
       </view>
     </view>

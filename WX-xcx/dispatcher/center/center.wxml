@@ -73,9 +73,9 @@
             <text class="player-tag" wx:for="{{item.games}}" wx:key="*this" wx:for-item="game">{{game}}</text>
           </view>
           <view class="player-stats">
-            <text class="stat-item">⭐ {{item.rating}}</text>
-            <text class="stat-item">📦 {{item.order_count}}单</text>
-            <text class="stat-item">💬 {{item.response_rate}}%回复</text>
+            <view class="stat-item"><view class="stat-dot star"></view>{{item.rating}}</view>
+            <view class="stat-item"><view class="stat-dot order"></view>{{item.order_count}}单</view>
+            <view class="stat-item"><view class="stat-dot chat"></view>{{item.response_rate}}%回复</view>
           </view>
         </view>
         <view class="player-check">
@@ -133,7 +133,7 @@
       </view>
       <view class="modal-row">
         <text class="modal-label">打手评分：</text>
-        <text class="modal-value">⭐ {{selectedPlayer.rating}}</text>
+        <view class="modal-value"><view class="mini-dot star"></view>{{selectedPlayer.rating}}</view>
       </view>
     </view>
     <view class="modal-footer">

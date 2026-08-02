@@ -57,7 +57,7 @@
           <view class="income-header flex-between">
             <view class="flex align-center">
               <view class="income-type-icon {{income.typeClass}}">
-                <text class="iconfont">{{income.typeIcon}}</text>
+                <view class="income-icon-bg ic-{{income.typeIconClass}}"></view>
               </view>
               <view>
                 <text class="income-type text-md">{{income.typeText}}</text>

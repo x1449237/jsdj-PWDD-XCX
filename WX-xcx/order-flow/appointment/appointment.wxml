@@ -6,8 +6,8 @@
       <view class="player-info">
         <text class="player-name">{{playerInfo.nickname}}</text>
         <view class="player-stats">
-          <text class="stat">⭐ {{playerInfo.rating}}</text>
-          <text class="stat">📦 {{playerInfo.orderCount}}单</text>
+          <view class="stat"><view class="stat-dot star"></view>{{playerInfo.rating}}</view>
+          <view class="stat"><view class="stat-dot order"></view>{{playerInfo.orderCount}}单</view>
         </view>
       </view>
     </view>

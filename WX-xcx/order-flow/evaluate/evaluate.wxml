@@ -7,12 +7,12 @@
           <text class="success-icon">✓</text>
         </view>
         <view class="success-title">评价成功</view>
-        <view class="success-subtitle">感谢您的反馈，为打手送上一颗小星星⭐</view>
+        <view class="success-subtitle">感谢您的反馈，为打手送上一颗小星星</view>
 
         <view class="lottery-entry" bindtap="onGoLottery">
           <view class="lottery-left">
             <view class="lottery-title-row">
-              <text class="lottery-icon">🎡</text>
+              <view class="lottery-icon-bg"></view>
               <text class="lottery-title">订单完成，参与抽奖</text>
               <text class="lottery-badge">新</text>
             </view>

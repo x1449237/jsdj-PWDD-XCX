@@ -9,7 +9,7 @@
       <view class="label-row">
         <view class="label">孩子用户ID</view>
         <view class="scan-btn" bindtap="onScanQrCode">
-          <text class="scan-icon">📷</text>
+          <view class="scan-icon-bg"></view>
           <text class="scan-text">扫码绑定</text>
         </view>
       </view>

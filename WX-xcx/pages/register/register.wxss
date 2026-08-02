@@ -114,9 +114,26 @@
   background-color: rgba(233, 69, 96, 0.05);
 }
 
-.role-icon {
-  font-size: 48rpx;
+.role-icon-bg {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 12rpx;
+}
+.role-icon-bg.user {
+  background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+}
+.role-icon-bg.player {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+.role-icon-txt {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
 }
 
 .role-name {

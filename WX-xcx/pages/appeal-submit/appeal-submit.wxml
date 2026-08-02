@@ -14,7 +14,7 @@
           bindtap="onSelectType"
           data-type="phone"
         >
-          <text class="type-icon">📱</text>
+          <view class="type-icon-bg phone"></view>
           <text class="type-name">手机号申诉</text>
           <text class="type-desc">手机号被占用、无法绑定等</text>
         </view>
@@ -23,7 +23,7 @@
           bindtap="onSelectType"
           data-type="order"
         >
-          <text class="type-icon">📋</text>
+          <view class="type-icon-bg order"></view>
           <text class="type-name">订单申诉</text>
           <text class="type-desc">订单纠纷、退款等问题</text>
         </view>
@@ -32,7 +32,7 @@
           bindtap="onSelectType"
           data-type="account"
         >
-          <text class="type-icon">🔒</text>
+          <view class="type-icon-bg account"></view>
           <text class="type-name">账号申诉</text>
           <text class="type-desc">账号被封禁、异常等</text>
         </view>

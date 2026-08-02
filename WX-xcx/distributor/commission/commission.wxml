@@ -41,7 +41,7 @@
       <view class="commission-card card shadow-sm" wx:for="{{commissionList}}" wx:key="id">
         <!-- 首单奖励标识 -->
         <view class="first-order-badge" wx:if="{{item.isFirstOrder}}">
-          <text class="badge-text">🎉 首单奖励</text>
+          <text class="badge-text">首单奖励</text>
         </view>
 
         <view class="commission-header flex-between">

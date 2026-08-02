@@ -48,9 +48,70 @@
   background-color: rgba(233, 69, 96, 0.05);
 }
 
-.type-icon {
-  font-size: 40rpx;
+.type-icon-bg {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
   margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.type-icon-bg.order {
+  background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+}
+.type-icon-bg.account {
+  background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);
+  position: relative;
+}
+.type-icon-bg.account::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 26rpx;
+  height: 18rpx;
+  border: 4rpx solid #fff;
+  border-top: none;
+  border-radius: 0 0 4rpx 4rpx;
+  margin-top: -4rpx;
+}
+.type-icon-bg.account::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 16rpx;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 16rpx;
+  border: 4rpx solid #fff;
+  border-radius: 4rpx;
+}
+
+.type-icon-bg.phone {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  position: relative;
+}
+.type-icon-bg.phone::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24rpx;
+  height: 32rpx;
+  border: 4rpx solid #fff;
+  border-radius: 4rpx;
+  transform: translate(-50%, -50%);
+}
+.type-icon-bg.phone::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 18rpx;
+  width: 10rpx;
+  height: 4rpx;
+  background: #fff;
+  border-radius: 2rpx;
+  transform: translateX(-50%);
 }
 
 .type-name {

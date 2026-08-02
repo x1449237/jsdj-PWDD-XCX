@@ -82,9 +82,36 @@
   border-left: 4rpx solid #ff6d00;
 }
 
-.tip-icon {
-  font-size: 28rpx;
+.tip-icon-bg {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 6rpx;
+  background: #EF4444;
   margin-right: 12rpx;
+  flex-shrink: 0;
+  position: relative;
+}
+.tip-icon-bg::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6rpx;
+  width: 4rpx;
+  height: 12rpx;
+  background: #fff;
+  border-radius: 2rpx;
+  transform: translateX(-50%);
+}
+.tip-icon-bg::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6rpx;
+  width: 4rpx;
+  height: 4rpx;
+  background: #fff;
+  border-radius: 50%;
+  transform: translateX(-50%);
 }
 
 .tip-text {

@@ -10,7 +10,7 @@
         bindtap="onTypeChange"
         data-type="{{item.type}}"
       >
-        <text class="type-icon">{{item.icon}}</text>
+        <view class="type-icon-bg type-{{item.iconClass || item.type}}"></view>
         <text class="type-name">{{item.name}}</text>
       </view>
     </view>
@@ -51,8 +51,8 @@
       <view class="player-info">
         <text class="player-name">{{playerInfo.nickname}}</text>
         <view class="player-stats">
-          <text class="stat">⭐ {{playerInfo.rating}}</text>
-          <text class="stat">📦 {{playerInfo.orderCount}}单</text>
+          <view class="stat"><view class="stat-dot star"></view>{{playerInfo.rating}}</view>
+          <view class="stat"><view class="stat-dot order"></view>{{playerInfo.orderCount}}单</view>
         </view>
         <view class="player-tags">
           <text class="tag" wx:for="{{playerInfo.tags}}" wx:key="*this">{{item}}</text>
@@ -92,7 +92,7 @@
 
     <!-- 未成年人限额提示 -->
     <view class="minor-tip" wx:if="{{isMinor}}">
-      <text class="tip-icon">⚠️</text>
+      <view class="tip-icon-bg warn"></view>
       <view class="tip-content">
         <text class="tip-title">未成年人消费限额提示</text>
         <text class="tip-desc">根据相关规定，未成年人单笔消费限额¥{{minorLimit}}，您的当前订单金额已超出限额。</text>

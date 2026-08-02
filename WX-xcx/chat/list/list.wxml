@@ -75,7 +75,7 @@
     </block>
 
     <view class="empty-state" wx:if="{{conversationList.length === 0 && !loading}}">
-      <text class="empty-state-icon">💬</text>
+      <view class="empty-icon-bg chat"></view>
       <text class="empty-state-text">暂无聊天消息</text>
     </view>
 

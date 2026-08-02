@@ -86,7 +86,7 @@
     </view>
 
     <view class="empty-state" wx:if="{{!loading && profitList.length === 0}}">
-      <view class="empty-icon">📋</view>
+      <view class="empty-icon-bg profit"></view>
       <text class="empty-state-text">暂无分账记录</text>
     </view>
 

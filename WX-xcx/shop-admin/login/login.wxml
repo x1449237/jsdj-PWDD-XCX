@@ -36,7 +36,7 @@
             maxlength="20"
           />
           <view class="eye-icon" bindtap="onTogglePassword">
-            <text>{{showPassword ? '👁' : '👁‍🗨'}}</text>
+            <view class="eye-icon-bg {{showPassword ? 'show' : 'hide'}}"></view>
           </view>
         </view>
       </view>
@@ -68,15 +68,15 @@
 
     <view class="tips-section" wx:if="{{isFirstLogin}}">
       <view class="tip-item">
-        <text class="tip-icon">🔐</text>
+        <view class="tip-icon-bg lock"></view>
         <text class="tip-text">首次登录请使用店主账号及初始密码</text>
       </view>
       <view class="tip-item">
-        <text class="tip-icon">⚠️</text>
+        <view class="tip-icon-bg warn"></view>
         <text class="tip-text">登录后请及时修改密码，保障店铺安全</text>
       </view>
       <view class="tip-item">
-        <text class="tip-icon">📞</text>
+        <view class="tip-icon-bg phone"></view>
         <text class="tip-text">如忘记密码，请联系平台客服重置</text>
       </view>
     </view>

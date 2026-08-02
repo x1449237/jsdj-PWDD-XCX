@@ -17,7 +17,7 @@
         bindtap="onSelectAmount"
         data-amount="{{item}}"
       >
-        <text class="amount-icon">🎁</text>
+        <view class="amount-icon-bg"></view>
         <text class="amount-value">¥{{item}}</text>
       </view>
     </view>

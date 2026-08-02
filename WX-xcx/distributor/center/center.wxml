@@ -70,14 +70,14 @@
     <view class="entry-grid">
       <view class="entry-item card shadow-sm flex-center flex-col" bindtap="goSubordinates">
         <view class="entry-icon icon-subordinates">
-          <text class="iconfont">👥</text>
+          <view class="entry-icon-bg team"></view>
         </view>
         <text class="entry-name text-md mt-sm">下级管理</text>
         <text class="entry-desc text-xs text-tip mt-xs">查看下级详情</text>
       </view>
       <view class="entry-item card shadow-sm flex-center flex-col" bindtap="goCommission">
         <view class="entry-icon icon-commission">
-          <text class="iconfont">💰</text>
+          <view class="entry-icon-bg coin"></view>
         </view>
         <text class="entry-name text-md mt-sm">佣金收益</text>
         <text class="entry-desc text-xs text-tip mt-xs">查看佣金明细</text>

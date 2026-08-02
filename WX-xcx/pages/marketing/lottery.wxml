@@ -57,8 +57,8 @@
   <!-- 结果弹窗 -->
   <view class="result-modal" wx:if="{{showResult}}" catchtap="closeResult">
     <view class="result-content" catchtap="">
-      <view class="result-icon" wx:if="{{result && result.is_win}}">🎉</view>
-      <view class="result-icon" wx:else>😔</view>
+      <view class="result-icon win" wx:if="{{result && result.is_win}}"></view>
+      <view class="result-icon lose" wx:else></view>
       <view class="result-title">
         <text wx:if="{{result && result.is_win}}">恭喜获得</text>
         <text wx:else>很遗憾</text>

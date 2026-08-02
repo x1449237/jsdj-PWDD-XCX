@@ -89,7 +89,10 @@
     >
       <!-- 系统消息 / 群公告 -->
       <view class="system-message" wx:if="{{item.type === 'system' || item.type === 'announcement'}}">
-        <text class="system-text">{{item.type === 'announcement' ? '📢 ' : ''}}{{item.content}}</text>
+        <view class="system-ann-wrap">
+          <view wx:if="{{item.type === 'announcement'}}" class="ann-dot"></view>
+          <text class="system-text">{{item.content}}</text>
+        </view>
       </view>
 
       <!-- 普通消息 -->
@@ -155,7 +158,7 @@
             bindlongpress="onLongPressMessage"
             data-msg="{{item}}"
           >
-            <view class="file-icon">📄</view>
+            <view class="file-icon-bg file"></view>
             <view class="file-info">
               <text class="file-name">{{item.file_name}}</text>
               <text class="file-size">{{item.file_size_text}}</text>
@@ -172,12 +175,12 @@
 
           <!-- 敏感词拦截提示 -->
           <view wx:if="{{item.sensitive_blocked}}" class="sensitive-tip">
-            <text>⚠️ 消息含有敏感词，发送失败</text>
+            <text>消息含有敏感词，发送失败</text>
           </view>
 
           <!-- 飞单风险提示 -->
           <view wx:if="{{item.anti_fraud_risky && item.from_self}}" class="anti-fraud-tip">
-            <text>⚠️ 检测到风险内容，已自动屏蔽</text>
+            <text>检测到风险内容，已自动屏蔽</text>
           </view>
         </view>
 
@@ -206,7 +209,7 @@
 
     <view class="text-mode" wx:else>
       <view class="mode-switch" bindtap="onSwitchMode">
-        <text class="switch-icon">🎤</text>
+        <view class="switch-icon-bg mic"></view>
       </view>
       <view class="input-wrapper">
         <input
@@ -223,7 +226,7 @@
         />
       </view>
       <view class="image-btn" bindtap="onChooseImage">
-        <text class="image-icon">🖼</text>
+        <view class="image-btn-bg"></view>
       </view>
     </view>
 
@@ -247,23 +250,23 @@
   <!-- 更多操作面板 -->
   <view class="more-panel" wx:if="{{showMorePanel}}">
     <view class="panel-item" bindtap="onChooseImage">
-      <view class="panel-icon">📷</view>
+      <view class="panel-icon-bg camera"></view>
       <text class="panel-label">相册</text>
     </view>
     <view class="panel-item" bindtap="onTakePhoto">
-      <view class="panel-icon">📸</view>
+      <view class="panel-icon-bg photo"></view>
       <text class="panel-label">拍照</text>
     </view>
     <view class="panel-item" bindtap="onChooseFile">
-      <view class="panel-icon">📄</view>
+      <view class="panel-icon-bg file"></view>
       <text class="panel-label">文件</text>
     </view>
     <view class="panel-item" bindtap="onSwitchMode">
-      <view class="panel-icon">🎤</view>
+      <view class="panel-icon-bg mic"></view>
       <text class="panel-label">语音</text>
     </view>
     <view class="panel-item" wx:if="{{isAdmin || isCreator}}" bindtap="onManageAnnouncement">
-      <view class="panel-icon">📢</view>
+      <view class="panel-icon-bg announce"></view>
       <text class="panel-label">定时公告</text>
     </view>
   </view>
@@ -355,7 +358,7 @@
   <!-- 飞单风控警告弹窗 -->
   <view class="modal-mask" wx:if="{{showAntiFraudModal}}" bindtap="onCloseAntiFraudModal"></view>
   <view class="anti-fraud-modal" wx:if="{{showAntiFraudModal}}">
-    <view class="modal-icon">⚠️</view>
+    <view class="modal-icon-bg warn"></view>
     <view class="modal-title">风险提示</view>
     <view class="modal-content">
       <text>{{antiFraudModalContent}}</text>

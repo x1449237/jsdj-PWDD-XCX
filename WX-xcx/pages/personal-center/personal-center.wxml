@@ -21,7 +21,7 @@
 
     <!-- 实名认证提示 -->
     <view class="real-name-tip" wx:if="{{isLogin && !userInfo.is_real_name}}" bindtap="onRealNameAuth">
-      <text class="tip-icon">⚠️</text>
+      <view class="tip-icon-bg"></view>
       <text class="tip-text">请完成实名认证，否则无法正常使用</text>
       <text class="tip-arrow">›</text>
     </view>

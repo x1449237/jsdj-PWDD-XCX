@@ -56,9 +56,36 @@
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
-.doc-icon {
-  font-size: 44rpx;
+.doc-icon-bg {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
   margin-right: 20rpx;
+  background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+  position: relative;
+  flex-shrink: 0;
+}
+.doc-icon-bg::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 16rpx;
+  width: 28rpx;
+  height: 32rpx;
+  border: 3rpx solid #fff;
+  border-radius: 2rpx;
+  transform: translateX(-50%);
+}
+.doc-icon-bg::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 22rpx;
+  width: 16rpx;
+  height: 3rpx;
+  background: #fff;
+  box-shadow: 0 6rpx 0 #fff, 0 12rpx 0 #fff, 0 18rpx 0 #fff;
+  transform: translateX(-50%);
 }
 
 .doc-info {
@@ -95,4 +122,32 @@
   padding: 100rpx;
   font-size: 28rpx;
   color: #999999;
+}
+
+/* 协议文档图标 */
+.doc-icon-bg {
+  width: 72rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  position: relative;
+  display: block;
+}
+.doc-icon-bg::after {
+  content: "";
+  position: absolute;
+  inset: 8rpx;
+  border: 3rpx solid rgba(255,255,255,0.8);
+  border-radius: 2rpx;
+}
+.doc-icon-bg::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 22rpx;
+  width: 36rpx; height: 4rpx;
+  background: rgba(255,255,255,0.8);
+  box-shadow: 0 10rpx 0 rgba(255,255,255,0.8), 0 20rpx 0 rgba(255,255,255,0.8), 0 30rpx 0 rgba(255,255,255,0.8);
+  transform: translateX(-50%);
 }

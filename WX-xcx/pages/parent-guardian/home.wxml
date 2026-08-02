@@ -1,6 +1,6 @@
 <view class="home-page">
   <view class="header-card">
-    <view class="header-icon">🛡️</view>
+    <view class="header-icon-block"></view>
     <view class="header-text">
       <view class="header-title">家长监护中心</view>
       <view class="header-subtitle">守护孩子健康上网，安心又省心</view>
@@ -8,7 +8,7 @@
   </view>
 
   <view wx:if="{{bindList.length === 0 && !loading}}" class="empty-card">
-    <view class="empty-icon">👨‍👩‍👧</view>
+    <view class="empty-icon-block"></view>
     <view class="empty-title">暂无绑定的孩子账号</view>
     <view class="empty-subtitle">绑定后可查看消费记录、设置消费限额和功能管控</view>
     <button class="bind-btn" bindtap="onGoBind">
@@ -47,7 +47,7 @@
     <view class="consume-card">
       <view class="consume-header">
         <view class="consume-title">
-          <text class="title-icon">💰</text>
+          <view class="title-icon-bg coin"></view>
           本月消费
         </view>
         <view class="consume-more" bindtap="onGoConsumeReport">查看明细 ›</view>
@@ -75,7 +75,7 @@
       </view>
       <view class="consume-limit-row" bindtap="onEditLimit">
         <view class="limit-left">
-          <text class="limit-icon">📋</text>
+          <view class="limit-icon-bg"></view>
           <text>月消费限额：</text>
           <text class="limit-value">
             {{monthlyLimit > 0 ? '¥' + (monthlyLimit / 100).toFixed(2) : '未设置'}}
@@ -87,13 +87,13 @@
 
     <view class="setting-card">
       <view class="card-title">
-        <text class="title-icon">⚙️</text>
+        <view class="title-icon-bg gear"></view>
         功能管控
       </view>
 
       <view class="setting-item">
         <view class="setting-info">
-          <view class="setting-icon-wrap order">🎮</view>
+          <view class="setting-icon-bg order"></view>
           <view class="setting-main">
             <view class="setting-name">允许下单</view>
             <view class="setting-desc">关闭后孩子将无法下单新服务</view>
@@ -108,7 +108,7 @@
 
       <view class="setting-item">
         <view class="setting-info">
-          <view class="setting-icon-wrap reward">🎁</view>
+          <view class="setting-icon-bg reward"></view>
           <view class="setting-main">
             <view class="setting-name">允许打赏</view>
             <view class="setting-desc">关闭后孩子将无法打赏打手</view>
@@ -123,7 +123,7 @@
 
       <view class="setting-item danger-item">
         <view class="setting-info">
-          <view class="setting-icon-wrap freeze">❄️</view>
+          <view class="setting-icon-bg freeze"></view>
           <view class="setting-main">
             <view class="setting-name">一键冻结账号</view>
             <view class="setting-desc">冻结后孩子无法下单、打赏、聊天</view>
@@ -139,7 +139,7 @@
 
     <view class="menu-card">
       <view class="menu-item" bindtap="onGoConsumeReport">
-        <view class="menu-icon report">📊</view>
+        <view class="menu-icon-bg report"></view>
         <view class="menu-text">
           <view class="menu-title">月度消费报告</view>
           <view class="menu-sub">查看订单明细、消费趋势</view>
@@ -147,7 +147,7 @@
         <view class="menu-arrow">›</view>
       </view>
       <view class="menu-item" bindtap="onGoChatSummary">
-        <view class="menu-icon chat">💬</view>
+        <view class="menu-icon-bg chat"></view>
         <view class="menu-text">
           <view class="menu-title">聊天记录摘要</view>
           <view class="menu-sub">敏感关键词、聊天频次（脱敏）</view>

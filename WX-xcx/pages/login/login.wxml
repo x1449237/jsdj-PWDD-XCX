@@ -128,7 +128,7 @@
       <text class="other-text">其他方式</text>
       <view class="other-icons">
         <view class="other-item" bindtap="onVisitorLogin">
-          <text class="other-icon">👤</text>
+          <view class="other-icon-dot"></view>
           <text class="other-label">游客模式</text>
         </view>
       </view>

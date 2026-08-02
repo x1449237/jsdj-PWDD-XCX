@@ -28,7 +28,7 @@
       bindtouchcancel="onTouchEnd"
     >
       <view class="record-btn-inner">
-        <text class="record-btn-icon">{{recording ? '■' : '🎤'}}</text>
+        <view class="record-btn-icon {{recording ? 'is-rec' : 'idle'}}"></view>
       </view>
     </view>
     <text class="record-btn-label text-xs text-tip">

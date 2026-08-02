@@ -45,10 +45,10 @@ Page({
     }).catch(() => {
       this.setData({
         orderTypes: [
-          { type: 'instant', name: '即时单', icon: '⚡' },
-          { type: 'appointment', name: '预约单', icon: '📅' },
-          { type: 'team', name: '车队单', icon: '👥' },
-          { type: 'teaching', name: '教学单', icon: '📚' }
+          { type: 'instant', name: '即时单', iconClass: 'instant' },
+          { type: 'appointment', name: '预约单', iconClass: 'appointment' },
+          { type: 'team', name: '车队单', iconClass: 'team' },
+          { type: 'teaching', name: '教学单', iconClass: 'teaching' }
         ]
       });
     });
