@@ -153,18 +153,32 @@ func main() {
 	// 13. 启动 pprof 性能监控(独立端口)
 	pprofServer := startPprof(cfg.App.PprofPort, appLogger)
 
-	// 14. 启动 HTTP 服务
+	// 14. 启动 HTTP/HTTPS 服务
+	// 启用 TLS(HTTPS) 时使用 tls_port(为0复用 port)，否则回退 HTTP
+	listenAddr := fmt.Sprintf(":%d", cfg.App.Port)
+	if cfg.App.IsTLS() && cfg.App.TLSPort > 0 {
+		listenAddr = fmt.Sprintf(":%d", cfg.App.TLSPort)
+	}
 	httpServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.App.Port),
+		Addr:         listenAddr,
 		Handler:      r,
 		ReadTimeout:  time.Duration(cfg.App.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(cfg.App.WriteTimeout) * time.Second,
 	}
 
 	go func() {
-		appLogger.Info("HTTP 服务启动", zap.Int("port", cfg.App.Port))
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			appLogger.Fatal("HTTP 服务异常退出", zap.Error(err))
+		if cfg.App.IsTLS() {
+			appLogger.Info("HTTPS 服务启动",
+				zap.String("addr", listenAddr),
+				zap.String("cert", cfg.App.TLSCert))
+			if err := httpServer.ListenAndServeTLS(cfg.App.TLSCert, cfg.App.TLSKey); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				appLogger.Fatal("HTTPS 服务异常退出", zap.Error(err))
+			}
+		} else {
+			appLogger.Info("HTTP 服务启动", zap.Int("port", cfg.App.Port))
+			if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				appLogger.Fatal("HTTP 服务异常退出", zap.Error(err))
+			}
 		}
 	}()
 

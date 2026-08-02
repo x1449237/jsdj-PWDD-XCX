@@ -43,6 +43,17 @@ type AppConfig struct {
 	ReadTimeout int    `mapstructure:"read_timeout"` // 读超时(秒)
 	WriteTimeout int   `mapstructure:"write_timeout"` // 写超时(秒)
 	GracefulTimeout int `mapstructure:"graceful_timeout"` // 优雅关闭等待时间(秒)
+
+	// HTTPS 配置(启用后服务以 HTTPS 方式启动，不启用则回退 HTTP)
+	TLSEnable  bool   `mapstructure:"tls_enable"`   // 是否启用 HTTPS
+	TLSCert    string `mapstructure:"tls_cert"`     // 证书文件路径(.crt/.pem)
+	TLSKey     string `mapstructure:"tls_key"`      // 私钥文件路径(.key)
+	TLSPort    int    `mapstructure:"tls_port"`     // HTTPS 监听端口(为0则复用 port)
+}
+
+// IsTLS 是否启用 HTTPS
+func (a AppConfig) IsTLS() bool {
+	return a.TLSEnable && a.TLSCert != "" && a.TLSKey != ""
 }
 
 // MySQLConfig MySQL 数据库配置(支持读写分离)

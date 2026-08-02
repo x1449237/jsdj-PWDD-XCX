@@ -9,6 +9,11 @@ app:
   read_timeout: 15            # 读超时(秒)
   write_timeout: 15           # 写超时(秒)
   graceful_timeout: 30        # 优雅关闭等待时间(秒)
+  # HTTPS 配置(tls_enable=true 且提供证书路径后服务以 HTTPS 启动)
+  tls_enable: false           # 是否启用 HTTPS
+  tls_cert: ""                # 证书文件路径，如 /etc/ssl/server.crt
+  tls_key: ""                 # 私钥文件路径，如 /etc/ssl/server.key
+  tls_port: 8443              # HTTPS 监听端口(为0则复用 port)
 
 mysql:
   host: "127.0.0.1"
