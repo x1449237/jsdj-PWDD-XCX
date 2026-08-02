@@ -1,87 +1,179 @@
 <view class="realname-page">
+  <!-- 顶部紫色渐变头部 -->
   <view class="page-header">
-    <text class="page-title">实名认证</text>
-    <text class="page-desc">根据监管要求，使用平台服务需完成实名认证</text>
+    <view class="header-nav">
+      <view class="back-btn" bindtap="onBack">
+        <text>‹</text>
+      </view>
+      <text class="page-title">身份认证</text>
+      <view class="nav-spacer"></view>
+    </view>
+
+    <view class="header-desc">
+      <text>根据用户录入的身份信息和实时录制的照片</text>
+    </view>
+    <view class="header-highlight">
+      <text>进行在线实名身份认证核验及活体检测</text>
+    </view>
+
+    <view class="price-tag">
+      <text class="price-symbol">¥</text>
+      <text class="price-num">2</text>
+      <text class="price-unit">/次</text>
+    </view>
   </view>
 
-  <!-- 基本信息填写 -->
-  <view class="card">
-    <view class="form-group">
-      <view class="form-label">真实姓名</view>
+  <!-- 身份证上传卡片 -->
+  <view class="idcard-card">
+    <!-- 人像面 -->
+    <view class="upload-block" bindtap="onUploadIdCard" data-type="front">
+      <view class="upload-frame">
+        <image wx:if="{{idCardFront}}" class="upload-img" src="{{idCardFront}}" mode="aspectFit" />
+        <block wx:else>
+          <view class="upload-placeholder">
+            <view class="ph-line ph-line-1"></view>
+            <view class="ph-line ph-line-2"></view>
+            <view class="ph-line ph-line-3"></view>
+            <view class="ph-avatar"></view>
+            <view class="ph-line ph-line-4"></view>
+            <view class="ph-line ph-line-5"></view>
+          </view>
+        </block>
+        <view class="upload-btn">
+          <text class="upload-icon">📷</text>
+          <text class="upload-text">上传人像面</text>
+        </view>
+      </view>
+      <view class="upload-hint">
+        <text>请上传身份证头像面图片</text>
+      </view>
+    </view>
+
+    <!-- 国徽面 -->
+    <view class="upload-block" bindtap="onUploadIdCard" data-type="back">
+      <view class="upload-frame">
+        <image wx:if="{{idCardBack}}" class="upload-img" src="{{idCardBack}}" mode="aspectFit" />
+        <block wx:else>
+          <view class="upload-placeholder">
+            <view class="ph-emblem"></view>
+            <view class="ph-line ph-line-1 wide"></view>
+            <view class="ph-line ph-line-2"></view>
+            <view class="ph-line ph-line-3 wide"></view>
+          </view>
+        </block>
+        <view class="upload-btn">
+          <text class="upload-icon">📷</text>
+          <text class="upload-text">上传国徽面</text>
+        </view>
+      </view>
+      <view class="upload-hint">
+        <text>请上传身份证国徽面图片</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 表单大卡片 -->
+  <view class="form-card">
+    <!-- 个人证件有效期类型 -->
+    <view class="form-item">
+      <view class="form-label">个人证件有效期类型</view>
+      <view class="validity-picker" bindtap="onValidityChange">
+        <text class="picker-value {{validityType ? '' : 'placeholder'}}">
+          {{validityTypeText || '请选择有效期类型'}}
+        </text>
+        <text class="picker-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 用户姓名 -->
+    <view class="form-item">
+      <view class="form-label">用户姓名</view>
       <input
         class="form-input"
         placeholder="请输入真实姓名"
-        placeholder-class="form-placeholder"
+        placeholder-class="input-placeholder"
         value="{{realName}}"
         bindinput="onNameInput"
         maxlength="20"
       />
     </view>
-    <view class="form-group">
-      <view class="form-label">身份证号</view>
+
+    <!-- 证件号码 -->
+    <view class="form-item">
+      <view class="form-label">证件号码</view>
       <input
         class="form-input"
         type="idcard"
-        placeholder="请输入身份证号码"
-        placeholder-class="form-placeholder"
+        placeholder="请输入证件号码"
+        placeholder-class="input-placeholder"
         value="{{idCard}}"
         bindinput="onIdCardInput"
         maxlength="18"
       />
     </view>
-  </view>
 
-  <!-- 活体检测区域 -->
-  <view class="card">
-    <view class="form-label">活体检测</view>
-
-    <!-- 活体认证收费说明(合规告知) -->
-    <view class="fee-notice">
-      <view class="fee-notice-header">
-        <text class="fee-notice-icon">ℹ</text>
-        <text class="fee-notice-title">活体认证收费说明</text>
-      </view>
-      <view class="fee-notice-body">
-        <view class="fee-row">
-          <text class="fee-label">收费标准</text>
-          <text class="fee-value">每次 ¥2.00</text>
+    <!-- 起始日期 -->
+    <view class="form-item">
+      <view class="form-label">起始日期</view>
+      <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+        <view class="picker-box">
+          <text class="picker-value {{startDate ? '' : 'placeholder'}}">
+            {{startDate || '请输入日期'}}
+          </text>
         </view>
-        <view class="fee-row">
-          <text class="fee-label">收费方式</text>
-          <text class="fee-value">先收费后认证，认证失败不退款</text>
-        </view>
-        <view class="fee-row">
-          <text class="fee-label">免费场景</text>
-          <text class="fee-value">7天内已通过认证的可免费复用</text>
-        </view>
-        <view class="fee-row">
-          <text class="fee-label">收费依据</text>
-          <text class="fee-value">第三方人脸识别服务按调用次数计费</text>
-        </view>
-      </view>
-      <view class="fee-agree" bindtap="toggleFeeAgree">
-        <view class="checkbox {{feeAgreed ? 'checked' : ''}}">
-          <text wx:if="{{feeAgreed}}">✓</text>
-        </view>
-        <text class="fee-agree-text">我已知晓并同意上述收费规则，点击开始检测即从余额扣除 ¥2.00</text>
-      </view>
+      </picker>
     </view>
 
-    <view class="liveness-area">
-      <view class="liveness-frame {{livenessStatus}}">
-        <view class="frame-circle">
-          <image
-            wx:if="{{livenessStatus === 'idle'}}"
-            class="frame-icon"
-            src="/assets/icons/face-scan.png"
-            mode="aspectFit"
-          ></image>
+    <!-- 截止日期（非长期有效才显示） -->
+    <view class="form-item" wx:if="{{validityType === 'non_permanent'}}">
+      <view class="form-label">截止日期</view>
+      <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
+        <view class="picker-box">
+          <text class="picker-value {{endDate ? '' : 'placeholder'}}">
+            {{endDate || '请输入日期'}}
+          </text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 协议勾选 -->
+    <view class="agreement-row" bindtap="toggleAgreement">
+      <view class="agreement-checkbox {{agreementChecked ? 'checked' : ''}}">
+        <text wx:if="{{agreementChecked}}">✓</text>
+      </view>
+      <text class="agreement-text">
+        我已阅读并同意《<text class="link">用户协议</text>》和《<text class="link">入驻协议</text>》
+      </text>
+    </view>
+
+    <!-- 付费认证大按钮 -->
+    <view class="pay-btn {{canSubmit ? '' : 'disabled'}}">
+      <button
+        class="submit-btn"
+        bindtap="onPayAndAuth"
+        loading="{{submitting}}"
+        disabled="{{!canSubmit}}"
+      >
+        付费认证
+      </button>
+    </view>
+  </view>
+
+  <!-- 活体检测弹层（点击付费认证后显示） -->
+  <view class="liveness-modal" wx:if="{{livenessModalVisible}}">
+    <view class="liveness-mask" bindtap="onCloseLiveness"></view>
+    <view class="liveness-popup">
+      <view class="popup-title">活体检测</view>
+      <view class="popup-desc">请将面部置于取景框内</view>
+      <view class="liveness-frame-box {{livenessStatus}}">
+        <view class="frame-inner">
           <view wx:if="{{livenessStatus === 'idle'}}" class="frame-hint">
-            <text>请将面部置于取景框内</text>
+            <text class="frame-emoji">😊</text>
+            <text class="frame-text">请面向镜头</text>
           </view>
           <view wx:if="{{livenessStatus === 'scanning'}}" class="frame-scanning">
-            <view class="scanning-wave"></view>
-            <text class="scanning-text">正在检测中…</text>
+            <view class="scan-wave"></view>
+            <text class="scan-text">正在检测中…</text>
           </view>
           <view wx:if="{{livenessStatus === 'success'}}" class="frame-result success">
             <text class="result-icon">✓</text>
@@ -94,73 +186,57 @@
           </view>
         </view>
       </view>
-
-      <view class="liveness-actions">
+      <view class="popup-actions">
         <button
-          wx:if="{{livenessStatus === 'idle' || livenessStatus === 'fail'}}"
+          wx:if="{{livenessStatus === 'fail' || livenessStatus === 'idle'}}"
           class="btn btn-primary btn-block"
           bindtap="onStartLiveness"
           loading="{{livenessLoading}}"
-          disabled="{{!realName || !idCard || !feeAgreed}}"
         >
-          {{livenessStatus === 'fail' ? '重新检测' : '开始活体检测'}}
+          {{livenessStatus === 'fail' ? '重新检测' : '开始检测'}}
         </button>
-        <button
-          wx:if="{{livenessStatus === 'scanning'}}"
-          class="btn btn-secondary btn-block btn-disabled"
-        >
+        <view wx:if="{{livenessStatus === 'scanning'}}" class="btn btn-disabled btn-block">
           检测中，请稍候…
-        </button>
+        </view>
         <button
           wx:if="{{livenessStatus === 'success'}}"
           class="btn btn-outline btn-block"
-          bindtap="onStartLiveness"
-          disabled="{{!feeAgreed}}"
+          bindtap="onSubmitAuth"
         >
-          重新检测
+          提交认证
         </button>
       </view>
     </view>
   </view>
 
-  <!-- 未成年人提示 -->
-  <view class="card minor-card" wx:if="{{isMinor}}">
-    <view class="minor-header">
-      <text class="minor-icon">⚠️</text>
-      <text class="minor-title">未成年人温馨提示</text>
-    </view>
-    <view class="minor-content">
-      <text class="minor-text">根据国家相关法律法规，未成年人使用平台服务将受到以下限制：</text>
-      <view class="minor-limit-list">
-        <view class="limit-item">
-          <text class="limit-dot">•</text>
-          <text class="limit-text">单笔消费不得超过 <text class="text-warning">¥100</text></text>
+  <!-- 未成年人提示弹层 -->
+  <view class="minor-modal" wx:if="{{isMinor && showMinorTip}}">
+    <view class="minor-mask" bindtap="onCloseMinorTip"></view>
+    <view class="minor-popup">
+      <view class="minor-popup-header">
+        <text class="minor-popup-icon">⚠️</text>
+        <text class="minor-popup-title">未成年人温馨提示</text>
+      </view>
+      <view class="minor-popup-body">
+        <text class="minor-popup-text">根据国家相关法律法规，未成年人使用平台服务将受到以下限制：</text>
+        <view class="minor-popup-limit">
+          <text>• 单笔消费不得超过 ¥100</text>
+          <text>• 每月累计消费不得超过 ¥400</text>
+          <text>• 每日22:00至次日8:00不可使用陪玩服务</text>
         </view>
-        <view class="limit-item">
-          <text class="limit-dot">•</text>
-          <text class="limit-text">每月累计消费不得超过 <text class="text-warning">¥400</text></text>
-        </view>
-        <view class="limit-item">
-          <text class="limit-dot">•</text>
-          <text class="limit-text">每日22:00至次日8:00不可使用陪玩服务</text>
+        <view wx:if="{{overLimit}}" class="minor-popup-guardian">
+          <text>如需超额消费，需要监护人进行验证授权</text>
+          <button class="btn btn-primary btn-sm mt-sm" bindtap="onGoGuardian">监护人验证</button>
         </view>
       </view>
-      <view class="minor-guardian" wx:if="{{overLimit}}">
-        <text class="minor-guardian-text">如需超额消费，需要监护人进行验证授权</text>
-        <button class="btn btn-primary btn-sm" bindtap="onGoGuardian">监护人验证</button>
+      <view class="minor-popup-footer">
+        <button class="btn btn-primary btn-block" bindtap="onCloseMinorTip">我已知晓</button>
       </view>
     </view>
   </view>
 
-  <!-- 提交按钮 -->
-  <view class="submit-wrapper">
-    <button
-      class="btn btn-primary btn-block"
-      bindtap="onSubmit"
-      loading="{{submitting}}"
-      disabled="{{!realName || !idCard || livenessStatus !== 'success'}}"
-    >
-      提交认证
-    </button>
+  <!-- 底部不退款提示 -->
+  <view class="footer-tip">
+    <text>支付成功后，视为本次的相关服务完成，不予退款，感谢使用！</text>
   </view>
 </view>
