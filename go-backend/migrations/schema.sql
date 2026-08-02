@@ -2604,6 +2604,8 @@ CREATE TABLE `legal_person_face_verifies` (
   `verify_at` DATETIME NULL DEFAULT NULL COMMENT '验证时间',
   `expire_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间(verify_at + 72h)',
   `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/passed/failed/expired',
+  `fee` BIGINT NOT NULL DEFAULT 0 COMMENT '本次认证扣费金额(分),先收费再认证',
+  `payer_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '付费用户ID(创始人)',
   `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
   `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),

@@ -15,7 +15,8 @@ import (
 )
 
 // FaceVerifyFee 每次活体认证费用(单位:分,2元=200分)
-// 实际调用第三方活体API时收取,缓存命中/频控拦截不收取
+// 先收费再认证:非缓存命中时先扣费,再调用第三方SDK认证(认证失败不退款,因第三方按调用次数计费)
+// 缓存命中(7天内复用)/频控拦截(每日超5次)不收取
 const FaceVerifyFee int64 = 200
 
 // UserProfile 用户资料(脱敏后)
@@ -110,10 +111,11 @@ func SubmitRealname(userID int64, realName, idCard string) error {
 	return nil
 }
 
-// FaceVerify 活体检测校验
-// 1. 7天缓存:通过的 7天内复用(realname_caches表)
-// 2. 频控:每天5次(face_verify_rate_limits表 + Redis)
-// 3. 调用腾讯云/阿里云标准SDK(注释给出示例代码结构)，沙箱模拟通过率
+// FaceVerify 活体检测校验(先收费再认证)
+// 1. 7天缓存:通过的 7天内复用(realname_caches表,不收费)
+// 2. 频控:每天5次(face_verify_rate_limits表 + Redis,超限不收费直接拒绝)
+// 3. 先收费:扣2元(200分)再调用第三方SDK认证(认证失败不退款,第三方按调用次数计费)
+// 4. 调用腾讯云/阿里云标准SDK(注释给出示例代码结构)，沙箱模拟通过率
 func FaceVerify(userID int64, sessionID string) (string, error) {
 	if sessionID == "" {
 		return "", errors.New("活体会话ID不能为空")
@@ -188,9 +190,9 @@ func FaceVerify(userID int64, sessionID string) (string, error) {
 		return "", errors.New("今日活体检测次数已达上限(5次)，请明日再试")
 	}
 
-	// Step 3. 扣费 + 写 DB 频控记录(事务原子,防并发超额扣费)
-	// 收费规则:每次实际调用第三方活体API收取2元(200分),缓存命中/频控拦截不收取
-	// 余额不足拒绝调用,避免平台垫付;第三方按调用次数计费,无论成功失败均收费
+	// Step 3. 先收费:扣费 + 写 DB 频控记录(事务原子,防并发超额扣费)
+	// 先收费再认证:在调用第三方SDK前先扣2元,认证失败不退款(第三方按调用次数计费)
+	// 缓存命中/频控拦截不收取;余额不足拒绝调用,避免平台垫付
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 行锁用户记录,防并发超额扣费
 		var locked model.User

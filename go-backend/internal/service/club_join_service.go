@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/jisan/e-sports-platform/internal/model"
 	"github.com/jisan/e-sports-platform/internal/utils"
@@ -683,9 +685,73 @@ func checkCorporateTransferVerified(clubID int64) error {
 	return nil
 }
 
-// RecordLegalPersonFaceVerify 记录法人活体认证(供活体认证回调使用)
-// expire_at = verify_at + 72h
+// PrepareLegalPersonFaceVerify 发起法人活体认证(先收费再认证)
+// 流程:先扣费2元 → 创建pending状态认证记录+verifyToken → 前端用token调第三方SDK → RecordLegalPersonFaceVerify记录结果
+// 安全:事务内行锁用户+条件更新原子扣费,防并发超额扣费;余额不足拒绝发起认证
+func PrepareLegalPersonFaceVerify(clubID, founderUID int64, legalPersonName, legalPersonIDCard string) (string, error) {
+	if clubID <= 0 || founderUID <= 0 {
+		return "", errors.New("参数无效")
+	}
+	if strings.TrimSpace(legalPersonName) == "" || strings.TrimSpace(legalPersonIDCard) == "" {
+		return "", errors.New("法人姓名和身份证号不能为空")
+	}
+	// 生成 verifyToken(crypto/rand 32字节 hex,不可预测)
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", fmt.Errorf("生成token失败: %w", err)
+	}
+	verifyToken := hex.EncodeToString(tokenBytes)
+	now := time.Now()
+	nowPtr := &now
+	// 事务:行锁用户 + 扣费 + 创建pending认证记录
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 行锁用户记录,防并发超额扣费
+		var locked model.User
+		if err := tx.Where("id = ?", founderUID).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked).Error; err != nil {
+			return err
+		}
+		if locked.Balance < FaceVerifyFee {
+			return fmt.Errorf("余额不足,法人活体认证需%.2f元,当前余额%.2f元,请先充值",
+				float64(FaceVerifyFee)/100, float64(locked.Balance)/100)
+		}
+		// 原子扣减余额(条件更新防超额)
+		res := tx.Model(&model.User{}).
+			Where("id = ? AND balance >= ?", founderUID, FaceVerifyFee).
+			UpdateColumn("balance", gorm.Expr("balance - ?", FaceVerifyFee))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return fmt.Errorf("余额不足,法人活体认证需%.2f元", float64(FaceVerifyFee)/100)
+		}
+		// 创建pending状态认证记录(先收费,待第三方SDK回调后更新结果)
+		return tx.Create(&model.LegalPersonFaceVerify{
+			ClubID:            clubID,
+			LegalPersonName:   legalPersonName,
+			LegalPersonIDCard: legalPersonIDCard,
+			VerifyToken:       verifyToken,
+			Status:            model.LegalPersonFaceStatusPending,
+			Fee:               FaceVerifyFee,
+			PayerUID:          founderUID,
+			CreatedAt:         nowPtr,
+			UpdatedAt:         nowPtr,
+		}).Error
+	})
+	if err != nil {
+		return "", err
+	}
+	return verifyToken, nil
+}
+
+// RecordLegalPersonFaceVerify 记录法人活体认证结果(认证完成后回调)
+// 安全修复:改为更新已有pending记录(由PrepareLegalPersonFaceVerify先收费时创建),而非新建
+// 校验:verifyToken必须对应一条pending记录,防伪造结果;条件更新防重复回调(幂等)
 func RecordLegalPersonFaceVerify(clubID int64, legalPersonName, legalPersonIDCard, verifyToken string, passed bool) error {
+	if verifyToken == "" {
+		return errors.New("活体认证token不能为空")
+	}
 	now := time.Now()
 	expire := now.Add(72 * time.Hour)
 	nowPtr := &now
@@ -694,17 +760,23 @@ func RecordLegalPersonFaceVerify(clubID int64, legalPersonName, legalPersonIDCar
 	if !passed {
 		status = model.LegalPersonFaceStatusFailed
 	}
-	return db.Create(&model.LegalPersonFaceVerify{
-		ClubID:            clubID,
-		LegalPersonName:   legalPersonName,
-		LegalPersonIDCard: legalPersonIDCard,
-		VerifyToken:       verifyToken,
-		VerifyAt:          nowPtr,
-		ExpireAt:          expirePtr,
-		Status:            status,
-		CreatedAt:         nowPtr,
-		UpdatedAt:         nowPtr,
-	}).Error
+	// 按 verifyToken 查找 pending 记录并更新(条件更新防重复回调,幂等)
+	res := db.Model(&model.LegalPersonFaceVerify{}).
+		Where("verify_token = ? AND status = ?", verifyToken, model.LegalPersonFaceStatusPending).
+		Updates(map[string]interface{}{
+			"verify_at":  nowPtr,
+			"expire_at":  expirePtr,
+			"status":     status,
+			"updated_at": nowPtr,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// token无效或已被处理(重复回调幂等返回)
+		return errors.New("活体认证记录不存在或已处理,请重新发起认证")
+	}
+	return nil
 }
 
 // ================ 对公小额打款验证 ================
