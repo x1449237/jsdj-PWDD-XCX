@@ -119,6 +119,8 @@ func main() {
 
 	// 10. 创建 Gin 引擎并注册全局中间件
 	r := gin.New()
+	// 信任反代(宝塔/nginx 本机转发)，使 c.ClientIP() 能取到真实客户端 IP
+	_ = r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 	r.Use(
 		middleware.TraceID(),                       // 请求追踪ID
 		middleware.Recover(appLogger),              // 全局异常恢复
