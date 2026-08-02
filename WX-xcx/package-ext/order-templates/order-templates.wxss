@@ -1,0 +1,73 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background-color: #ffffff;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.card-list {
+  padding-bottom: 20rpx;
+}
+
+.tpl-name {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333333;
+  margin-right: 16rpx;
+}
+
+.info-row {
+  display: flex;
+  padding: 10rpx 0;
+}
+
+.info-label {
+  width: 150rpx;
+  color: #999999;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.info-value {
+  flex: 1;
+  color: #333333;
+  font-size: 26rpx;
+}
+
+.form-card {
+  margin: 16rpx 24rpx;
+}
+
+.sheet-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.sheet-close {
+  font-size: 26rpx;
+  color: #e94560;
+}
+
+.picker-text {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+}

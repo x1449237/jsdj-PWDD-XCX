@@ -1,0 +1,61 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background-color: #ffffff;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.card-list {
+  padding-bottom: 20rpx;
+}
+
+.dep-amount {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #e94560;
+}
+
+.info-row {
+  display: flex;
+  padding: 8rpx 0;
+}
+
+.info-label {
+  width: 180rpx;
+  color: #999999;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.info-value {
+  flex: 1;
+  color: #333333;
+  font-size: 26rpx;
+}
+
+.form-card {
+  margin: 16rpx 24rpx;
+}
+
+.sheet-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.sheet-close {
+  font-size: 26rpx;
+  color: #e94560;
+}

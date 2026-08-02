@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="tab-bar">
+    <view class="tab-item {{tabIndex === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" bindtap="onTabTap">{{item}}</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty-icon-bg history"></view>
+    <text class="empty-state-text">暂无变动记录</text>
+  </view>
+
+  <view class="card-list" wx:else>
+    <view class="card log-card" wx:for="{{list}}" wx:key="index">
+      <view class="card-header">
+        <text class="tag {{item.tagClass}}">{{item.typeText}}</text>
+        <text class="amount" style="color: {{item.amountColor}}">{{item.amountText}}</text>
+      </view>
+      <view class="card-body">
+        <view class="info-row">
+          <text class="info-label">变动后余额</text>
+          <text class="info-value">¥{{item.balanceText}}</text>
+        </view>
+        <view class="info-row" wx:if="{{item.remark}}">
+          <text class="info-label">备注</text>
+          <text class="info-value">{{item.remark}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">时间</text>
+          <text class="info-value">{{item.createdText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="loading-more" wx:if="{{loading}}">加载中...</view>
+  <view class="no-more" wx:if="{{!loading && noMore && list.length > 0}}">没有更多了</view>
+</view>

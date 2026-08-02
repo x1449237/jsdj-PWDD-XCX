@@ -1,0 +1,63 @@
+<view class="page">
+  <view class="header-bar">
+    <text class="header-title">意见反馈</text>
+    <view class="btn btn-primary btn-sm" bindtap="onOpenForm">我要反馈</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty-icon-bg chat"></view>
+    <text class="empty-state-text">暂无反馈记录</text>
+  </view>
+
+  <view class="card-list" wx:else>
+    <view class="card" wx:for="{{list}}" wx:key="index">
+      <view class="card-header">
+        <view class="tag-group">
+          <text class="tag {{item.typeTagClass}}">{{item.typeText}}</text>
+          <text class="tag {{item.statusTagClass}}">{{item.statusText}}</text>
+        </view>
+        <text class="fb-time">{{item.createdText}}</text>
+      </view>
+      <view class="card-body">
+        <view class="fb-content">{{item.content}}</view>
+        <view class="fb-reply" wx:if="{{item.status === 1 && item.reply}}">
+          <text class="reply-label">回复：</text>
+          <text class="reply-text">{{item.reply}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="loading-more" wx:if="{{loading}}">加载中...</view>
+  <view class="no-more" wx:if="{{!loading && noMore && list.length > 0}}">没有更多了</view>
+
+  <view class="card form-card" wx:if="{{showForm}}">
+    <view class="card-header">
+      <text class="sheet-title">我要反馈</text>
+      <text class="sheet-close" bindtap="onCloseForm">收起</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">类型</text>
+        <picker range="{{typeOptions}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="picker-text">{{typeOptions[typeIndex]}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">内容</text>
+        <textarea class="form-textarea" placeholder="请描述您的问题或建议" value="{{content}}" bindinput="onContentInput"></textarea>
+      </view>
+      <view class="form-group">
+        <text class="form-label">图片（可选）</text>
+        <view class="image-grid">
+          <view class="image-item" wx:for="{{imageList}}" wx:for-item="img" wx:key="*this" wx:for-index="idx">
+            <image class="image-thumb" src="{{img}}" mode="aspectFill" data-index="{{idx}}" bindtap="onRemoveImage"></image>
+            <view class="image-del" data-index="{{idx}}" bindtap="onRemoveImage">×</view>
+          </view>
+          <view class="image-add" bindtap="onChooseImages" wx:if="{{imageList.length < 6}}">+</view>
+        </view>
+      </view>
+      <view class="btn btn-primary btn-block" bindtap="onSubmit">提交</view>
+    </view>
+  </view>
+</view>

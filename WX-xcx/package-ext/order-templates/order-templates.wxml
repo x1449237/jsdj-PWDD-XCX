@@ -1,0 +1,71 @@
+<view class="page">
+  <view class="header-bar">
+    <text class="header-title">订单模板</text>
+    <view class="btn btn-primary btn-sm" bindtap="onOpenForm">新增模板</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty-icon-bg history"></view>
+    <text class="empty-state-text">暂无模板，点击右上角新增</text>
+  </view>
+
+  <view class="card-list" wx:else>
+    <view class="card" wx:for="{{list}}" wx:key="id">
+      <view class="card-header">
+        <text class="tpl-name text-ellipsis">{{item.name}}</text>
+        <text class="tag tag-primary">{{item.typeText}}</text>
+      </view>
+      <view class="card-body">
+        <view class="info-row">
+          <text class="info-label">大区</text>
+          <text class="info-value">{{item.game_zone || '-'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">游戏ID</text>
+          <text class="info-value">{{item.game_id_text || '-'}}</text>
+        </view>
+        <view class="info-row" wx:if="{{item.requirement}}">
+          <text class="info-label">需求</text>
+          <text class="info-value">{{item.requirement}}</text>
+        </view>
+      </view>
+      <view class="card-footer">
+        <view class="btn btn-danger btn-sm" bindtap="onDelete" data-id="{{item.id}}">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="loading-more" wx:if="{{loading}}">加载中...</view>
+
+  <view class="card form-card" wx:if="{{showForm}}">
+    <view class="card-header">
+      <text class="sheet-title">新增模板</text>
+      <text class="sheet-close" bindtap="onCloseForm">收起</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">模板名称</text>
+        <input class="form-input" placeholder="请输入模板名称" value="{{form.name}}" data-field="name" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">类型</text>
+        <picker range="{{typeOptions}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="picker-text">{{typeOptions[typeIndex]}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">游戏大区</text>
+        <input class="form-input" placeholder="请输入游戏大区" value="{{form.game_zone}}" data-field="game_zone" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">游戏ID</text>
+        <input class="form-input" placeholder="请输入游戏ID" value="{{form.game_id_text}}" data-field="game_id_text" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">需求说明</text>
+        <textarea class="form-textarea" placeholder="请输入需求说明" value="{{form.requirement}}" data-field="requirement" bindinput="onInput"></textarea>
+      </view>
+      <view class="btn btn-primary btn-block" bindtap="onSubmit">提交</view>
+    </view>
+  </view>
+</view>

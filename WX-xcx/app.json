@@ -150,6 +150,19 @@
         "appointment/appointment",
         "bid-detail/bid-detail"
       ]
+    },
+    {
+      "root": "package-ext",
+      "name": "ext",
+      "pages": [
+        "order-templates/order-templates",
+        "favorite-clubs/favorite-clubs",
+        "wallet-logs/wallet-logs",
+        "deposits/deposits",
+        "feedback/feedback",
+        "notification-settings/notification-settings",
+        "club-apply/club-apply"
+      ]
     }
   ],
   "window": {

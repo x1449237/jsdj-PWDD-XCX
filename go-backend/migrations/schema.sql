@@ -1975,6 +1975,959 @@ CREATE TABLE `third_party_api_logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方接口日志表';
 
+-- ============================================================
+-- 模块22: 俱乐部创始人&内部管理扩展（对标俱乐部小助手 #1-#40）
+-- ============================================================
+
+-- 俱乐部主页装修表 (#1 轮播图/简介/主营游戏/服务价格展示)
+DROP TABLE IF EXISTS `club_home_decorations`;
+CREATE TABLE `club_home_decorations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `banners` JSON COMMENT '轮播图URL数组',
+  `intro` TEXT COMMENT '俱乐部简介',
+  `main_games` JSON COMMENT '主营游戏列表',
+  `price_display` JSON COMMENT '服务价格展示模块',
+  `is_published` TINYINT NOT NULL DEFAULT 1 COMMENT '是否发布 0否 1是',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_id` (`club_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部主页装修表';
+
+-- 俱乐部技能项目上架表 (#3)
+DROP TABLE IF EXISTS `club_services`;
+CREATE TABLE `club_services` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `name` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '服务名称',
+  `duration` INT NOT NULL DEFAULT 0 COMMENT '时长(分钟)',
+  `price` BIGINT NOT NULL DEFAULT 0 COMMENT '标价(分)',
+  `intro` TEXT COMMENT '服务介绍',
+  `game_id` INT NOT NULL DEFAULT 0 COMMENT '游戏ID',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1上架 0下架',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部技能项目上架表';
+
+-- 成员技能名片表 (#4 支持保存海报/分享微信)
+DROP TABLE IF EXISTS `club_member_cards`;
+CREATE TABLE `club_member_cards` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `poster_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '海报图片URL',
+  `share_title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '分享标题',
+  `share_desc` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '分享描述',
+  `qr_code_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '二维码URL',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_member` (`club_id`, `member_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='成员技能名片表';
+
+-- 成员段位/战绩/标签档案表 (#5)
+DROP TABLE IF EXISTS `club_member_profiles`;
+CREATE TABLE `club_member_profiles` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `game_id` INT NOT NULL DEFAULT 0 COMMENT '游戏ID',
+  `rank_info` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '段位信息',
+  `win_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '胜率',
+  `total_games` INT NOT NULL DEFAULT 0 COMMENT '总场次',
+  `hero_tags` JSON COMMENT '擅长英雄标签数组',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_member_game` (`club_id`, `member_uid`, `game_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='成员段位/战绩/标签档案表';
+
+-- 权限操作日志表 (#7)
+DROP TABLE IF EXISTS `club_permission_logs`;
+CREATE TABLE `club_permission_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `operator_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `operator_role` TINYINT NOT NULL DEFAULT 0 COMMENT '操作人角色',
+  `action` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '操作动作 modify_commission/kick_member/audit_apply等',
+  `target_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '目标用户ID',
+  `detail` JSON COMMENT '操作详情',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_operator_uid` (`operator_uid`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部权限操作日志表';
+
+-- 成员退俱乐部申报表 (#9)
+DROP TABLE IF EXISTS `club_member_resignations`;
+CREATE TABLE `club_member_resignations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '退出原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审核 1同意 2拒绝',
+  `auditor_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '审核人ID',
+  `audited_at` DATETIME NULL DEFAULT NULL COMMENT '审核时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_member_uid` (`member_uid`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='成员退俱乐部申报表';
+
+-- 俱乐部黑名单表 (#10)
+DROP TABLE IF EXISTS `club_blacklists`;
+CREATE TABLE `club_blacklists` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '被拉黑用户ID',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '拉黑原因',
+  `operator_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型 1恶意玩家 2违规打手',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_user` (`club_id`, `user_id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部黑名单表';
+
+-- 俱乐部积分规则表 (#12)
+DROP TABLE IF EXISTS `club_point_rules`;
+CREATE TABLE `club_point_rules` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `action` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '行为 order_complete/violation等',
+  `points` INT NOT NULL DEFAULT 0 COMMENT '积分(正=奖励 负=扣分)',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '描述',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部积分规则表';
+
+-- 俱乐部积分日志表 (#12)
+DROP TABLE IF EXISTS `club_point_logs`;
+CREATE TABLE `club_point_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `action` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '行为',
+  `points` INT NOT NULL DEFAULT 0 COMMENT '变动积分',
+  `balance` INT NOT NULL DEFAULT 0 COMMENT '变动后余额',
+  `remark` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '备注',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_member_uid` (`member_uid`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部积分日志表';
+
+-- 团费自动收缴规则表 (#13)
+DROP TABLE IF EXISTS `club_fee_rules`;
+CREATE TABLE `club_fee_rules` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `fee_type` TINYINT NOT NULL DEFAULT 1 COMMENT '收缴类型 1按月 2按单次订单',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '团费金额(分)',
+  `deduct_day` TINYINT NOT NULL DEFAULT 1 COMMENT '按月扣款日(1-28)',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='团费自动收缴规则表';
+
+-- 俱乐部招募卡片表 (#15)
+DROP TABLE IF EXISTS `club_recruit_cards`;
+CREATE TABLE `club_recruit_cards` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '招募标题',
+  `content` TEXT COMMENT '招募内容',
+  `poster_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '海报图片URL',
+  `share_link` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '分享链接',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0下架 1上架',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部招募卡片表';
+
+-- 管理员待办工作台表 (#16)
+DROP TABLE IF EXISTS `club_admin_todos`;
+CREATE TABLE `club_admin_todos` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `admin_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '管理员ID',
+  `type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '类型 join_apply/after_sale/audit_task',
+  `target_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联目标ID',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '标题',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待处理 1已处理',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_admin` (`club_id`, `admin_uid`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员待办工作台表';
+
+-- 俱乐部多游戏分区表 (#20)
+DROP TABLE IF EXISTS `club_game_zones`;
+CREATE TABLE `club_game_zones` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `game_id` INT NOT NULL DEFAULT 0 COMMENT '游戏ID',
+  `game_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '游戏名称',
+  `commission_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '抽成比例',
+  `manager_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '分区负责人ID',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_game` (`club_id`, `game_id`),
+  KEY `idx_club_id` (`club_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部多游戏分区表';
+
+-- 临时抽成规则表 (#21)
+DROP TABLE IF EXISTS `club_temp_commission_rules`;
+CREATE TABLE `club_temp_commission_rules` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `game_id` INT NOT NULL DEFAULT 0 COMMENT '游戏ID 0=全部',
+  `commission_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '临时抽成比例',
+  `start_time` DATETIME NULL DEFAULT NULL COMMENT '生效开始时间',
+  `end_time` DATETIME NULL DEFAULT NULL COMMENT '生效结束时间',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '调整原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0未生效 1生效中 2已过期',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='临时抽成规则表';
+
+-- 打手请假表 (#23)
+DROP TABLE IF EXISTS `club_member_leaves`;
+CREATE TABLE `club_member_leaves` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `leave_type` TINYINT NOT NULL DEFAULT 1 COMMENT '请假类型 1休息 2事假 3病假',
+  `start_time` DATETIME NULL DEFAULT NULL COMMENT '开始时间',
+  `end_time` DATETIME NULL DEFAULT NULL COMMENT '结束时间',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '请假原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审批 1同意 2拒绝',
+  `auditor_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '审批人ID',
+  `audited_at` DATETIME NULL DEFAULT NULL COMMENT '审批时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_member_uid` (`member_uid`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='打手请假表';
+
+-- 成员资料修改审核表 (#24)
+DROP TABLE IF EXISTS `club_member_change_requests`;
+CREATE TABLE `club_member_change_requests` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `field` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '修改字段 avatar/skill/price',
+  `old_value` TEXT COMMENT '旧值',
+  `new_value` TEXT COMMENT '新值',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审核 1同意 2拒绝',
+  `auditor_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '审核人ID',
+  `audited_at` DATETIME NULL DEFAULT NULL COMMENT '审核时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_member_uid` (`member_uid`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='成员资料修改审核表';
+
+-- 优先派单名单表 (#31)
+DROP TABLE IF EXISTS `club_priority_dispatch`;
+CREATE TABLE `club_priority_dispatch` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `priority` INT NOT NULL DEFAULT 0 COMMENT '优先级(数字越大越优先)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_member` (`club_id`, `member_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='优先派单名单表';
+
+-- 内部资源单/礼物报备表 (#32)
+DROP TABLE IF EXISTS `club_internal_resources`;
+CREATE TABLE `club_internal_resources` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型 1资源单 2礼物报备',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '金额(分)',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '描述',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联订单ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_member_uid` (`member_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='内部资源单/礼物报备表';
+
+-- 客户归属记录表 (#34)
+DROP TABLE IF EXISTS `club_customer_relations`;
+CREATE TABLE `club_customer_relations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `customer_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '客户用户ID',
+  `receptionist_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '接待/开发人ID',
+  `rebate_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '客户返点比例',
+  `total_orders` INT NOT NULL DEFAULT 0 COMMENT '历史订单数',
+  `total_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '历史消费总额(分)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_customer` (`club_id`, `customer_uid`),
+  KEY `idx_receptionist_uid` (`receptionist_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客户归属记录表';
+
+-- 模板话术库表 (#35)
+DROP TABLE IF EXISTS `club_template_phrases`;
+CREATE TABLE `club_template_phrases` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `category` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '分类 reception/after_sale',
+  `title` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '话术标题',
+  `content` TEXT COMMENT '话术内容',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_category` (`club_id`, `category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模板话术库表';
+
+-- 俱乐部成员业绩排行榜表 (#22)
+DROP TABLE IF EXISTS `club_member_rankings`;
+CREATE TABLE `club_member_rankings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员用户ID',
+  `period_type` TINYINT NOT NULL DEFAULT 1 COMMENT '周期 1日 2周 3月',
+  `period_date` DATE NOT NULL COMMENT '周期日期',
+  `order_count` INT NOT NULL DEFAULT 0 COMMENT '接单量',
+  `income` BIGINT NOT NULL DEFAULT 0 COMMENT '收入(分)',
+  `rank` INT NOT NULL DEFAULT 0 COMMENT '排名',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_member_period` (`club_id`, `member_uid`, `period_type`, `period_date`),
+  KEY `idx_club_period` (`club_id`, `period_type`, `period_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部成员业绩排行榜表';
+
+-- 俱乐部扩展字段 ALTER (#2 #17 #18 #29 #33 #37 #38 #39 #40)
+ALTER TABLE `clubs`
+  ADD COLUMN `is_visible` TINYINT NOT NULL DEFAULT 1 COMMENT '对外展示开关 0隐藏 1展示' AFTER `status`,
+  ADD COLUMN `payment_qr_code` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '自定义收款码URL' AFTER `contact_qq`,
+  ADD COLUMN `min_rank` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '接单门槛-最低段位' AFTER `payment_qr_code`,
+  ADD COLUMN `min_completed_orders` INT NOT NULL DEFAULT 0 COMMENT '接单门槛-最低完成订单数' AFTER `min_rank`,
+  ADD COLUMN `business_start` VARCHAR(8) NOT NULL DEFAULT '00:00' COMMENT '营业开始时间 HH:MM' AFTER `business_hours`,
+  ADD COLUMN `business_end` VARCHAR(8) NOT NULL DEFAULT '23:59' COMMENT '营业结束时间 HH:MM' AFTER `business_start`,
+  ADD COLUMN `min_order_price` BIGINT NOT NULL DEFAULT 0 COMMENT '最低接单价格(分)' AFTER `min_completed_orders`,
+  ADD COLUMN `in_recruit_hall` TINYINT NOT NULL DEFAULT 0 COMMENT '是否入驻招募大厅 0否 1是' AFTER `min_order_price`,
+  ADD COLUMN `founder_transfer_to` BIGINT NOT NULL DEFAULT 0 COMMENT '创始人权限转移目标UID' AFTER `in_recruit_hall`,
+  ADD COLUMN `founder_transfer_status` TINYINT NOT NULL DEFAULT 0 COMMENT '创始人转移状态 0无 1待确认 2已完成' AFTER `founder_transfer_to`;
+
+-- 俱乐部成员扩展字段 ALTER (#6 #14 #29 #33)
+ALTER TABLE `club_members`
+  ADD COLUMN `role_detail` TINYINT NOT NULL DEFAULT 0 COMMENT '细化角色 0无 1派单员 2接待(位运算)' AFTER `role`,
+  ADD COLUMN `online_status` TINYINT NOT NULL DEFAULT 0 COMMENT '在线状态 0离线 1空闲 2接单中 3休息' AFTER `role_detail`,
+  ADD COLUMN `is_banned` TINYINT NOT NULL DEFAULT 0 COMMENT '是否禁单 0否 1是' AFTER `online_status`,
+  ADD COLUMN `daily_order_limit` INT NOT NULL DEFAULT 0 COMMENT '单日接单上限 0=不限' AFTER `is_banned`,
+  ADD COLUMN `today_order_count` INT NOT NULL DEFAULT 0 COMMENT '今日已接单数' AFTER `daily_order_limit`,
+  ADD COLUMN `points` INT NOT NULL DEFAULT 0 COMMENT '俱乐部积分' AFTER `today_order_count`;
+
+-- ============================================================
+-- 模块23: 订单业务&售后扩展（#41-#75）
+-- ============================================================
+
+-- 订单预填模板表 (#42)
+DROP TABLE IF EXISTS `order_templates`;
+CREATE TABLE `order_templates` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID 0=平台模板',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '模板名称',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型 1上分 2教学 3车队 4其他',
+  `game_id` INT NOT NULL DEFAULT 0 COMMENT '游戏ID',
+  `game_zone` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '游戏大区',
+  `game_id_text` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '游戏ID',
+  `requirement` TEXT COMMENT '需求备注',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_club_id` (`club_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单预填模板表';
+
+-- 订单补充需求表 (#43)
+DROP TABLE IF EXISTS `order_supplements`;
+CREATE TABLE `order_supplements` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '提交人ID',
+  `content` TEXT COMMENT '补充内容',
+  `file_urls` JSON COMMENT '附件URL数组',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单补充需求表';
+
+-- 部分退款表 (#46)
+DROP TABLE IF EXISTS `order_partial_refunds`;
+CREATE TABLE `order_partial_refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '退款金额(分)',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '退款原因',
+  `operator_id` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `operator_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '操作人类型 user/admin',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审核 1同意 2拒绝 3已退款',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='部分退款表';
+
+-- 订单标签定义表 (#48)
+DROP TABLE IF EXISTS `order_tags`;
+CREATE TABLE `order_tags` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '标签名称',
+  `color` VARCHAR(16) NOT NULL DEFAULT '' COMMENT '标签颜色',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单标签定义表';
+
+-- 订单标签关联表 (#48)
+DROP TABLE IF EXISTS `order_tag_relations`;
+CREATE TABLE `order_tag_relations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `tag_id` BIGINT NOT NULL DEFAULT 0 COMMENT '标签ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_tag` (`order_id`, `tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单标签关联表';
+
+-- 订单备注表 (#54 永久保存)
+DROP TABLE IF EXISTS `order_remarks`;
+CREATE TABLE `order_remarks` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '备注人ID',
+  `user_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '备注人类型 user/admin/player',
+  `content` TEXT COMMENT '备注内容',
+  `is_pinned` TINYINT NOT NULL DEFAULT 0 COMMENT '是否置顶',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单备注表';
+
+-- 服务时长延长申请表 (#58)
+DROP TABLE IF EXISTS `order_extensions`;
+CREATE TABLE `order_extensions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `player_id` BIGINT NOT NULL DEFAULT 0 COMMENT '打手ID',
+  `extend_minutes` INT NOT NULL DEFAULT 0 COMMENT '延长分钟数',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '延长原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审核 1同意 2拒绝',
+  `auditor_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '审核人ID',
+  `audited_at` DATETIME NULL DEFAULT NULL COMMENT '审核时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务时长延长申请表';
+
+-- 退款记录台账表 (#61)
+DROP TABLE IF EXISTS `order_refund_ledger`;
+CREATE TABLE `order_refund_ledger` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `refund_type` TINYINT NOT NULL DEFAULT 1 COMMENT '退款类型 1主动退款 2平台仲裁退款 3部分退款',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '退款金额(分)',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '退款原因',
+  `operator_id` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `arbitration_case_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联仲裁案件ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_refund_type` (`refund_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='退款记录台账表';
+
+-- 订单价格变动日志表 (#73)
+DROP TABLE IF EXISTS `order_price_logs`;
+CREATE TABLE `order_price_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `original_price` BIGINT NOT NULL DEFAULT 0 COMMENT '原价(分)',
+  `new_price` BIGINT NOT NULL DEFAULT 0 COMMENT '修改后价格(分)',
+  `operator_id` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `operator_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '操作人类型',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '修改原因',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单价格变动日志表';
+
+-- 订单转单表 (#27)
+DROP TABLE IF EXISTS `order_transfers`;
+CREATE TABLE `order_transfers` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `from_player_id` BIGINT NOT NULL DEFAULT 0 COMMENT '原打手ID',
+  `to_player_id` BIGINT NOT NULL DEFAULT 0 COMMENT '转入打手ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '转单原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待确认 1已转单 2已拒绝',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_from_player` (`from_player_id`),
+  KEY `idx_to_player` (`to_player_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单转单表';
+
+-- 订单改价申请表 (#28)
+DROP TABLE IF EXISTS `order_price_changes`;
+CREATE TABLE `order_price_changes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '订单ID',
+  `applicant_id` BIGINT NOT NULL DEFAULT 0 COMMENT '申请人ID',
+  `original_price` BIGINT NOT NULL DEFAULT 0 COMMENT '原价(分)',
+  `new_price` BIGINT NOT NULL DEFAULT 0 COMMENT '申请价格(分)',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '改价原因',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待审核 1同意 2拒绝',
+  `auditor_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '审核人ID',
+  `audited_at` DATETIME NULL DEFAULT NULL COMMENT '审核时间',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单改价申请表';
+
+-- 俱乐部收藏表 (#75)
+DROP TABLE IF EXISTS `club_favorites`;
+CREATE TABLE `club_favorites` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_club` (`user_id`, `club_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部收藏表';
+
+-- 订单扩展字段 ALTER (#49 #56 #57 #65)
+ALTER TABLE `orders`
+  ADD COLUMN `batch_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '批量下单批次ID' AFTER `team_count`,
+  ADD COLUMN `source_type` TINYINT NOT NULL DEFAULT 0 COMMENT '订单归属 0公单 1接待私单 2管理员代下单' AFTER `batch_id`,
+  ADD COLUMN `receptionist_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '接待/代下单人ID' AFTER `source_type`,
+  ADD COLUMN `is_abnormal` TINYINT NOT NULL DEFAULT 0 COMMENT '是否异常订单 0否 1是' AFTER `source_type`,
+  ADD COLUMN `is_archived` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已归档 0否 1是' AFTER `is_abnormal`,
+  ADD COLUMN `accept_deadline` DATETIME NULL DEFAULT NULL COMMENT '验收截止时间' AFTER `ended_at`,
+  ADD COLUMN `max_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '单次订单最大金额阈值(分) 0=不限' AFTER `batch_id`;
+
+-- 评价表扩展字段 ALTER (#52 #173)
+ALTER TABLE `evaluations`
+  ADD COLUMN `is_additional` TINYINT NOT NULL DEFAULT 0 COMMENT '是否追加评价 0否 1是' AFTER `rating`,
+  ADD COLUMN `additional_content` TEXT COMMENT '追评内容',
+  ADD COLUMN `additional_images` JSON COMMENT '追评图片数组',
+  ADD COLUMN `additional_at` DATETIME NULL DEFAULT NULL COMMENT '追评时间',
+  ADD COLUMN `images` JSON COMMENT '评价截图数组';
+
+-- ============================================================
+-- 模块24: IM即时通讯&群聊扩展（#76-#105）
+-- ============================================================
+
+-- 群文件表 (#84)
+DROP TABLE IF EXISTS `group_chat_files`;
+CREATE TABLE `group_chat_files` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `group_id` BIGINT NOT NULL DEFAULT 0 COMMENT '群聊ID',
+  `uploader_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '上传人ID',
+  `file_name` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '文件名',
+  `file_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '文件URL',
+  `file_size` BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小(字节)',
+  `file_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '文件类型 pdf/jpg/png',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_group_id` (`group_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群文件表';
+
+-- 快捷回复话术表 (#85)
+DROP TABLE IF EXISTS `chat_quick_replies`;
+CREATE TABLE `chat_quick_replies` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID 0=平台通用',
+  `category` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '分类 reception/after_sale',
+  `title` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '话术标题',
+  `content` TEXT COMMENT '话术内容',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_category` (`club_id`, `category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='快捷回复话术表';
+
+-- 消息已读状态表 (#91)
+DROP TABLE IF EXISTS `chat_message_reads`;
+CREATE TABLE `chat_message_reads` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '会话ID',
+  `message_id` BIGINT NOT NULL DEFAULT 0 COMMENT '消息ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `read_at` DATETIME NULL DEFAULT NULL COMMENT '已读时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_msg_user` (`session_id`, `message_id`, `user_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息已读状态表';
+
+-- 群成员禁言表 (#95)
+DROP TABLE IF EXISTS `group_chat_mutes`;
+CREATE TABLE `group_chat_mutes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `group_id` BIGINT NOT NULL DEFAULT 0 COMMENT '群聊ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '被禁言成员ID',
+  `operator_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人ID',
+  `duration` INT NOT NULL DEFAULT 0 COMMENT '禁言时长(分钟)',
+  `expire_at` DATETIME NULL DEFAULT NULL COMMENT '禁言到期时间',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '禁言原因',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_group_member` (`group_id`, `member_uid`),
+  KEY `idx_expire_at` (`expire_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群成员禁言表';
+
+-- 消息举报表 (#102)
+DROP TABLE IF EXISTS `chat_reports`;
+CREATE TABLE `chat_reports` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `reporter_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '举报人ID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '会话ID',
+  `message_id` BIGINT NOT NULL DEFAULT 0 COMMENT '被举报消息ID',
+  `reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '举报原因',
+  `evidence_urls` JSON COMMENT '证据截图',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待处理 1已处理 2已驳回',
+  `handler_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '处理人ID',
+  `handle_result` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '处理结果',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息举报表';
+
+-- 会话置顶 ALTER (#90)
+ALTER TABLE `chat_sessions`
+  ADD COLUMN `is_pinned` TINYINT NOT NULL DEFAULT 0 COMMENT '是否置顶 0否 1是' AFTER `type`;
+
+-- 群聊扩展字段 ALTER (#81 #94 #100 #104)
+ALTER TABLE `group_chats`
+  ADD COLUMN `pinned_announcement_id` BIGINT NOT NULL DEFAULT 0 COMMENT '置顶公告ID' AFTER `name`,
+  ADD COLUMN `group_type_label` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '群类型标签 chat/welfare/after_sale' AFTER `pinned_announcement_id`,
+  ADD COLUMN `welcome_msg` TEXT COMMENT '新成员欢迎语',
+  ADD COLUMN `prev_owner_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '前任群主ID(移交记录)';
+
+-- 群成员扩展字段 ALTER (#80)
+ALTER TABLE `group_chat_members`
+  ADD COLUMN `member_level` TINYINT NOT NULL DEFAULT 0 COMMENT '成员级别 0普通 1群管理 2平台官方' AFTER `role`;
+
+-- 群消息扩展字段 ALTER (#82 #93)
+ALTER TABLE `group_chat_messages`
+  ADD COLUMN `at_all` TINYINT NOT NULL DEFAULT 0 COMMENT '是否@全体 0否 1是' AFTER `type`,
+  ADD COLUMN `at_uids` JSON COMMENT '@指定成员UID数组',
+  ADD COLUMN `is_force_popup` TINYINT NOT NULL DEFAULT 0 COMMENT '是否强制弹窗 0否 1是' AFTER `at_all`;
+
+-- 售后会话扩展字段 ALTER (#92 #105)
+ALTER TABLE `after_sale_sessions`
+  ADD COLUMN `archived_at` DATETIME NULL DEFAULT NULL COMMENT '归档时间' AFTER `status`,
+  ADD COLUMN `progress_status` TINYINT NOT NULL DEFAULT 0 COMMENT '工单进度 0待介入 1处理中 2已解决' AFTER `archived_at`;
+
+-- ============================================================
+-- 模块25: 财务、钱包、结算扩展（#106-#130）
+-- ============================================================
+
+-- 俱乐部独立财务台账表 (#106)
+DROP TABLE IF EXISTS `club_finance_ledgers`;
+CREATE TABLE `club_finance_ledgers` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '类型 platform_commission/club_income/player_income/fine/fee/rebate',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '金额(分)',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联订单ID',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '关联成员ID',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '描述',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部独立财务台账表';
+
+-- 预存存单表 (#111)
+DROP TABLE IF EXISTS `user_deposits`;
+CREATE TABLE `user_deposits` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '存单金额(分)',
+  `balance` BIGINT NOT NULL DEFAULT 0 COMMENT '存单余额(分)',
+  `expire_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0已退款 1有效 2已过期 3已用完',
+  `source` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '来源 recharge/activity/gift',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预存存单表';
+
+-- 月度结算汇总表 (#117)
+DROP TABLE IF EXISTS `monthly_settlements`;
+CREATE TABLE `monthly_settlements` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID 0=平台',
+  `member_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '成员ID 0=俱乐部汇总',
+  `settle_month` VARCHAR(7) NOT NULL DEFAULT '' COMMENT '结算月份 YYYY-MM',
+  `total_income` BIGINT NOT NULL DEFAULT 0 COMMENT '总收入(分)',
+  `total_refund` BIGINT NOT NULL DEFAULT 0 COMMENT '退款冲抵(分)',
+  `net_income` BIGINT NOT NULL DEFAULT 0 COMMENT '净收入(分)',
+  `platform_fee` BIGINT NOT NULL DEFAULT 0 COMMENT '平台抽成(分)',
+  `club_fee` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部抽成(分)',
+  `player_income` BIGINT NOT NULL DEFAULT 0 COMMENT '打手收入(分)',
+  `pdf_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '对账PDF URL',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待确认 1已确认',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_month` (`club_id`, `settle_month`),
+  KEY `idx_member_month` (`member_uid`, `settle_month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='月度结算汇总表';
+
+-- 返点发放记录表 (#118)
+DROP TABLE IF EXISTS `rebate_records`;
+CREATE TABLE `rebate_records` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `customer_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '客户ID',
+  `receptionist_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '接待ID',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '返点金额(分)',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联订单ID',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待发放 1已发放',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_receptionist_uid` (`receptionist_uid`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='返点发放记录表';
+
+-- 钱包变动日志表 (#130 不可删除/篡改)
+DROP TABLE IF EXISTS `wallet_change_logs`;
+CREATE TABLE `wallet_change_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `change_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '变动类型 income/refund/fine/fee/withdraw/deposit/rebate',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '变动金额(分 正=收入 负=支出)',
+  `balance_after` BIGINT NOT NULL DEFAULT 0 COMMENT '变动后余额(分)',
+  `order_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联订单ID',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '描述',
+  `hash` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '防篡改哈希(前一条hash+当前内容)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_change_type` (`change_type`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钱包变动日志表(不可删除)';
+
+-- 提现扩展字段 ALTER (#109 #113)
+ALTER TABLE `withdrawals`
+  ADD COLUMN `fail_reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '失败原因' AFTER `status`,
+  ADD COLUMN `retry_count` INT NOT NULL DEFAULT 0 COMMENT '重试次数' AFTER `fail_reason`,
+  ADD COLUMN `merge_settle_id` BIGINT NOT NULL DEFAULT 0 COMMENT '合并结算ID' AFTER `retry_count`;
+
+-- 分账记录扩展字段 ALTER (#107 #119)
+ALTER TABLE `profit_share_records`
+  ADD COLUMN `is_frozen` TINYINT NOT NULL DEFAULT 0 COMMENT '是否冻结 0否 1是(纠纷)' AFTER `status`,
+  ADD COLUMN `frozen_reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '冻结原因',
+  ADD COLUMN `unfrozen_at` DATETIME NULL DEFAULT NULL COMMENT '解冻时间',
+  ADD COLUMN `estimated_settle_at` DATETIME NULL DEFAULT NULL COMMENT '预计结算时间';
+
+-- ============================================================
+-- 模块26: Web超级管理员后台扩展（#131-#155）
+-- ============================================================
+
+-- 违规处罚模板表 (#136)
+DROP TABLE IF EXISTS `punishment_templates`;
+CREATE TABLE `punishment_templates` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '模板名称',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型 1警告 2限制接单 3清退俱乐部',
+  `content` TEXT COMMENT '处罚内容模板',
+  `duration_days` INT NOT NULL DEFAULT 0 COMMENT '处罚时长(天) 0=永久',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='违规处罚模板表';
+
+-- ============================================================
+-- 模块27: 小程序玩家端&UX扩展（#156-#175）
+-- ============================================================
+
+-- 用户意见反馈表 (#160)
+DROP TABLE IF EXISTS `user_feedbacks`;
+CREATE TABLE `user_feedbacks` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '类型 suggestion/complaint/bug',
+  `content` TEXT COMMENT '反馈内容',
+  `images` JSON COMMENT '截图URL数组',
+  `contact` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '联系方式',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0待处理 1已处理',
+  `reply` TEXT COMMENT '回复内容',
+  `handler_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '处理人ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户意见反馈表';
+
+-- 用户拉黑表 (#175 拉黑打手)
+DROP TABLE IF EXISTS `user_blocklist`;
+CREATE TABLE `user_blocklist` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `blocked_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '被拉黑用户ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_blocked` (`user_id`, `blocked_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户拉黑表';
+
+-- 用户通知设置表 (#162 推送开关)
+DROP TABLE IF EXISTS `user_notification_settings`;
+CREATE TABLE `user_notification_settings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `order_notify` TINYINT NOT NULL DEFAULT 1 COMMENT '订单通知 0关 1开',
+  `after_sale_notify` TINYINT NOT NULL DEFAULT 1 COMMENT '售后通知 0关 1开',
+  `marketing_notify` TINYINT NOT NULL DEFAULT 0 COMMENT '营销通知 0关 1开',
+  `system_notify` TINYINT NOT NULL DEFAULT 1 COMMENT '系统通知 0关 1开',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户通知设置表';
+
+-- 用户扩展字段 ALTER (#161 #166)
+ALTER TABLE `users`
+  ADD COLUMN `dark_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '深色模式 0浅色 1深色' AFTER `points`,
+  ADD COLUMN `agreement_dismissed` TINYINT NOT NULL DEFAULT 0 COMMENT '协议弹窗永久关闭 0否 1是' AFTER `dark_mode`;
+
+-- ============================================================
+-- 模块28: 营销与运营工具扩展（#176-#190）
+-- ============================================================
+
+-- 活动弹窗表 (#179)
+DROP TABLE IF EXISTS `activity_popups`;
+CREATE TABLE `activity_popups` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID 0=平台活动',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '弹窗标题',
+  `image_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '弹窗图片',
+  `link_url` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '跳转链接',
+  `start_time` DATETIME NULL DEFAULT NULL COMMENT '开始时间',
+  `end_time` DATETIME NULL DEFAULT NULL COMMENT '结束时间',
+  `is_internal_only` TINYINT NOT NULL DEFAULT 0 COMMENT '仅内部成员可见 0否 1是',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_club_id` (`club_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活动弹窗表';
+
+-- 节日模板公告表 (#182)
+DROP TABLE IF EXISTS `festival_templates`;
+CREATE TABLE `festival_templates` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '节日名称',
+  `content` TEXT COMMENT '公告模板内容',
+  `festival_date` DATE NULL DEFAULT NULL COMMENT '节日日期',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='节日模板公告表';
+
+-- 推广渠道统计表 (#188)
+DROP TABLE IF EXISTS `promo_channels`;
+CREATE TABLE `promo_channels` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `channel_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '渠道名称',
+  `channel_code` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '渠道码',
+  `share_link` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '分享链接',
+  `registrations` INT NOT NULL DEFAULT 0 COMMENT '带来的注册数',
+  `orders` INT NOT NULL DEFAULT 0 COMMENT '带来的订单数',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_channel_code` (`channel_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='推广渠道统计表';
+
+-- 优惠券扩展字段 ALTER (#185 #187 #190)
+ALTER TABLE `club_coupons`
+  ADD COLUMN `applicable_games` JSON COMMENT '适用游戏ID数组 null=全部',
+  ADD COLUMN `applicable_services` JSON COMMENT '适用服务类型数组 null=全部',
+  ADD COLUMN `is_internal_only` TINYINT NOT NULL DEFAULT 0 COMMENT '仅内部可见 0否 1是' AFTER `status`,
+  ADD COLUMN `is_paused` TINYINT NOT NULL DEFAULT 0 COMMENT '是否暂停发放 0否 1是' AFTER `is_internal_only`;
+
+-- ============================================================
+-- 模块29: 系统配置项扩展（#78 #135 #151 #153 #74 #196 #198）
+-- ============================================================
+-- 以下配置项通过 system_configs 表的 config_key/config_value 存储，
+-- 无需新增表结构。初始化配置项：
+-- chat.revoke_timeout_seconds = 120  (消息撤回时效 #78)
+-- after_sale.response_deadline_hours = 24 (售后响应时限 #135)
+-- order.no_prefix_rule = 'JS' (订单号规则 #151)
+-- evaluation.enabled = 1 (评价开关 #153)
+-- order.max_amount = 500000 (单次订单最大金额 #74)
+-- upload.max_image_size = 10485760 (图片上传大小上限 #198)
+-- upload.max_voice_size = 1048576 (语音上传大小上限 #198)
+
+INSERT INTO `system_configs` (`config_key`, `config_value`, `description`, `created_at`, `updated_at`) VALUES
+('chat.revoke_timeout_seconds', '120', '聊天消息撤回时效(秒)', NOW(), NOW()),
+('after_sale.response_deadline_hours', '24', '售后介入响应时限(小时)', NOW(), NOW()),
+('order.no_prefix_rule', 'JS', '订单号前缀规则', NOW(), NOW()),
+('evaluation.enabled', '1', '评价功能开关 0关 1开', NOW(), NOW()),
+('order.max_amount', '500000', '单次订单最大金额(分)', NOW(), NOW()),
+('upload.max_image_size', '10485760', '图片上传大小上限(字节)', NOW(), NOW()),
+('upload.max_voice_size', '1048576', '语音上传大小上限(字节)', NOW(), NOW()),
+('order.create_interval_seconds', '30', '防刷单-同用户最短下单间隔(秒)', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `updated_at` = NOW();
+
 -- 第三方接口重试队列表
 DROP TABLE IF EXISTS `third_party_retry_queues`;
 CREATE TABLE `third_party_retry_queues` (

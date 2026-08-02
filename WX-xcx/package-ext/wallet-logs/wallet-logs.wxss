@@ -1,0 +1,67 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.tab-bar {
+  display: flex;
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #eeeeee;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: #666666;
+  position: relative;
+}
+
+.tab-item.active {
+  color: #e94560;
+  font-weight: bold;
+}
+
+.tab-item.active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 48rpx;
+  height: 4rpx;
+  background-color: #e94560;
+  border-radius: 2rpx;
+  transform: translateX(-50%);
+}
+
+.card-list {
+  padding-bottom: 20rpx;
+}
+
+.log-card {
+  margin: 16rpx 24rpx;
+}
+
+.amount {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.info-row {
+  display: flex;
+  padding: 8rpx 0;
+}
+
+.info-label {
+  width: 180rpx;
+  color: #999999;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.info-value {
+  flex: 1;
+  color: #333333;
+  font-size: 26rpx;
+}

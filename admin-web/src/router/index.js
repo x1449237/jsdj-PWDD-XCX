@@ -414,6 +414,36 @@ const routes = [
         name: 'ClubInternalOrder',
         component: () => import('@/views/club/internal-order.vue'),
         meta: { title: '内部订单监控', icon: 'Tickets', group: 'club' }
+      },
+      {
+        path: 'extension/punishment-template',
+        name: 'ExtPunishmentTemplate',
+        component: () => import('@/views/extension/punishment-template.vue'),
+        meta: { title: '违规处罚模板', icon: 'DocumentChecked', group: 'security' }
+      },
+      {
+        path: 'extension/feedback',
+        name: 'ExtFeedback',
+        component: () => import('@/views/extension/feedback.vue'),
+        meta: { title: '意见反馈', icon: 'ChatLineRound', group: 'platform' }
+      },
+      {
+        path: 'extension/festival-template',
+        name: 'ExtFestivalTemplate',
+        component: () => import('@/views/extension/festival-template.vue'),
+        meta: { title: '节日模板公告', icon: 'Calendar', group: 'marketing' }
+      },
+      {
+        path: 'extension/promo-channel',
+        name: 'ExtPromoChannel',
+        component: () => import('@/views/extension/promo-channel.vue'),
+        meta: { title: '推广渠道统计', icon: 'Share', group: 'marketing' }
+      },
+      {
+        path: 'extension/chat-report',
+        name: 'ExtChatReport',
+        component: () => import('@/views/extension/chat-report.vue'),
+        meta: { title: '会话举报处理', icon: 'Warning', group: 'chat' }
       }
     ]
   },

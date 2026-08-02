@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="tab-bar">
+    <view class="tab-item {{tabIndex === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" bindtap="onTabTap">{{item}}</view>
+  </view>
+
+  <!-- 退会申请 -->
+  <view class="card form-card" wx:if="{{tabIndex === 0}}">
+    <view class="card-header">
+      <text class="sheet-title">退会申请</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">俱乐部ID</text>
+        <input class="form-input" placeholder="请输入俱乐部ID" value="{{resignForm.club_id}}" data-form="resignForm" data-field="club_id" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">退会原因</text>
+        <textarea class="form-textarea" placeholder="请填写退会原因" value="{{resignForm.reason}}" data-form="resignForm" data-field="reason" bindinput="onInput"></textarea>
+      </view>
+      <view class="btn btn-primary btn-block {{submitting ? 'btn-disabled' : ''}}" bindtap="submitResign">提交</view>
+    </view>
+  </view>
+
+  <!-- 请假申请 -->
+  <view class="card form-card" wx:if="{{tabIndex === 1}}">
+    <view class="card-header">
+      <text class="sheet-title">请假申请</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">俱乐部ID</text>
+        <input class="form-input" placeholder="请输入俱乐部ID" value="{{leaveForm.club_id}}" data-form="leaveForm" data-field="club_id" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">开始日期</text>
+        <picker mode="date" value="{{leaveForm.start_date}}" data-field="start_date" bindchange="onDateChange">
+          <view class="picker-text {{leaveForm.start_date ? '' : 'placeholder'}}">{{leaveForm.start_date || '请选择开始日期'}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">结束日期</text>
+        <picker mode="date" value="{{leaveForm.end_date}}" data-field="end_date" bindchange="onDateChange">
+          <view class="picker-text {{leaveForm.end_date ? '' : 'placeholder'}}">{{leaveForm.end_date || '请选择结束日期'}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">请假原因</text>
+        <textarea class="form-textarea" placeholder="请填写请假原因" value="{{leaveForm.reason}}" data-form="leaveForm" data-field="reason" bindinput="onInput"></textarea>
+      </view>
+      <view class="btn btn-primary btn-block {{submitting ? 'btn-disabled' : ''}}" bindtap="submitLeave">提交</view>
+    </view>
+  </view>
+
+  <!-- 资料变更 -->
+  <view class="card form-card" wx:if="{{tabIndex === 2}}">
+    <view class="card-header">
+      <text class="sheet-title">资料变更</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">俱乐部ID</text>
+        <input class="form-input" placeholder="请输入俱乐部ID" value="{{changeForm.club_id}}" data-form="changeForm" data-field="club_id" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">变更项</text>
+        <picker range="{{fieldOptions}}" value="{{fieldOptions.indexOf(changeForm.field)}}" bindchange="onFieldChange">
+          <view class="picker-text">{{changeForm.field}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <text class="form-label">新值</text>
+        <input class="form-input" placeholder="请输入新值" value="{{changeForm.new_value}}" data-form="changeForm" data-field="new_value" bindinput="onInput" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">变更原因</text>
+        <textarea class="form-textarea" placeholder="请填写变更原因" value="{{changeForm.reason}}" data-form="changeForm" data-field="reason" bindinput="onInput"></textarea>
+      </view>
+      <view class="btn btn-primary btn-block {{submitting ? 'btn-disabled' : ''}}" bindtap="submitChange">提交</view>
+    </view>
+  </view>
+</view>

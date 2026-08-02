@@ -197,6 +197,36 @@ Page({
     });
   },
 
+  // ===== 扩展功能入口 =====
+  onOrderTemplates() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/order-templates/order-templates' });
+  },
+  onFavoriteClubs() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/favorite-clubs/favorite-clubs' });
+  },
+  onWalletLogs() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/wallet-logs/wallet-logs' });
+  },
+  onDeposits() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/deposits/deposits' });
+  },
+  onClubApply() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/club-apply/club-apply' });
+  },
+  onFeedback() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/feedback/feedback' });
+  },
+  onNotificationSettings() {
+    if (!this.data.isLogin) { this.onLogin(); return; }
+    wx.navigateTo({ url: '/package-ext/notification-settings/notification-settings' });
+  },
+
   onJoinUs() {
     this.data.joinTapCount++;
 

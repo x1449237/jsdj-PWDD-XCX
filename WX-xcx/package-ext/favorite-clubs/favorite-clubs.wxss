@@ -1,0 +1,56 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header-bar {
+  padding: 24rpx 32rpx;
+  background-color: #ffffff;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.card-list {
+  padding-bottom: 20rpx;
+}
+
+.club-card {
+  margin: 16rpx 24rpx;
+}
+
+.club-main {
+  display: flex;
+  align-items: center;
+}
+
+.club-logo {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background-color: #f5f5f5;
+  flex-shrink: 0;
+  margin-right: 24rpx;
+}
+
+.club-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.club-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333333;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.club-intro {
+  font-size: 24rpx;
+  color: #999999;
+  line-height: 1.5;
+}

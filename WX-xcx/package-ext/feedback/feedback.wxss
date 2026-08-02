@@ -1,0 +1,130 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background-color: #ffffff;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.card-list {
+  padding-bottom: 20rpx;
+}
+
+.tag-group {
+  display: flex;
+  align-items: center;
+}
+
+.tag-group .tag + .tag {
+  margin-left: 8rpx;
+}
+
+.fb-time {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.fb-content {
+  font-size: 28rpx;
+  color: #333333;
+  line-height: 1.6;
+  padding: 8rpx 0;
+}
+
+.fb-reply {
+  margin-top: 16rpx;
+  padding: 16rpx;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.reply-label {
+  color: #e94560;
+  font-weight: 500;
+}
+
+.reply-text {
+  color: #333333;
+}
+
+.form-card {
+  margin: 16rpx 24rpx;
+}
+
+.sheet-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.sheet-close {
+  font-size: 26rpx;
+  color: #e94560;
+}
+
+.picker-text {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+}
+
+.image-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.image-item {
+  width: 160rpx;
+  height: 160rpx;
+  margin: 0 16rpx 16rpx 0;
+  position: relative;
+}
+
+.image-thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 8rpx;
+}
+
+.image-del {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 32rpx;
+  text-align: center;
+  background-color: #e94560;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 28rpx;
+}
+
+.image-add {
+  width: 160rpx;
+  height: 160rpx;
+  border: 2rpx dashed #cccccc;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  color: #cccccc;
+}

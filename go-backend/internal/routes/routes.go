@@ -71,6 +71,9 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	// 内置管理端(俱乐部)handler
 	shopH := handler.NewShopHandler()
 
+	// 俱乐部小助手APP扩展功能handler
+	extH := handler.NewExtensionHandler()
+
 	// WebSocket 升级处理器
 	wsHandler := websocket.NewHandler(deps.Hub, deps.Logger)
 
@@ -472,5 +475,156 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		shop.GET("/invite-codes", shopH.GetInviteCodes)
 		shop.POST("/invite-codes", shopH.GenerateInviteCode)
 		shop.POST("/invite-codes/:id/revoke", shopH.RevokeInviteCode)
+
+		// ===== 俱乐部小助手APP扩展 - 俱乐部内置管理端 =====
+		// 主页装修
+		shop.GET("/club-ext/home-decoration", extH.GetHomeDecoration)
+		shop.PUT("/club-ext/home-decoration", extH.UpdateHomeDecoration)
+		// 技能项目
+		shop.GET("/club-ext/services", extH.ListClubServices)
+		shop.POST("/club-ext/services", extH.CreateClubService)
+		shop.PUT("/club-ext/services/:id", extH.UpdateClubService)
+		shop.DELETE("/club-ext/services/:id", extH.DeleteClubService)
+		// 成员名片/档案
+		shop.GET("/club-ext/member-card", extH.GetMemberCard)
+		shop.PUT("/club-ext/member-card", extH.UpdateMemberCard)
+		shop.GET("/club-ext/member-profile", extH.GetMemberProfile)
+		shop.PUT("/club-ext/member-profile", extH.UpdateMemberProfile)
+		// 权限操作日志
+		shop.GET("/club-ext/permission-logs", extH.ListPermissionLogs)
+		// 退会申请
+		shop.GET("/club-ext/resignations", extH.ListResignations)
+		shop.PUT("/club-ext/resignations/:id/audit", extH.AuditResignation)
+		// 黑名单
+		shop.GET("/club-ext/blacklists", extH.ListBlacklists)
+		shop.POST("/club-ext/blacklists", extH.AddBlacklist)
+		shop.DELETE("/club-ext/blacklists/:userId", extH.RemoveBlacklist)
+		// 积分体系
+		shop.GET("/club-ext/point-rules", extH.ListPointRules)
+		shop.PUT("/club-ext/point-rules/:id", extH.UpdatePointRule)
+		shop.GET("/club-ext/point-logs", extH.ListPointLogs)
+		// 团费规则
+		shop.GET("/club-ext/fee-rule", extH.GetFeeRule)
+		shop.PUT("/club-ext/fee-rule", extH.SaveFeeRule)
+		// 招募卡片
+		shop.GET("/club-ext/recruit-cards", extH.ListRecruitCards)
+		shop.POST("/club-ext/recruit-cards", extH.SaveRecruitCard)
+		// 管理员待办
+		shop.GET("/club-ext/todos", extH.ListAdminTodos)
+		shop.PUT("/club-ext/todos/:id/complete", extH.CompleteAdminTodo)
+		// 多游戏分区
+		shop.GET("/club-ext/game-zones", extH.ListGameZones)
+		shop.POST("/club-ext/game-zones", extH.SaveGameZone)
+		// 临时抽成
+		shop.GET("/club-ext/temp-commission", extH.ListTempCommissionRules)
+		shop.POST("/club-ext/temp-commission", extH.CreateTempCommissionRule)
+		// 请假
+		shop.GET("/club-ext/leaves", extH.ListLeaves)
+		shop.PUT("/club-ext/leaves/:id/audit", extH.AuditLeave)
+		// 资料修改审核
+		shop.GET("/club-ext/change-requests", extH.ListChangeRequests)
+		shop.PUT("/club-ext/change-requests/:id/audit", extH.AuditChangeRequest)
+		// 优先派单
+		shop.GET("/club-ext/priority-dispatch", extH.ListPriorityDispatch)
+		shop.POST("/club-ext/priority-dispatch", extH.SetPriority)
+		// 内部资源
+		shop.GET("/club-ext/internal-resources", extH.ListInternalResources)
+		shop.POST("/club-ext/internal-resources", extH.CreateInternalResource)
+		// 客户归属
+		shop.GET("/club-ext/customer-relations", extH.ListCustomerRelations)
+		shop.POST("/club-ext/customer-relations", extH.SaveCustomerRelation)
+		// 模板话术
+		shop.GET("/club-ext/template-phrases", extH.ListTemplatePhrases)
+		shop.POST("/club-ext/template-phrases", extH.SaveTemplatePhrase)
+		shop.DELETE("/club-ext/template-phrases/:id", extH.DeleteTemplatePhrase)
+		// 业绩排行
+		shop.GET("/club-ext/rankings", extH.GetRanking)
+		// 俱乐部设置(营业时间/最低价/接单门槛/招募大厅/展示开关等)
+		shop.PUT("/club-ext/settings", extH.UpdateClubSettings)
+		// 创始人转移
+		shop.POST("/club-ext/transfer-founder", extH.TransferFounder)
+		// 成员禁单/角色
+		shop.PUT("/club-ext/members/:userId/ban", extH.SetMemberBan)
+		shop.PUT("/club-ext/members/:userId/role", extH.SetMemberRole)
+		// 快捷回复话术
+		shop.GET("/club-ext/quick-replies", extH.ListQuickReplies)
+		shop.POST("/club-ext/quick-replies", extH.SaveQuickReply)
+		// 群成员禁言
+		shop.POST("/club-ext/groups/mute", extH.MuteGroupMember)
+		shop.DELETE("/club-ext/groups/unmute", extH.UnmuteGroupMember)
+		// 订单审核(改价/转单/延时/部分退款/异常/归档)
+		shop.PUT("/club-ext/orders/partial-refunds/:id/audit", extH.AuditPartialRefund)
+		shop.PUT("/club-ext/orders/extensions/:id/audit", extH.AuditOrderExtension)
+		shop.PUT("/club-ext/orders/transfers/:id/audit", extH.AuditOrderTransfer)
+		shop.PUT("/club-ext/orders/price-changes/:id/audit", extH.AuditOrderPriceChange)
+		shop.PUT("/club-ext/orders/:id/abnormal", extH.MarkOrderAbnormal)
+		shop.PUT("/club-ext/orders/:id/archive", extH.ArchiveOrder)
+		// 活动弹窗(俱乐部管理端)
+		shop.GET("/club-ext/activity-popups", extH.AdminListActivityPopups)
+		shop.POST("/club-ext/activity-popups", extH.AdminSaveActivityPopup)
+		// 财务台账/月结/返点
+		shop.GET("/finance-ext/ledger", extH.ListFinanceLedger)
+		shop.GET("/finance-ext/settlements", extH.ListMonthlySettlements)
+		shop.GET("/finance-ext/rebates", extH.ListRebateRecords)
+		shop.POST("/finance-ext/rebates", extH.CreateRebateRecord)
+		shop.PUT("/finance-ext/rebates/:id/audit", extH.AuditRebateRecord)
 	}
+
+	// ===== 俱乐部小助手APP扩展 - 玩家端(需登录) =====
+	userAPI.POST("/order-ext/templates", extH.CreateOrderTemplate)
+	userAPI.GET("/order-ext/templates", extH.ListOrderTemplates)
+	userAPI.DELETE("/order-ext/templates/:id", extH.DeleteOrderTemplate)
+	userAPI.POST("/order-ext/supplements", extH.CreateSupplement)
+	userAPI.GET("/order-ext/supplements", extH.ListSupplements)
+	userAPI.POST("/order-ext/partial-refunds", extH.CreatePartialRefund)
+	userAPI.GET("/order-ext/partial-refunds", extH.ListPartialRefunds)
+	userAPI.POST("/order-ext/remarks", extH.AddOrderRemark)
+	userAPI.GET("/order-ext/remarks", extH.ListOrderRemarks)
+	userAPI.POST("/order-ext/extensions", extH.CreateOrderExtension)
+	userAPI.POST("/order-ext/transfers", extH.CreateOrderTransfer)
+	userAPI.POST("/order-ext/price-changes", extH.CreateOrderPriceChange)
+	userAPI.GET("/order-ext/price-logs", extH.ListOrderPriceLogs)
+	userAPI.POST("/order-ext/tags", extH.AddOrderTag)
+	userAPI.DELETE("/order-ext/tags", extH.RemoveOrderTag)
+	userAPI.GET("/order-ext/tags", extH.ListOrderTags)
+	userAPI.GET("/order-ext/refund-ledger", extH.ListRefundLedger)
+	// 退会/请假/资料变更申报
+	userAPI.POST("/user/club-resignation", extH.CreateResignation)
+	userAPI.POST("/user/club-leave", extH.CreateLeave)
+	userAPI.POST("/user/club-change-request", extH.CreateChangeRequest)
+	// 收藏俱乐部
+	userAPI.POST("/user/favorite-clubs", extH.FavoriteClub)
+	userAPI.DELETE("/user/favorite-clubs/:clubId", extH.UnfavoriteClub)
+	userAPI.GET("/user/favorite-clubs", extH.ListFavoriteClubs)
+	// 钱包/存单
+	userAPI.GET("/user/wallet-logs", extH.ListWalletChangeLogs)
+	userAPI.GET("/user/deposits", extH.ListDeposits)
+	userAPI.POST("/user/deposits", extH.CreateDeposit)
+	// 意见反馈
+	userAPI.POST("/user/feedbacks", extH.CreateFeedback)
+	userAPI.GET("/user/feedbacks", extH.ListUserFeedbacks)
+	// 拉黑打手
+	userAPI.POST("/user/blocklist", extH.BlockPlayer)
+	userAPI.DELETE("/user/blocklist/:playerId", extH.UnblockPlayer)
+	// 通知设置
+	userAPI.GET("/user/notification-settings", extH.GetNotificationSettings)
+	userAPI.PUT("/user/notification-settings", extH.UpdateNotificationSettings)
+	// 活动弹窗(玩家端)
+	userAPI.GET("/activity-popups", extH.ListActivityPopups)
+	// 聊天扩展(玩家端)
+	userAPI.GET("/chat-ext/group-files", extH.ListGroupFiles)
+	userAPI.POST("/chat-ext/reports", extH.CreateChatReport)
+	userAPI.PUT("/chat-ext/sessions/:id/pin", extH.TogglePinSession)
+
+	// ===== 俱乐部小助手APP扩展 - 平台超级管理员端 =====
+	admin.GET("/punishment-templates", extH.ListPunishmentTemplates)
+	admin.POST("/punishment-templates", extH.SavePunishmentTemplate)
+	admin.GET("/feedbacks", extH.ListAllFeedbacks)
+	admin.PUT("/feedbacks/:id/reply", extH.ReplyFeedback)
+	admin.GET("/festival-templates", extH.ListFestivalTemplates)
+	admin.POST("/festival-templates", extH.SaveFestivalTemplate)
+	admin.GET("/promo-channels", extH.ListPromoChannels)
+	admin.POST("/promo-channels", extH.CreatePromoChannel)
+	admin.GET("/chat-reports", extH.ListChatReports)
+	admin.PUT("/chat-reports/:id/handle", extH.HandleChatReport)
 }

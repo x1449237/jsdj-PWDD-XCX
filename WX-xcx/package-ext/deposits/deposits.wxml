@@ -1,0 +1,51 @@
+<view class="page">
+  <view class="header-bar">
+    <text class="header-title">预存存单</text>
+    <view class="btn btn-primary btn-sm" bindtap="onOpenForm">预存</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty-icon-bg pkg"></view>
+    <text class="empty-state-text">暂无存单记录</text>
+  </view>
+
+  <view class="card-list" wx:else>
+    <view class="card" wx:for="{{list}}" wx:key="index">
+      <view class="card-header">
+        <text class="dep-amount">¥{{item.amountText}}</text>
+        <text class="tag {{item.tagClass}}">{{item.statusText}}</text>
+      </view>
+      <view class="card-body">
+        <view class="info-row">
+          <text class="info-label">剩余余额</text>
+          <text class="info-value">¥{{item.balanceText}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">到期时间</text>
+          <text class="info-value">{{item.expiredText}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">创建时间</text>
+          <text class="info-value">{{item.createdText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="loading-more" wx:if="{{loading}}">加载中...</view>
+  <view class="no-more" wx:if="{{!loading && noMore && list.length > 0}}">没有更多了</view>
+
+  <view class="card form-card" wx:if="{{showForm}}">
+    <view class="card-header">
+      <text class="sheet-title">预存</text>
+      <text class="sheet-close" bindtap="onCloseForm">收起</text>
+    </view>
+    <view class="card-body">
+      <view class="form-group">
+        <text class="form-label">预存金额（元）</text>
+        <input class="form-input" type="digit" placeholder="请输入预存金额" value="{{amount}}" bindinput="onAmountInput" />
+      </view>
+      <view class="btn btn-primary btn-block" bindtap="onSubmit">确认预存</view>
+    </view>
+  </view>
+</view>

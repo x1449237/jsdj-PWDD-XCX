@@ -1,0 +1,28 @@
+<view class="page">
+  <view class="header-bar">
+    <text class="header-title">收藏的俱乐部</text>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && list.length === 0}}">
+    <view class="empty-icon-bg group"></view>
+    <text class="empty-state-text">暂无收藏的俱乐部</text>
+  </view>
+
+  <view class="card-list" wx:else>
+    <view class="card club-card" wx:for="{{list}}" wx:key="club_id">
+      <view class="club-main" bindtap="onItemTap" data-id="{{item.club_id}}">
+        <image class="club-logo" src="{{item.logo || '/assets/images/default-avatar.png'}}" mode="aspectFill"></image>
+        <view class="club-info">
+          <text class="club-name text-ellipsis">{{item.club_name}}</text>
+          <text class="club-intro text-ellipsis-2">{{item.intro_text}}</text>
+        </view>
+      </view>
+      <view class="card-footer">
+        <view class="btn btn-outline btn-sm" bindtap="onUnfavorite" data-id="{{item.club_id}}">取消收藏</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="loading-more" wx:if="{{loading}}">加载中...</view>
+  <view class="no-more" wx:if="{{!loading && noMore && list.length > 0}}">没有更多了</view>
+</view>

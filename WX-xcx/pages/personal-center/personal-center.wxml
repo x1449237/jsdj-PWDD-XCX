@@ -93,6 +93,45 @@
       </view>
     </view>
 
+    <!-- 更多服务（扩展功能） -->
+    <view class="menu-group">
+      <view class="menu-item" bindtap="onOrderTemplates">
+        <image class="menu-icon" src="/assets/icons/menu-order.png" mode="aspectFit"></image>
+        <text class="menu-name">下单模板</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onFavoriteClubs">
+        <image class="menu-icon" src="/assets/icons/menu-club-list.png" mode="aspectFit"></image>
+        <text class="menu-name">收藏的俱乐部</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onWalletLogs">
+        <image class="menu-icon" src="/assets/icons/menu-profit.png" mode="aspectFit"></image>
+        <text class="menu-name">钱包变动</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onDeposits">
+        <image class="menu-icon" src="/assets/icons/menu-recharge.png" mode="aspectFit"></image>
+        <text class="menu-name">预存存单</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onClubApply">
+        <image class="menu-icon" src="/assets/icons/menu-club.png" mode="aspectFit"></image>
+        <text class="menu-name">俱乐部申报</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onFeedback">
+        <image class="menu-icon" src="/assets/icons/menu-review.png" mode="aspectFit"></image>
+        <text class="menu-name">意见反馈</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="onNotificationSettings">
+        <image class="menu-icon" src="/assets/icons/menu-settings.png" mode="aspectFit"></image>
+        <text class="menu-name">通知设置</text>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+
     <!-- 俱乐部入驻入口（开关控制） -->
     <view class="menu-group" wx:if="{{clubJoinOpen}}">
       <view class="menu-item" bindtap="onClubJoin">

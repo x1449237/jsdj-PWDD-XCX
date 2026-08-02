@@ -1,0 +1,35 @@
+<view class="page">
+  <view class="header-bar">
+    <text class="header-title">通知设置</text>
+  </view>
+
+  <view class="card setting-card">
+    <view class="setting-item">
+      <view class="setting-info">
+        <text class="setting-name">订单通知</text>
+        <text class="setting-desc">接收订单状态变更提醒</text>
+      </view>
+      <switch checked="{{form.order_notify}}" data-field="order_notify" bindchange="onSwitchChange" color="#e94560" />
+    </view>
+    <view class="divider"></view>
+    <view class="setting-item">
+      <view class="setting-info">
+        <text class="setting-name">售后通知</text>
+        <text class="setting-desc">接收售后处理进度提醒</text>
+      </view>
+      <switch checked="{{form.after_sale_notify}}" data-field="after_sale_notify" bindchange="onSwitchChange" color="#e94560" />
+    </view>
+    <view class="divider"></view>
+    <view class="setting-item">
+      <view class="setting-info">
+        <text class="setting-name">营销通知</text>
+        <text class="setting-desc">接收活动优惠等营销提醒</text>
+      </view>
+      <switch checked="{{form.marketing_notify}}" data-field="marketing_notify" bindchange="onSwitchChange" color="#e94560" />
+    </view>
+  </view>
+
+  <view class="save-wrap">
+    <view class="btn btn-primary btn-block" bindtap="onSave">保存</view>
+  </view>
+</view>
