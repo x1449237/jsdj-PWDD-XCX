@@ -8,10 +8,15 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/jisan/e-sports-platform/internal/model"
 	"github.com/jisan/e-sports-platform/internal/utils"
 )
+
+// FaceVerifyFee 每次活体认证费用(单位:分,2元=200分)
+// 实际调用第三方活体API时收取,缓存命中/频控拦截不收取
+const FaceVerifyFee int64 = 200
 
 // UserProfile 用户资料(脱敏后)
 type UserProfile struct {
@@ -183,15 +188,45 @@ func FaceVerify(userID int64, sessionID string) (string, error) {
 		return "", errors.New("今日活体检测次数已达上限(5次)，请明日再试")
 	}
 
-	// Step 3. 写 DB 频控记录 + Redis 计数
-	_ = db.Create(&model.FaceVerifyRateLimit{
-		UserID:    userID,
-		IP:        "face-api",
-		Count:     1,
-		Date:      today0.Format("2006-01-02"),
-		CreatedAt: &now,
-		UpdatedAt: &now,
+	// Step 3. 扣费 + 写 DB 频控记录(事务原子,防并发超额扣费)
+	// 收费规则:每次实际调用第三方活体API收取2元(200分),缓存命中/频控拦截不收取
+	// 余额不足拒绝调用,避免平台垫付;第三方按调用次数计费,无论成功失败均收费
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 行锁用户记录,防并发超额扣费
+		var locked model.User
+		if err := tx.Where("id = ?", userID).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked).Error; err != nil {
+			return err
+		}
+		if locked.Balance < FaceVerifyFee {
+			return fmt.Errorf("余额不足,活体认证需%.2f元,当前余额%.2f元,请先充值",
+				float64(FaceVerifyFee)/100, float64(locked.Balance)/100)
+		}
+		// 原子扣减余额(条件更新防超额)
+		res := tx.Model(&model.User{}).
+			Where("id = ? AND balance >= ?", userID, FaceVerifyFee).
+			UpdateColumn("balance", gorm.Expr("balance - ?", FaceVerifyFee))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return fmt.Errorf("余额不足,活体认证需%.2f元", float64(FaceVerifyFee)/100)
+		}
+		// 写频控记录(带扣费金额,可追溯)
+		return tx.Create(&model.FaceVerifyRateLimit{
+			UserID:    userID,
+			IP:        "face-api",
+			Count:     1,
+			Date:      today0.Format("2006-01-02"),
+			Fee:       FaceVerifyFee,
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}).Error
 	})
+	if err != nil {
+		return "", err
+	}
 	if redis != nil {
 		_ = redis.Set(ctx, rateLimitKey, fmt.Sprintf("%d", todayUsed+1),
 			time.Until(tomorrow0))

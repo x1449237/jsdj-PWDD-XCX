@@ -66,12 +66,13 @@ CREATE TABLE `face_verify_rate_limits` (
   `ip` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'IP地址',
   `count` INT NOT NULL DEFAULT 0 COMMENT '当日次数',
   `date` DATE NOT NULL COMMENT '日期',
+  `fee` BIGINT NOT NULL DEFAULT 0 COMMENT '本次活体认证扣费金额(分),0=未扣费(如缓存命中)',
   `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
   `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_date` (`user_id`, `date`),
   KEY `idx_ip` (`ip`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活体检测频控表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf4mb4_unicode_ci COMMENT='活体检测频控表';
 
 -- 监护人验证表
 DROP TABLE IF EXISTS `guardian_verifies`;

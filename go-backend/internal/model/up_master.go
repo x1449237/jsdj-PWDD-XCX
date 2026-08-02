@@ -296,6 +296,7 @@ type FaceVerifyRateLimit struct {
 	IP        string     `gorm:"column:ip;index:idx_ip;size:64;not null;default:''" json:"ip"`
 	Count     int        `gorm:"column:count;not null;default:0" json:"count"`
 	Date      string     `gorm:"column:date;index:idx_user_date;size:16;not null;default:''" json:"date"` // yyyy-MM-dd
+	Fee       int64      `gorm:"column:fee;not null;default:0" json:"fee"`                               // 本次活体认证扣费金额(分),0=未扣费(如缓存命中)
 	CreatedAt *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
