@@ -38,6 +38,82 @@
   align-items: center;
 }
 
+/* 活体认证收费说明(合规告知) */
+.fee-notice {
+  margin: var(--spacing-sm) 0 var(--spacing-md);
+  padding: var(--spacing-md);
+  background: #fff8e6;
+  border: 1rpx solid #ffd591;
+  border-radius: 12rpx;
+}
+.fee-notice-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+.fee-notice-icon {
+  color: #fa8c16;
+  font-size: var(--font-size-md);
+  margin-right: 8rpx;
+  font-weight: bold;
+}
+.fee-notice-title {
+  font-size: var(--font-size-md);
+  font-weight: bold;
+  color: #d46b08;
+}
+.fee-notice-body {
+  padding: var(--spacing-xs) 0;
+}
+.fee-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 6rpx 0;
+}
+.fee-label {
+  width: 140rpx;
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tip);
+}
+.fee-value {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+.fee-agree {
+  display: flex;
+  align-items: flex-start;
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1rpx solid #ffd591;
+}
+.fee-agree .checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #d9d9d9;
+  border-radius: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #fff;
+}
+.fee-agree .checkbox.checked {
+  background: #fa8c16;
+  border-color: #fa8c16;
+}
+.fee-agree-text {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .liveness-frame {
   display: flex;
   align-items: center;

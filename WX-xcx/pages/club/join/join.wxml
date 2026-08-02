@@ -159,9 +159,37 @@
       </view>
     </view>
 
+    <!-- 活体认证收费说明(合规告知) -->
+    <view class="fee-notice">
+      <view class="fee-notice-header">
+        <text class="fee-notice-icon">ℹ</text>
+        <text class="fee-notice-title">活体认证收费说明</text>
+      </view>
+      <view class="fee-notice-body">
+        <view class="fee-row">
+          <text class="fee-label">收费标准</text>
+          <text class="fee-value">每次 ¥2.00</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">收费方式</text>
+          <text class="fee-value">先收费后认证，认证失败不退款</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">收费依据</text>
+          <text class="fee-value">第三方人脸识别服务按调用次数计费</text>
+        </view>
+      </view>
+      <view class="fee-agree" bindtap="toggleFeeAgree">
+        <view class="checkbox {{feeAgreed ? 'checked' : ''}}">
+          <text wx:if="{{feeAgreed}}">✓</text>
+        </view>
+        <text class="fee-agree-text">我已知晓并同意上述收费规则，点击开始识别即从余额扣除 ¥2.00</text>
+      </view>
+    </view>
+
     <view class="liveness-section">
       <view class="liveness-label">活体人脸识别</view>
-      <button class="liveness-btn" bindtap="onLivenessCheck" wx:if="{{livenessStatus === 0}}">开始人脸识别</button>
+      <button class="liveness-btn" bindtap="onLivenessCheck" wx:if="{{livenessStatus === 0}}" disabled="{{!feeAgreed}}">开始人脸识别</button>
       <view class="liveness-passed" wx:if="{{livenessStatus === 1}}">已通过人脸识别</view>
     </view>
   </view>

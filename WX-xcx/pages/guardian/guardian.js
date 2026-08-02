@@ -11,6 +11,7 @@ Page({
     disclaimerAgreed: false,
     signatureDrawn: false,
     submitting: false,
+    feeAgreed: false, // 活体认证收费知情同意
     canvasCtx: null,
     startX: 0,
     startY: 0,
@@ -68,10 +69,19 @@ Page({
     this.setData({ guardianPhone: e.detail.value });
   },
 
+  // 切换活体认证收费同意状态
+  toggleFeeAgree() {
+    this.setData({ feeAgreed: !this.data.feeAgreed });
+  },
+
   onStartLiveness() {
-    const { guardianName, guardianIdCard } = this.data;
+    const { guardianName, guardianIdCard, feeAgreed } = this.data;
     if (!guardianName || !guardianIdCard) {
       wx.showToast({ title: '请先填写监护人信息', icon: 'none' });
+      return;
+    }
+    if (!feeAgreed) {
+      wx.showToast({ title: '请先阅读并同意收费说明', icon: 'none' });
       return;
     }
 

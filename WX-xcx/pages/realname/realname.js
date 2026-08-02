@@ -10,7 +10,8 @@ Page({
     livenessFailReason: '',
     isMinor: false,
     overLimit: false,
-    submitting: false
+    submitting: false,
+    feeAgreed: false // 活体认证收费知情同意
   },
 
   onLoad(options) {
@@ -28,10 +29,19 @@ Page({
     this.setData({ idCard: e.detail.value });
   },
 
+  // 切换活体认证收费同意状态
+  toggleFeeAgree() {
+    this.setData({ feeAgreed: !this.data.feeAgreed });
+  },
+
   onStartLiveness() {
-    const { realName, idCard } = this.data;
+    const { realName, idCard, feeAgreed } = this.data;
     if (!realName || !idCard) {
       wx.showToast({ title: '请先填写姓名和身份证号', icon: 'none' });
+      return;
+    }
+    if (!feeAgreed) {
+      wx.showToast({ title: '请先阅读并同意收费说明', icon: 'none' });
       return;
     }
 

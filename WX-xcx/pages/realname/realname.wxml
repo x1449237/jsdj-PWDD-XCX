@@ -34,6 +34,39 @@
   <!-- 活体检测区域 -->
   <view class="card">
     <view class="form-label">活体检测</view>
+
+    <!-- 活体认证收费说明(合规告知) -->
+    <view class="fee-notice">
+      <view class="fee-notice-header">
+        <text class="fee-notice-icon">ℹ</text>
+        <text class="fee-notice-title">活体认证收费说明</text>
+      </view>
+      <view class="fee-notice-body">
+        <view class="fee-row">
+          <text class="fee-label">收费标准</text>
+          <text class="fee-value">每次 ¥2.00</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">收费方式</text>
+          <text class="fee-value">先收费后认证，认证失败不退款</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">免费场景</text>
+          <text class="fee-value">7天内已通过认证的可免费复用</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">收费依据</text>
+          <text class="fee-value">第三方人脸识别服务按调用次数计费</text>
+        </view>
+      </view>
+      <view class="fee-agree" bindtap="toggleFeeAgree">
+        <view class="checkbox {{feeAgreed ? 'checked' : ''}}">
+          <text wx:if="{{feeAgreed}}">✓</text>
+        </view>
+        <text class="fee-agree-text">我已知晓并同意上述收费规则，点击开始检测即从余额扣除 ¥2.00</text>
+      </view>
+    </view>
+
     <view class="liveness-area">
       <view class="liveness-frame {{livenessStatus}}">
         <view class="frame-circle">
@@ -68,7 +101,7 @@
           class="btn btn-primary btn-block"
           bindtap="onStartLiveness"
           loading="{{livenessLoading}}"
-          disabled="{{!realName || !idCard}}"
+          disabled="{{!realName || !idCard || !feeAgreed}}"
         >
           {{livenessStatus === 'fail' ? '重新检测' : '开始活体检测'}}
         </button>
@@ -82,6 +115,7 @@
           wx:if="{{livenessStatus === 'success'}}"
           class="btn btn-outline btn-block"
           bindtap="onStartLiveness"
+          disabled="{{!feeAgreed}}"
         >
           重新检测
         </button>

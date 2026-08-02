@@ -63,6 +63,7 @@ Page({
     idCardFront: '',
     idCardBack: '',
     livenessStatus: 0,
+    feeAgreed: false, // 活体认证收费知情同意
 
     // 步骤4：合同
     contractFile: '',
@@ -386,8 +387,17 @@ Page({
     });
   },
 
+  // 切换活体认证收费同意状态
+  toggleFeeAgree() {
+    this.setData({ feeAgreed: !this.data.feeAgreed });
+  },
+
   // 活体认证
   onLivenessCheck() {
+    if (!this.data.feeAgreed) {
+      wx.showToast({ title: '请先阅读并同意收费说明', icon: 'none' });
+      return;
+    }
     wx.showToast({ title: '活体认证中...', icon: 'loading' });
     // 调用微信活体认证API
     setTimeout(() => {
