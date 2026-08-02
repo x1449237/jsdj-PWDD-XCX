@@ -1,0 +1,58 @@
+<view class="pimwb">
+  <!-- 顶部统计数字 52 -->
+  <view class="top-stats" wx:if="{{overview}}">
+    <view class="stat-card stat-danger">
+      <view class="num">{{overview.count_emergency || 0}}</view>
+      <view class="label">今日紧急</view>
+    </view>
+    <view class="stat-card stat-primary">
+      <view class="num">{{overview.count_new_today || 0}}</view>
+      <view class="label">新增售后</view>
+    </view>
+    <view class="stat-card stat-warn">
+      <view class="num">{{overview.count_timeout || 0}}</view>
+      <view class="label">即将超时</view>
+    </view>
+    <view class="stat-card stat-tool" bindtap="onChangeOrder">
+      <view class="num">🔀</view>
+      <view class="label">自定义顺序</view>
+    </view>
+  </view>
+
+  <!-- 跳转按钮 -->
+  <view class="entry-row">
+    <button class="entry-btn" bindtap="onGotoSessionList">进入会话归类清单 ›</button>
+  </view>
+
+  <!-- 三大任务板块 46-51 -->
+  <block wx:for="{{buckets}}" wx:key="bucketKey">
+    <view class="wb-block">
+      <view class="wb-head">
+        <view class="wb-title">{{item.bucketName}}</view>
+        <view class="wb-count">{{item.items.length}}条</view>
+      </view>
+      <view wx:if="{{item.items.length === 0}}" class="wb-empty">暂无任务 ✨</view>
+      <block wx:for="{{item.items}}" wx:key="task_id" wx:for-item="task">
+        <view class="wb-task">
+          <view class="wb-task-title">
+            <text wx:if="{{task.risk_flag === 4}}" class="risk risk-4">预警</text>
+            <text wx:elif="{{task.risk_flag === 3}}" class="risk risk-3">介入</text>
+            <text wx:elif="{{task.risk_flag === 2}}" class="risk risk-2">举证</text>
+            <text>{{task.title}}</text>
+          </view>
+          <view class="wb-task-sub">{{task.sub_title}}</view>
+          <view class="wb-task-deadline" wx:if="{{task.deadline_at}}">
+            ⏰ {{task.deadline_at}}
+            <text wx:if="{{task.deadline_left}}" class="left">剩{{task.deadline_left}}</text>
+          </view>
+          <view class="wb-actions">
+            <view class="wb-btn btn-primary" data-id="{{task.session_id}}" bindtap="onOpenSession">立即进入</view>
+            <view class="wb-btn btn-light" data-id="{{task.session_id}}" bindtap="onAddTag">加标签</view>
+            <view class="wb-btn btn-light" data-id="{{task.session_id}}" bindtap="onAddNote">备注</view>
+            <view class="wb-btn btn-success" data-id="{{task.session_id}}" bindtap="onComplete">完成</view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </block>
+</view>

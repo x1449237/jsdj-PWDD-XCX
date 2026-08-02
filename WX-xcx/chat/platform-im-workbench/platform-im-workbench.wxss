@@ -1,0 +1,92 @@
+.pimwb {
+  min-height: 100vh;
+  background: #f2f3f7;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+.top-stats {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.stat-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 12rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,.04);
+}
+.stat-card .num {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #303133;
+}
+.stat-danger .num { color: #f56c6c; }
+.stat-primary .num { color: #409eff; }
+.stat-warn .num { color: #e6a23c; }
+.stat-tool .num { font-size: 32rpx; color: #909399; }
+.stat-card .label {
+  font-size: 22rpx;
+  color: #909399;
+  margin-top: 6rpx;
+}
+.entry-row { margin: 10rpx 0 24rpx; }
+.entry-btn {
+  background: linear-gradient(90deg,#409eff,#1e6fff);
+  color: #fff;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+}
+.wb-block {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+.wb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f2;
+}
+.wb-title { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.wb-count { font-size: 24rpx; color: #909399; }
+.wb-empty { color: #c0c4cc; font-size: 26rpx; padding: 40rpx 0; text-align: center; }
+.wb-task {
+  padding: 20rpx 0;
+  border-bottom: 1rpx dashed #f0f0f2;
+}
+.wb-task:last-child { border-bottom: none; }
+.wb-task-title { font-size: 28rpx; font-weight: 600; color: #1f2329; }
+.risk {
+  display: inline-block;
+  font-size: 20rpx;
+  color: #fff;
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  margin-right: 8rpx;
+}
+.risk-4 { background: #f56c6c; }
+.risk-3 { background: #e6a23c; }
+.risk-2 { background: #e6a23c; }
+.wb-task-sub { font-size: 24rpx; color: #606266; margin-top: 8rpx; }
+.wb-task-deadline { font-size: 24rpx; color: #f56c6c; margin-top: 6rpx; }
+.wb-task-deadline .left { margin-left: 10rpx; font-weight: 600; }
+.wb-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
+.wb-btn {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  border-radius: 10rpx;
+  padding: 12rpx 0;
+}
+.btn-primary { background: #409eff; color: #fff; }
+.btn-success { background: #67c23a; color: #fff; }
+.btn-light { background: #f4f4f5; color: #606266; }

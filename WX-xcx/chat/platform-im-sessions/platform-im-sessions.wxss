@@ -1,0 +1,61 @@
+.pims { min-height: 100vh; background:#f2f3f7; padding-bottom:40rpx; }
+.search-bar { background:#fff; padding:20rpx; }
+.search-wrap { display:flex; align-items:center; background:#f4f4f5; border-radius:50rpx; padding:6rpx 20rpx; }
+.search-input { flex:1; height:64rpx; font-size:26rpx; }
+.search-btn { color:#409eff; font-size:26rpx; padding:0 10rpx; }
+.history { margin-top:16rpx; display:flex; align-items:center; flex-wrap:wrap; }
+.h-label { font-size:22rpx; color:#909399; }
+.h-items { flex:1; display:flex; flex-wrap:wrap; gap:12rpx; margin:0 10rpx; }
+.h-tag { font-size:22rpx; background:#ecf5ff; color:#409eff; padding:6rpx 14rpx; border-radius:24rpx; }
+.h-clear { font-size:22rpx; color:#f56c6c; }
+
+.tabs { white-space:nowrap; background:#fff; padding:10rpx 16rpx; display:flex; }
+.tab-item { display:inline-block; padding:14rpx 20rpx; font-size:26rpx; color:#606266; margin-right:10rpx; border-radius:10rpx; }
+.tab-item.active { background:#ecf5ff; color:#409eff; font-weight:600; }
+
+.sub-filter { display:flex; flex-wrap:wrap; gap:12rpx; padding:16rpx; background:#fff; margin-top:1rpx; }
+.sf-item { font-size:22rpx; background:#f4f4f5; padding:10rpx 18rpx; border-radius:24rpx; color:#606266; }
+.sf-item.active { background:#409eff; color:#fff; }
+.sf-input { flex:1 0 44%; font-size:24rpx; background:#f4f4f5; border-radius:10rpx; padding:14rpx; }
+
+.group-wrap { margin:20rpx 20rpx 0; background:#fff; border-radius:16rpx; overflow:hidden; }
+.group-head { display:flex; align-items:center; padding:20rpx; border-bottom:1rpx solid #f0f0f2; }
+.arrow { width:24rpx; font-size:22rpx; color:#909399; transition:transform .15s; margin-right:10rpx; }
+.arrow.collapsed { transform:rotate(-90deg); }
+.group-name { flex:1; font-size:28rpx; font-weight:600; color:#1f2329; }
+.group-count { font-size:22rpx; color:#909399; margin-right:10rpx; }
+.group-collapse { font-size:22rpx; }
+.empty { color:#c0c4cc; font-size:24rpx; padding:40rpx 0; text-align:center; }
+
+.sess-item { position:relative; display:flex; padding:20rpx; border-bottom:1rpx solid #f5f5f7; }
+.sess-item:last-child { border-bottom:none; }
+.sess-side { position:absolute; left:0; top:0; bottom:0; width:6rpx; }
+.risk-4 { background:#f56c6c; }
+.risk-3 { background:#e6a23c; }
+.risk-2 { background:#f0c78a; }
+.risk-1 { background:#909399; }
+.sess-avatar { position:relative; margin-right:20rpx; width:96rpx; }
+.avatar-wrap { width:96rpx; height:96rpx; border-radius:50%; overflow:hidden; }
+.avatar { width:100%; height:100%; }
+.badge { position:absolute; top:-6rpx; right:-6rpx; min-width:32rpx; padding:0 8rpx; height:32rpx; line-height:32rpx; text-align:center; font-size:20rpx; color:#fff; background:#f56c6c; border-radius:16rpx; }
+.badge.b-bold { font-weight:700; font-size:22rpx; background:#d9363e; }
+.sess-main { flex:1; min-width:0; }
+.sess-top { display:flex; align-items:center; }
+.sess-title { flex:1; font-size:28rpx; font-weight:600; color:#1f2329; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.horn { color:#f0c78a; margin:0 8rpx; }
+.sess-time { font-size:22rpx; color:#909399; }
+.sess-sub { margin-top:6rpx; display:flex; flex-wrap:wrap; gap:8rpx; }
+.badge-ib { display:inline-block; font-size:20rpx; padding:2rpx 10rpx; border-radius:8rpx; }
+.bg-gray { background:#f4f4f5; color:#606266; }
+.risk-label { font-size:20rpx; padding:2rpx 10rpx; border-radius:8rpx; }
+.risk-label.risk-4 { background:#fef0f0; color:#f56c6c; }
+.risk-label.risk-3 { background:#fdf6ec; color:#e6a23c; }
+.risk-label.risk-2 { background:#fdf6ec; color:#e6a23c; }
+.sess-msg { margin-top:4rpx; font-size:24rpx; color:#606266; }
+.sess-last { display:flex; justify-content:space-between; margin-top:8rpx; }
+.last-preview { flex:1; font-size:22rpx; color:#909399; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.note-preview { font-size:22rpx; color:#e6a23c; margin-left:10rpx; }
+.sess-tags { display:flex; flex-wrap:wrap; gap:8rpx; margin-top:10rpx; }
+.tag { font-size:20rpx; color:#fff; padding:2rpx 10rpx; border-radius:8rpx; }
+.sess-opt { display:flex; flex-direction:column; gap:14rpx; padding-left:12rpx; }
+.opt { width:44rpx; height:44rpx; text-align:center; line-height:44rpx; border-radius:50%; background:#f4f4f5; font-size:22rpx; }

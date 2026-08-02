@@ -3725,4 +3725,235 @@ CREATE TABLE `corporate_transfer_records` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='企业对公小额打款记录台账表';
 
+-- ============================================================
+-- 【平台方管理人员 IM 会话归类清单】数据结构补充
+-- 覆盖：会话排序字段、筛选检索、待办标签/备注/星标、工作台、
+--       专属气泡+V标样式配置、三级头像框、快捷话术、证据预览、搜索历史
+-- ============================================================
+
+-- 1) 聊天会话扩展字段（优先级排序、风险标识、分组、最后消息时间）
+ALTER TABLE `chat_sessions`
+  ADD COLUMN `priority_level` TINYINT NOT NULL DEFAULT 0 COMMENT '会话优先级 0普通 1新消息售后 2举证超时 3玩家介入 4敏感词预警(越高级越靠前)',
+  ADD COLUMN `risk_flag` TINYINT NOT NULL DEFAULT 0 COMMENT '风险标识 0无 1敏感词 2玩家介入 3超时举证 4已办结',
+  ADD COLUMN `last_msg_at` DATETIME NULL DEFAULT NULL COMMENT '最后消息时间(用于排序)',
+  ADD COLUMN `last_msg_preview` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '最后消息预览文本',
+  ADD COLUMN `unread_count` INT NOT NULL DEFAULT 0 COMMENT '未读消息数',
+  ADD COLUMN `group_bucket` VARCHAR(32) NOT NULL DEFAULT 'normal' COMMENT '分组桶 risk_top/介入/超时/normal_sale/club_chat/silent_sale/silent_club/closed',
+  ADD COLUMN `silent_days` INT NOT NULL DEFAULT 0 COMMENT '沉寂天数',
+  ADD COLUMN `official_has_reply` TINYINT NOT NULL DEFAULT 0 COMMENT '官方是否已回复(用于徽章)',
+  ADD COLUMN `has_official_notice` TINYINT NOT NULL DEFAULT 0 COMMENT '是否含官方重要公告(金色小喇叭)',
+  ADD COLUMN `game_id` INT NOT NULL DEFAULT 0 COMMENT '关联游戏ID(筛选用)',
+  ADD KEY `idx_priority` (`priority_level`),
+  ADD KEY `idx_risk_flag` (`risk_flag`),
+  ADD KEY `idx_last_msg_at` (`last_msg_at`),
+  ADD KEY `idx_group_bucket` (`group_bucket`);
+
+-- 2) 会话自定义处理标签 (27~30)
+DROP TABLE IF EXISTS `im_session_tags`;
+CREATE TABLE `im_session_tags` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '会话ID',
+  `tag_id` BIGINT NOT NULL DEFAULT 0 COMMENT '标签定义ID',
+  `tag_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '标签名称快照',
+  `tag_color` VARCHAR(16) NOT NULL DEFAULT '' COMMENT '标签颜色快照',
+  `created_by` BIGINT NOT NULL DEFAULT 0 COMMENT '打标人平台账号ID',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_session_id` (`session_id`),
+  KEY `idx_tag_id` (`tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM会话-自定义处理标签关联表';
+
+-- 3) 标签定义 (平台人员可自定义增删改)
+DROP TABLE IF EXISTS `im_tag_definitions`;
+CREATE TABLE `im_tag_definitions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '标签名称',
+  `color` VARCHAR(16) NOT NULL DEFAULT '#409EFF' COMMENT '标签颜色',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `created_by` BIGINT NOT NULL DEFAULT 0 COMMENT '创建人',
+  `is_system` TINYINT NOT NULL DEFAULT 0 COMMENT '是否系统内置(不可删)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM会话处理标签定义表';
+
+-- 4) 会话个人备注 (32~33)
+DROP TABLE IF EXISTS `im_session_notes`;
+CREATE TABLE `im_session_notes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '会话ID',
+  `platform_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '平台人员UID',
+  `content` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '备注内容',
+  `is_starred` TINYINT NOT NULL DEFAULT 0 COMMENT '稍后处理星标 0否 1是',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_user` (`session_id`,`platform_uid`),
+  KEY `idx_is_starred` (`is_starred`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM会话-平台人员个人备注与星标表';
+
+-- 5) 会话搜索历史 (25)
+DROP TABLE IF EXISTS `im_search_histories`;
+CREATE TABLE `im_search_histories` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `platform_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '平台人员UID',
+  `keyword` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '搜索关键词',
+  `search_type` VARCHAR(32) NOT NULL DEFAULT 'all' COMMENT '搜索类型 order/club/user/keyword/all',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '搜索时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_platform_uid` (`platform_uid`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM搜索历史记录表';
+
+-- 6) 平台工作台任务缓存 (46~52)
+DROP TABLE IF EXISTS `im_workbench_tasks`;
+CREATE TABLE `im_workbench_tasks` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `platform_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '平台人员UID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联会话ID',
+  `task_bucket` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '任务桶 emergency紧急/todo待跟进/yesterday昨日遗留',
+  `title` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '任务标题',
+  `task_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '任务类型 sensitive/介入/超时/普通',
+  `deadline_at` DATETIME NULL DEFAULT NULL COMMENT '截止时间',
+  `is_done` TINYINT NOT NULL DEFAULT 0 COMMENT '是否完成 0否 1是',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_platform_bucket` (`platform_uid`,`task_bucket`),
+  KEY `idx_is_done` (`is_done`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM平台工作台待办任务表';
+
+-- 7) 平台工作台配置 (板块自定义顺序 62)
+DROP TABLE IF EXISTS `im_workbench_layouts`;
+CREATE TABLE `im_workbench_layouts` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `platform_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '平台人员UID',
+  `bucket_order` JSON COMMENT '三大板块排序 ["emergency","todo","yesterday"]',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_uid` (`platform_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM工作台个人布局配置表';
+
+-- 8) 售后快捷话术库 (53)
+DROP TABLE IF EXISTS `im_quick_replies`;
+CREATE TABLE `im_quick_replies` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `category` VARCHAR(32) NOT NULL DEFAULT 'soothe' COMMENT '分类 soothe安抚/evidence要求举证/notice仲裁时限',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '话术标题',
+  `content` TEXT COMMENT '话术正文',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `is_system` TINYINT NOT NULL DEFAULT 1 COMMENT '是否系统内置',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM售后快捷话术库表';
+
+-- 9) 举证证据打包预览记录 (55)
+DROP TABLE IF EXISTS `im_evidence_packs`;
+CREATE TABLE `im_evidence_packs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '会话ID',
+  `message_ids` JSON COMMENT '打包的消息ID数组',
+  `created_by` BIGINT NOT NULL DEFAULT 0 COMMENT '操作人',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_session_id` (`session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM售后证据打包预览记录表';
+
+-- 10) 平台聊天气泡样式配置 (后端统管,前端仅渲染) 93/97
+DROP TABLE IF EXISTS `im_bubble_styles`;
+CREATE TABLE `im_bubble_styles` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `role_key` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '角色标识 platform/club_admin/user/player',
+  `bubble_bg` VARCHAR(64) NOT NULL DEFAULT '#FFFFFF' COMMENT '气泡底色(支持渐变 "linear-gradient(...)")',
+  `bubble_radius` INT NOT NULL DEFAULT 12 COMMENT '圆角(px)',
+  `bubble_shadow` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '外发光阴影CSS',
+  `text_color` VARCHAR(32) NOT NULL DEFAULT '#303133' COMMENT '文字颜色',
+  `text_stroke_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '文字描边颜色',
+  `text_stroke_width` DECIMAL(3,1) NOT NULL DEFAULT 0 COMMENT '文字描边粗细(px)',
+  `text_bold_important` TINYINT NOT NULL DEFAULT 0 COMMENT '重要指令加粗+双描边',
+  `important_text_color` VARCHAR(32) NOT NULL DEFAULT '#FFFFFF' COMMENT '重要指令文字色',
+  `important_stroke_width` DECIMAL(3,1) NOT NULL DEFAULT 0 COMMENT '重要指令双描边',
+  `voice_wave_color` VARCHAR(32) NOT NULL DEFAULT '#C0C4CC' COMMENT '语音波形颜色',
+  `long_text_line_height` DECIMAL(3,1) NOT NULL DEFAULT 1.6 COMMENT '长消息行高',
+  `brightness_locked` TINYINT NOT NULL DEFAULT 1 COMMENT '亮度锁定(不受夜间模式影响)',
+  `lock_font_opacity` TINYINT NOT NULL DEFAULT 1 COMMENT '禁止跟随系统字体透明度',
+  `v_badge_size_multiple` DECIMAL(3,2) NOT NULL DEFAULT 1.00 COMMENT 'V标尺寸倍率(官方1.8x)',
+  `nick_font_weight` VARCHAR(16) NOT NULL DEFAULT 'normal' COMMENT '昵称字重 normal/bold',
+  `nick_font_color` VARCHAR(32) NOT NULL DEFAULT '#303133' COMMENT '昵称文字色',
+  `nick_font_size_plus` INT NOT NULL DEFAULT 0 COMMENT '昵称字号+N号',
+  `official_tag_text` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '官方运营标签文案(留空不展示)',
+  `official_tag_bg` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '官方运营标签底色',
+  `notice_popup_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '公告/处罚类消息是否强弹窗',
+  `key_msg_left_bar_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关键消息左侧竖线颜色',
+  `session_badge` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '会话列表徽章文字',
+  `session_badge_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '会话列表徽章色',
+  `session_horn_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '会话金色小喇叭开关',
+  `group_top_notice_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '群内常驻提示开关',
+  `group_top_notice_text` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '群内常驻提示文案',
+  `nick_v_badge_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '昵称旁V标颜色(gold/blue/green)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_key` (`role_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM聊天气泡与标识样式配置表(后端统管,前端仅渲染)';
+
+-- 11) 三级头像框样式配置 (后端统管) 94
+DROP TABLE IF EXISTS `im_avatar_frame_styles`;
+CREATE TABLE `im_avatar_frame_styles` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `frame_key` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '样式标识 platform_gold/founder_blue/admin_gray',
+  `frame_thickness` INT NOT NULL DEFAULT 4 COMMENT '边框粗细(px)',
+  `frame_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '边框颜色(支持渐变)',
+  `corner_decor_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '四角装饰开关',
+  `corner_decor_color` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '四角装饰颜色',
+  `animation_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '动态闪烁开关',
+  `animation_type` VARCHAR(32) NOT NULL DEFAULT 'none' COMMENT '动效类型 pulse/fade_in_out/none',
+  `animation_params` JSON COMMENT '动效参数 {duration,period}',
+  `glow_enable` TINYINT NOT NULL DEFAULT 0 COMMENT '整体发光开关',
+  `layer_count` INT NOT NULL DEFAULT 1 COMMENT '边框层数(官方双层,其他单层)',
+  `only_self_club` TINYINT NOT NULL DEFAULT 0 COMMENT '是否仅任职俱乐部显示',
+  `require_v_badge` TINYINT NOT NULL DEFAULT 0 COMMENT '是否要求认证蓝V/绿V才显示(创始人)',
+  `priority` INT NOT NULL DEFAULT 0 COMMENT '优先级(数字越大越优先覆盖)',
+  `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
+  `updated_at` DATETIME NULL DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_frame_key` (`frame_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM三级头像框样式配置表(后端统管,前端仅渲染)';
+
+-- 12) 账号身份-样式权限映射 (93~98 后端下发权限)
+DROP TABLE IF EXISTS `im_style_grants`;
+CREATE TABLE `im_style_grants` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户UID',
+  `bubble_role_key` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '生效气泡角色标识(空=禁用官方样式)',
+  `avatar_frame_key` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '生效头像框(空=禁用)',
+  `scope_club_ids` JSON COMMENT '头像框生效俱乐部ID列表(跨俱乐部隐藏)',
+  `granted_by` BIGINT NOT NULL DEFAULT 0 COMMENT '授权人(仅超管可给)',
+  `granted_at` DATETIME NULL DEFAULT NULL COMMENT '授权时间',
+  `expires_at` DATETIME NULL DEFAULT NULL COMMENT '过期时间(NULL=永久)',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM账号样式授权映射表(权限变更实时更新,前端强制按此渲染)';
+
+-- 13) 群聊扩展：同俱乐部聚合开关 (45)、隐藏废弃 (44)、免打扰 (41~42)
+ALTER TABLE `group_chats`
+  ADD COLUMN `mute_notify` TINYINT NOT NULL DEFAULT 0 COMMENT '消息免打扰 0否 1是',
+  ADD COLUMN `is_hidden` TINYINT NOT NULL DEFAULT 0 COMMENT '废弃俱乐部临时隐藏 0否 1是',
+  ADD COLUMN `aggregate_same_club` TINYINT NOT NULL DEFAULT 0 COMMENT '同俱乐部聚合展示 0否 1是',
+  ADD COLUMN `last_msg_at` DATETIME NULL DEFAULT NULL COMMENT '最后发言时间',
+  ADD COLUMN `last_msg_preview` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '最后发言预览',
+  ADD COLUMN `unread_count` INT NOT NULL DEFAULT 0 COMMENT '未读数';
+
+-- 14) 聊天消息扩展：关键消息标记 (77)、强制弹窗 (74)、重要指令加粗
+ALTER TABLE `chat_messages`
+  ADD COLUMN `is_key_message` TINYINT NOT NULL DEFAULT 0 COMMENT '是否关键消息(左侧竖线)',
+  ADD COLUMN `is_important_directive` TINYINT NOT NULL DEFAULT 0 COMMENT '是否重要指令(双描边加粗)';
+
+ALTER TABLE `group_chat_messages`
+  ADD COLUMN `is_key_message` TINYINT NOT NULL DEFAULT 0 COMMENT '是否关键消息',
+  ADD COLUMN `is_important_directive` TINYINT NOT NULL DEFAULT 0 COMMENT '是否重要指令';
+
 SET FOREIGN_KEY_CHECKS = 1;

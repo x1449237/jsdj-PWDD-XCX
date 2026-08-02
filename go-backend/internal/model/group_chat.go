@@ -9,18 +9,24 @@ import (
 // GroupChat 群聊表模型
 type GroupChat struct {
 	ID                   int64      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	GroupName            string     `gorm:"column:group_name;size:128;not null;default:''" json:"group_name"`                     // 群名称
-	PinnedAnnouncementID int64      `gorm:"column:pinned_announcement_id;not null;default:0" json:"pinned_announcement_id"`       // 置顶公告ID
-	GroupType            string     `gorm:"column:group_type;index:idx_group_type;size:32;not null;default:''" json:"group_type"` // 群类型 internal/category
-	ClubID               int64      `gorm:"column:club_id;index:idx_club_id;not null;default:0" json:"club_id"`                   // 俱乐部ID
-	CategoryType         string     `gorm:"column:category_type;size:32;not null;default:''" json:"category_type"`                // 分类类型 chat/welfare/aftersale
-	CreatorID            int64      `gorm:"column:creator_id;not null;default:0" json:"creator_id"`                               // 创建人ID
-	Announcement         string     `gorm:"column:announcement;type:text" json:"announcement"`                                    // 群公告
-	AnnouncementAt       *time.Time `gorm:"column:announcement_at" json:"announcement_at"`                                        // 公告更新时间
-	Status               int8       `gorm:"column:status;index:idx_status;not null;default:1" json:"status"`                      // 状态 1正常 0解散
-	GroupTypeLabel       string     `gorm:"column:group_type_label;size:32;not null;default:''" json:"group_type_label"`          // 群类型标签
-	WelcomeMsg           string     `gorm:"column:welcome_msg;type:text" json:"welcome_msg"`                                      // 欢迎语
-	PrevOwnerUID         int64      `gorm:"column:prev_owner_uid;not null;default:0" json:"prev_owner_uid"`                       // 前任群主
+	GroupName            string     `gorm:"column:group_name;size:128;not null;default:''" json:"group_name"`
+	PinnedAnnouncementID int64      `gorm:"column:pinned_announcement_id;not null;default:0" json:"pinned_announcement_id"`
+	GroupType            string     `gorm:"column:group_type;index:idx_group_type;size:32;not null;default:''" json:"group_type"`
+	ClubID               int64      `gorm:"column:club_id;index:idx_club_id;not null;default:0" json:"club_id"`
+	CategoryType         string     `gorm:"column:category_type;size:32;not null;default:''" json:"category_type"`
+	CreatorID            int64      `gorm:"column:creator_id;not null;default:0" json:"creator_id"`
+	Announcement         string     `gorm:"column:announcement;type:text" json:"announcement"`
+	AnnouncementAt       *time.Time `gorm:"column:announcement_at" json:"announcement_at"`
+	Status               int8       `gorm:"column:status;index:idx_status;not null;default:1" json:"status"`
+	GroupTypeLabel       string     `gorm:"column:group_type_label;size:32;not null;default:''" json:"group_type_label"`
+	WelcomeMsg           string     `gorm:"column:welcome_msg;type:text" json:"welcome_msg"`
+	PrevOwnerUID         int64      `gorm:"column:prev_owner_uid;not null;default:0" json:"prev_owner_uid"`
+	MuteNotify           int8       `gorm:"column:mute_notify;not null;default:0" json:"mute_notify"`             // 免打扰
+	IsHidden             int8       `gorm:"column:is_hidden;not null;default:0" json:"is_hidden"`                 // 隐藏废弃
+	AggregateSameClub    int8       `gorm:"column:aggregate_same_club;not null;default:0" json:"aggregate_same_club"` // 同俱乐部聚合
+	LastMsgAt            *time.Time `gorm:"column:last_msg_at" json:"last_msg_at"`                                // 最后发言时间
+	LastMsgPreview       string     `gorm:"column:last_msg_preview;size:512;not null;default:''" json:"last_msg_preview"`
+	UnreadCount          int        `gorm:"column:unread_count;not null;default:0" json:"unread_count"`
 	CreatedAt            *time.Time `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
 	UpdatedAt            *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -71,19 +77,21 @@ const (
 
 // GroupChatMessage 群消息表
 type GroupChatMessage struct {
-	ID           int64          `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	GroupID      int64          `gorm:"column:group_id;index:idx_group_id;not null;default:0" json:"group_id"`    // 群ID
-	SenderID     int64          `gorm:"column:sender_id;index:idx_sender_id;not null;default:0" json:"sender_id"` // 发送者ID
-	MsgType      string         `gorm:"column:msg_type;size:32;not null;default:'text'" json:"msg_type"`          // 消息类型
-	AtAll        int8           `gorm:"column:at_all;not null;default:0" json:"at_all"`                           // @全体
-	Content      string         `gorm:"column:content;type:text" json:"content"`                                  // 消息内容
-	MediaURL     string         `gorm:"column:media_url;size:512;not null;default:''" json:"media_url"`           // 媒体URL
-	Duration     int            `gorm:"column:duration;not null;default:0" json:"duration"`                       // 时长(秒)
-	AsrText      string         `gorm:"column:asr_text;type:text" json:"asr_text"`                                // 语音转文字
-	IsRevoked    int8           `gorm:"column:is_revoked;not null;default:0" json:"is_revoked"`                   // 是否撤回 0否 1是
-	AtUIDs       datatypes.JSON `gorm:"column:at_uids" json:"at_uids"`                                            // @指定成员
-	IsForcePopup int8           `gorm:"column:is_force_popup;not null;default:0" json:"is_force_popup"`           // 强制弹窗
-	CreatedAt    *time.Time     `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
+	ID                   int64          `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	GroupID              int64          `gorm:"column:group_id;index:idx_group_id;not null;default:0" json:"group_id"`
+	SenderID             int64          `gorm:"column:sender_id;index:idx_sender_id;not null;default:0" json:"sender_id"`
+	MsgType              string         `gorm:"column:msg_type;size:32;not null;default:'text'" json:"msg_type"`
+	AtAll                int8           `gorm:"column:at_all;not null;default:0" json:"at_all"`
+	Content              string         `gorm:"column:content;type:text" json:"content"`
+	MediaURL             string         `gorm:"column:media_url;size:512;not null;default:''" json:"media_url"`
+	Duration             int            `gorm:"column:duration;not null;default:0" json:"duration"`
+	AsrText              string         `gorm:"column:asr_text;type:text" json:"asr_text"`
+	IsRevoked            int8           `gorm:"column:is_revoked;not null;default:0" json:"is_revoked"`
+	AtUIDs               datatypes.JSON `gorm:"column:at_uids" json:"at_uids"`
+	IsForcePopup         int8           `gorm:"column:is_force_popup;not null;default:0" json:"is_force_popup"`
+	IsKeyMessage         int8           `gorm:"column:is_key_message;not null;default:0" json:"is_key_message"`                 // 关键消息
+	IsImportantDirective int8           `gorm:"column:is_important_directive;not null;default:0" json:"is_important_directive"` // 重要指令
+	CreatedAt            *time.Time     `gorm:"column:created_at;index:idx_created_at" json:"created_at"`
 }
 
 // TableName 指定表名

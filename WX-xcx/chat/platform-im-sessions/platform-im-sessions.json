@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "平台会话归类清单",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#f2f3f7",
+  "usingComponents": {}
+}

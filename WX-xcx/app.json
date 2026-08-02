@@ -135,7 +135,9 @@
         "group-list/group-list",
         "group-room/group-room",
         "after-sale-list/after-sale-list",
-        "after-sale-room/after-sale-room"
+        "after-sale-room/after-sale-room",
+        "platform-im-workbench/platform-im-workbench",
+        "platform-im-sessions/platform-im-sessions"
       ]
     },
     {

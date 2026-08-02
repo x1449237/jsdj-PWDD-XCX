@@ -74,6 +74,9 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	// 俱乐部小助手APP扩展功能handler
 	extH := handler.NewExtensionHandler()
 
+	// 平台方管理人员 IM 会话归类清单 handler
+	platformIMH := handler.NewPlatformIMHandler()
+
 	// WebSocket 升级处理器
 	wsHandler := websocket.NewHandler(deps.Hub, deps.Logger)
 
@@ -612,11 +615,45 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	// 活动弹窗(玩家端)
 	userAPI.GET("/activity-popups", extH.ListActivityPopups)
 	// 聊天扩展(玩家端)
-	userAPI.GET("/chat-ext/group-files", extH.ListGroupFiles)
-	userAPI.POST("/chat-ext/reports", extH.CreateChatReport)
-	userAPI.PUT("/chat-ext/sessions/:id/pin", extH.TogglePinSession)
+        userAPI.GET("/chat-ext/group-files", extH.ListGroupFiles)
+        userAPI.POST("/chat-ext/reports", extH.CreateChatReport)
+        userAPI.PUT("/chat-ext/sessions/:id/pin", extH.TogglePinSession)
 
-	// ===== 俱乐部小助手APP扩展 - 平台超级管理员端 =====
+        // ===== 平台方管理人员 IM 会话归类清单 =====
+        pim := admin.Group("/platform-im")
+        {
+                // 一~二~三 会话列表+筛选+搜索
+                pim.GET("/sessions", platformIMH.ListSessions)
+                pim.POST("/sessions/:id/close", platformIMH.MarkSessionClosed)
+                // 四 标签+备注+星标
+                pim.GET("/tags", platformIMH.ListTags)
+                pim.POST("/tags", platformIMH.CreateTag)
+                pim.PUT("/tags/:id", platformIMH.UpdateTag)
+                pim.DELETE("/tags/:id", platformIMH.DeleteTag)
+                pim.POST("/sessions/:id/tags", platformIMH.TagSession)
+                pim.DELETE("/sessions/:id/tags/:tag_id", platformIMH.UntagSession)
+                pim.PUT("/sessions/:id/note", platformIMH.UpsertNote)
+                // 三 搜索历史
+                pim.GET("/search-history", platformIMH.ListSearchHistory)
+                pim.POST("/search-history/clear", platformIMH.ClearSearchHistory)
+                // 七 工作台
+                pim.GET("/workbench", platformIMH.GetWorkbench)
+                pim.PUT("/workbench/layout", platformIMH.SaveWorkbenchLayout)
+                // 八~九 快捷话术+证据
+                pim.GET("/quick-replies", platformIMH.ListQuickReplies)
+                pim.POST("/quick-replies", platformIMH.CreateQuickReply)
+                pim.PUT("/quick-replies/:id", platformIMH.UpdateQuickReply)
+                pim.DELETE("/quick-replies/:id", platformIMH.DeleteQuickReply)
+                pim.GET("/sessions/:id/evidence", platformIMH.ListEvidenceMessages)
+                // 十~十一 样式下发(后端统管样式,前端仅渲染)
+                pim.GET("/styles/me", platformIMH.PullMyStyle)
+                pim.GET("/styles/all", platformIMH.PullAllStyles)
+                // 六 群聊批量管理
+                pim.PUT("/groups/:id/setting", platformIMH.UpdateGroupSetting)
+                pim.POST("/groups/batch-mute", platformIMH.BatchGroupMute)
+        }
+
+        // ===== 俱乐部小助手APP扩展 - 平台超级管理员端 =====
 	admin.GET("/punishment-templates", extH.ListPunishmentTemplates)
 	admin.POST("/punishment-templates", extH.SavePunishmentTemplate)
 	admin.GET("/feedbacks", extH.ListAllFeedbacks)

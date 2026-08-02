@@ -1,149 +1,40 @@
-.message-item {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-/* 系统消息 */
-.message-system {
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-sm) 0;
-}
-
-.system-text {
-  background-color: rgba(0, 0, 0, 0.08);
-  padding: 4rpx 16rpx;
-  border-radius: 8rpx;
-}
-
-/* 自己发送的消息 */
-.message-self {
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-}
-
-.message-self .message-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  margin-left: var(--spacing-sm);
-  flex-shrink: 0;
-}
-
-/* 对方发送的消息 */
-.message-other {
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
-.message-other .message-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  margin-right: var(--spacing-sm);
-  flex-shrink: 0;
-}
-
-/* 消息气泡 */
-.message-bubble-wrapper {
-  max-width: 70%;
-  display: flex;
-  flex-direction: column;
-}
-
-.message-bubble {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--border-radius-md);
-  word-break: break-all;
-  position: relative;
-}
-
-.bubble-self {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: var(--color-text-white);
-  border-top-right-radius: 4rpx;
-}
-
-.bubble-other {
-  background-color: var(--color-bg-white);
-  color: var(--color-text-primary);
-  border-top-left-radius: 4rpx;
-  box-shadow: var(--shadow-sm);
-}
-
-.bubble-text {
-  font-size: var(--font-size-md);
-  line-height: 1.6;
-}
-
-/* 语音消息 */
-.bubble-voice {
-  display: flex;
-  align-items: center;
-  min-width: 160rpx;
-  padding: 4rpx 0;
-}
-
-.bubble-self .bubble-voice {
-  flex-direction: row-reverse;
-}
-
-.voice-icon {
-  font-size: var(--font-size-lg);
-  margin: 0 var(--spacing-xs);
-}
-
-.voice-duration {
-  font-size: var(--font-size-sm);
-  margin: 0 var(--spacing-xs);
-}
-
-.voice-waves {
-  display: flex;
-  align-items: center;
-  gap: 3rpx;
-  height: 32rpx;
-}
-
-.voice-wave {
-  width: 4rpx;
-  background-color: currentColor;
-  border-radius: 2rpx;
-  opacity: 0.6;
-}
-
-.voice-wave:nth-child(1) { height: 12rpx; }
-.voice-wave:nth-child(2) { height: 24rpx; }
-.voice-wave:nth-child(3) { height: 16rpx; }
-.voice-wave:nth-child(4) { height: 28rpx; }
-
-/* 图片消息 */
-.bubble-image {
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: var(--border-radius-sm);
-}
-
-/* 消息元信息 */
-.message-meta {
-  display: flex;
-  align-items: center;
-  margin-top: 4rpx;
-}
-
-.message-self .message-meta {
-  justify-content: flex-end;
-}
-
-.message-other .message-meta {
-  justify-content: flex-start;
-}
-
-.meta-read {
-  margin-right: var(--spacing-xs);
-}
-
-.meta-time {
-  font-size: 20rpx;
-}
+.message-item { margin: 20rpx 0; }
+.message-system { text-align:center; padding: 10rpx 0; }
+.system-text { background:#e9e9eb; color:#909399; padding:6rpx 20rpx; border-radius:8rpx; }
+.message-self, .message-other { display:flex; align-items:flex-start; gap:16rpx; }
+.message-self { flex-direction:row-reverse; }
+.message-bubble-wrapper { max-width:75%; }
+.message-self .message-bubble-wrapper { align-items:flex-end; }
+.avatar-frame { position:relative; width:80rpx; height:80rpx; padding:0; }
+.message-avatar { width:80rpx; height:80rpx; border-radius:50%; background:#eee; }
+.bubble-row { position:relative; }
+.message-bubble { padding:16rpx 24rpx; word-break:break-all; line-height:1.5em; }
+.name-row { display:flex; align-items:center; gap:10rpx; font-size:22rpx; color:#909399; margin-bottom:8rpx; }
+.name-right { justify-content:flex-end; }
+.official-tag { padding:2rpx 12rpx; border-radius:8rpx; color:#fff; font-size:20rpx; }
+.sn { font-weight:600; }
+.v-badge { font-weight:800; color:#f0c78a; }
+/* 66: 官方气泡边角圆角由后端下发,此文件只处理结构样式,不写死圆角 */
+.bubble-self { margin-left:auto; }
+.bubble-other { margin-right:auto; }
+.bubble-text { display:block; font-size:28rpx; white-space:pre-wrap; }
+.bubble-voice { display:flex; align-items:center; min-width:180rpx; padding-right:20rpx; }
+.voice-icon { margin-right:10rpx; }
+.voice-duration { margin-right:10rpx; }
+.voice-waves { display:flex; align-items:flex-end; gap:4rpx; height:24rpx; flex:1; }
+.voice-wave { width:4rpx; height:10rpx; border-radius:2rpx; background:#ccc; }
+.voice-wave:nth-child(1) { height:8rpx; }
+.voice-wave:nth-child(2) { height:20rpx; }
+.voice-wave:nth-child(3) { height:14rpx; }
+.voice-wave:nth-child(4) { height:18rpx; }
+.voice-wave.playing { animation:vibrate 0.6s infinite; }
+@keyframes vibrate { 0%,100%{transform:scaleY(0.8);} 50%{transform:scaleY(1.2);} }
+.bubble-image { max-width:400rpx; max-height:400rpx; border-radius:16rpx; }
+.message-meta { display:flex; gap:12rpx; font-size:20rpx; margin-top:8rpx; }
+.message-self .message-meta { justify-content:flex-end; }
+.text-xs { font-size:20rpx; }
+.text-tip { color:#909399; }
+.text-success { color:#67c23a; }
+/* 77 关键消息左侧蓝色竖线 (颜色也可由后端下发,此处结构样式仅占位 */
+.vm-line { position:absolute; left:-18rpx; top:6rpx; bottom:6rpx; width:6rpx; background:#409eff; border-radius:3rpx; }
+.message-self .bubble-row .vm-line { left:auto; right:-18rpx; }
