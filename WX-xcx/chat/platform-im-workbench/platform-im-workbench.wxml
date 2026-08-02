@@ -19,7 +19,6 @@
     </view>
   </view>
 
-  <!-- 跳转按钮 -->
   <view class="entry-row">
     <button class="entry-btn" bindtap="onGotoSessionList">进入会话归类清单 ›</button>
   </view>
@@ -32,18 +31,14 @@
         <view class="wb-count">{{item.items.length}}条</view>
       </view>
       <view wx:if="{{item.items.length === 0}}" class="wb-empty">暂无任务 ✨</view>
-      <block wx:for="{{item.items}}" wx:key="task_id" wx:for-item="task">
+      <block wx:for="{{item.items}}" wx:key="session_id" wx:for-item="task">
         <view class="wb-task">
           <view class="wb-task-title">
-            <text wx:if="{{task.risk_flag === 4}}" class="risk risk-4">预警</text>
-            <text wx:elif="{{task.risk_flag === 3}}" class="risk risk-3">介入</text>
-            <text wx:elif="{{task.risk_flag === 2}}" class="risk risk-2">举证</text>
             <text>{{task.title}}</text>
           </view>
-          <view class="wb-task-sub">{{task.sub_title}}</view>
-          <view class="wb-task-deadline" wx:if="{{task.deadline_at}}">
-            ⏰ {{task.deadline_at}}
-            <text wx:if="{{task.deadline_left}}" class="left">剩{{task.deadline_left}}</text>
+          <!-- 修复: deadline 字段名 (后端 WorkbenchItem.Deadline json:"deadline") -->
+          <view class="wb-task-deadline" wx:if="{{task.deadline}}">
+            ⏰ {{task.deadline}}
           </view>
           <view class="wb-actions">
             <view class="wb-btn btn-primary" data-id="{{task.session_id}}" bindtap="onOpenSession">立即进入</view>

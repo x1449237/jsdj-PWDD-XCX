@@ -3,6 +3,8 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jisan/e-sports-platform/internal/model"
@@ -16,6 +18,36 @@ import (
 // ============================================================
 
 // ---------- 会话列表：按优先级自动排序 + 分组 ----------
+
+// localMidnight 返回本地时区当天 00:00:00 (修复 time.Truncate 按 UTC 截断的时区 bug)
+func localMidnight(t time.Time) time.Time {
+	y, m, d := t.In(time.Local).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+}
+
+// validateBucketOrder 校验工作台板块顺序,防止注入非法 bucket key
+func validateBucketOrder(order []string) []string {
+	valid := map[string]bool{
+		model.TaskBucketEmergency: true,
+		model.TaskBucketTodo:      true,
+		model.TaskBucketYesterday: true,
+	}
+	result := make([]string, 0, len(order))
+	seen := make(map[string]bool)
+	for _, k := range order {
+		if valid[k] && !seen[k] {
+			result = append(result, k)
+			seen[k] = true
+		}
+	}
+	// 确保三个板块都在
+	for _, k := range []string{model.TaskBucketEmergency, model.TaskBucketTodo, model.TaskBucketYesterday} {
+		if !seen[k] {
+			result = append(result, k)
+		}
+	}
+	return result
+}
 
 // PlatformIMSessionsQuery 会话列表查询参数
 type PlatformIMSessionsQuery struct {
@@ -115,9 +147,12 @@ func PlatformIMListSessions(q *PlatformIMSessionsQuery) (*PlatformIMSessionsResu
 	case "player_int":
 		cond = cond.Where("risk_flag = ?", model.RiskFlagPlayerInt)
 	case "timeo_out2h":
-		cond = cond.Where("risk_flag = ? AND last_msg_at < ?", model.RiskFlagTimeout, time.Now().Add(-2*time.Hour))
+		// 14: 2小时以内到达举证时限 (举证时限=最后消息时间+48h,剩<2h即为预警)
+		// 修复: 原代码查 last_msg_at < now-2h 逻辑错误,应查 deadline 在 2h 内的
+		deadlineWindow := time.Now().Add(2 * time.Hour)
+		cond = cond.Where("risk_flag = ? AND last_msg_at IS NOT NULL AND DATE_ADD(last_msg_at, INTERVAL 48 HOUR) < ?", model.RiskFlagTimeout, deadlineWindow)
 	case "today_new":
-		start := time.Now().Truncate(24*time.Hour)
+		start := localMidnight(time.Now())
 		cond = cond.Where("created_at >= ?", start)
 	case "club_only":
 		cond = cond.Where("session_type IN ?", []string{model.SessionTypeGroupInternal, model.SessionTypeGroupCategory})
@@ -127,13 +162,13 @@ func PlatformIMListSessions(q *PlatformIMSessionsQuery) (*PlatformIMSessionsResu
 	if q.TimeRange != "" {
 		switch q.TimeRange {
 		case "yesterday":
-			today := time.Now().Truncate(24*time.Hour)
-			yesterday := today.Add(-24*time.Hour)
-			cond = cond.Where("last_msg_at BETWEEN ? AND ?", yesterday, today)
+			today := localMidnight(time.Now())
+			yesterday := today.Add(-24 * time.Hour)
+			cond = cond.Where("last_msg_at >= ? AND last_msg_at < ?", yesterday, today)
 		case "3d":
-			cond = cond.Where("last_msg_at >= ?", time.Now().Add(-3*24*time.Hour))
+			cond = cond.Where("last_msg_at >= ?", localMidnight(time.Now()).Add(-3*24*time.Hour))
 		case "7d":
-			cond = cond.Where("last_msg_at >= ?", time.Now().Add(-7*24*time.Hour))
+			cond = cond.Where("last_msg_at >= ?", localMidnight(time.Now()).Add(-7*24*time.Hour))
 		}
 	}
 	if q.ClubKeyword != "" {
@@ -153,11 +188,24 @@ func PlatformIMListSessions(q *PlatformIMSessionsQuery) (*PlatformIMSessionsResu
 	}
 	if q.Keyword != "" {
 		// 22~24: 订单号/俱乐部/昵称/聊天关键词
-		sub := db.Model(&model.ChatSession{}).Select("id").
-			Joins("LEFT JOIN chat_messages m ON m.session_id = chat_sessions.id").
-			Where("chat_sessions.ref_id = ? OR m.content LIKE ? OR EXISTS(SELECT 1 FROM clubs c WHERE c.id = chat_sessions.club_id AND (c.name LIKE ? OR c.abbreviation LIKE ?))",
-				q.Keyword, "%"+q.Keyword+"%", "%"+q.Keyword+"%", "%"+q.Keyword+"%")
-		cond = cond.Where("chat_sessions.id IN (?)", sub)
+		// 修复: ref_id 是 int64,keyword 是字符串,需先判断是否纯数字再匹配,避免 MySQL 隐式转换 "abc"→0 匹配 ref_id=0
+		kw := strings.TrimSpace(q.Keyword)
+		escapedKw := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(kw)
+		var subCond *gorm.DB
+		if n, err := strconv.ParseInt(kw, 10, 64); err == nil {
+			// 纯数字: 精准匹配订单号/会话ID/消息内容关键词
+			subCond = db.Model(&model.ChatSession{}).Select("id").
+				Joins("LEFT JOIN chat_messages m ON m.session_id = chat_sessions.id").
+				Where("chat_sessions.ref_id = ? OR chat_sessions.id = ? OR m.content LIKE ? ESCAPE '\\\\' OR EXISTS(SELECT 1 FROM clubs c WHERE c.id = chat_sessions.club_id AND (c.name LIKE ? ESCAPE '\\\\' OR c.abbreviation LIKE ? ESCAPE '\\\\'))",
+					n, n, "%"+escapedKw+"%", "%"+escapedKw+"%", "%"+escapedKw+"%")
+		} else {
+			// 非数字: 不匹配 ref_id,只匹配文本内容
+			subCond = db.Model(&model.ChatSession{}).Select("id").
+				Joins("LEFT JOIN chat_messages m ON m.session_id = chat_sessions.id").
+				Where("m.content LIKE ? ESCAPE '\\\\' OR EXISTS(SELECT 1 FROM clubs c WHERE c.id = chat_sessions.club_id AND (c.name LIKE ? ESCAPE '\\\\' OR c.abbreviation LIKE ? ESCAPE '\\\\'))",
+					"%"+escapedKw+"%", "%"+escapedKw+"%", "%"+escapedKw+"%")
+		}
+		cond = cond.Where("chat_sessions.id IN (?)", subCond)
 	}
 	if q.OnlyStarred {
 		cond = cond.Where("EXISTS(SELECT 1 FROM im_session_notes sn WHERE sn.session_id = chat_sessions.id AND sn.platform_uid = ? AND sn.is_starred = 1)", q.PlatformUID)
@@ -215,17 +263,17 @@ func PlatformIMListSessions(q *PlatformIMSessionsQuery) (*PlatformIMSessionsResu
 		db.Model(&model.Order{}).Select("id,amount,status,created_at").Where("id IN ?", orderIDs).Scan(&ol)
 		for _, o := range ol {orderMap[o.ID] = o}
 	}
-	// 未读计数：若表里已有，就用；缺失时实时查
-	unreadMap := make(map[int64]int)
+	// 未读计数：直接使用 ChatSession 表中的 unread_count 字段(已在模型中)
+	// (原 unreadMap 未实际使用,已移除)
 	// 样式徽章(官方是否已回复)
 	bubbleMap := make(map[string]*model.ImBubbleStyle)
 	{
 		var list []*model.ImBubbleStyle
 		db.Find(&list)
-		for _, s := range bubbleMap {bubbleMap[s.RoleKey] = s}
+		// 修复: 原代码遍历 bubbleMap(空map)赋值,导致样式永远为空;应遍历 list
+		for _, s := range list {bubbleMap[s.RoleKey] = s}
 	}
-	_ = unreadMap
-	_ = bubbleMap
+	_ = bubbleMap // (供后续会话样式判断使用)
 
 	// 4) 按 bucket 拼装
 	items := make(map[string][]*SessionListItem)
@@ -354,13 +402,23 @@ func PlatformIMTagDelete(id int64) error {
 	return db.Where("id = ? AND is_system = 0", id).Delete(&model.ImTagDefinition{}).Error
 }
 
-// PlatformIMSessionTagSet 给会话打标签(增量追加)
+// PlatformIMSessionTagSet 给会话打标签(增量追加,幂等:重复打标不产生多条)
 func PlatformIMSessionTagSet(sessionID, tagID, byUID int64) error {
 	var tag model.ImTagDefinition
 	if err := db.First(&tag, tagID).Error; err != nil {return err}
-	return db.Create(&model.ImSessionTag{
-		SessionID: sessionID, TagID: tagID, TagName: tag.Name, TagColor: tag.Color, CreatedBy: byUID,
-	}).Error
+	// 修复: 使用 FirstOrCreate 避免重复打标产生多条记录
+	return db.Where(&model.ImSessionTag{SessionID: sessionID, TagID: tagID}).
+		Assign(model.ImSessionTag{TagName: tag.Name, TagColor: tag.Color, CreatedBy: byUID}).
+		FirstOrCreate(&model.ImSessionTag{SessionID: sessionID, TagID: tagID}).Error
+}
+
+// PlatformIMSessionTagSetBatch 批量打标签(支持前端传 tag_ids 数组)
+func PlatformIMSessionTagSetBatch(sessionID int64, tagIDs []int64, byUID int64) error {
+	if len(tagIDs) == 0 {return nil}
+	for _, tid := range tagIDs {
+		if err := PlatformIMSessionTagSet(sessionID, tid, byUID); err != nil {return err}
+	}
+	return nil
 }
 
 // PlatformIMSessionTagRemove 移除会话标签
@@ -370,19 +428,22 @@ func PlatformIMSessionTagRemove(sessionID, tagID int64) error {
 
 // ---------- 备注与星标 ----------
 
-// PlatformIMNoteUpsert 备注/星标写入 (31 标记办结就是把 status=0 + risk_flag=4)
+// PlatformIMNoteUpsert 备注/星标写入 (upsert: 存在则更新,不存在则创建)
 func PlatformIMNoteUpsert(note *model.ImSessionNote) error {
 	now := time.Now()
 	note.UpdatedAt = &now
+	// 修复: 使用 Where+Assign+FirstOrCreate 确保存在时也更新 Content 和 IsStarred
 	return db.Where("session_id = ? AND platform_uid = ?", note.SessionID, note.PlatformUID).
-		Assign(*note).FirstOrCreate(note).Error
+		Assign(model.ImSessionNote{Content: note.Content, IsStarred: note.IsStarred, UpdatedAt: &now}).
+		FirstOrCreate(note).Error
 }
 
-// PlatformIMSessionMarkClosed 手动标记办结(31)
-func PlatformIMSessionMarkClosed(sessionID int64) error {
-	return db.Model(&model.ChatSession{}).Where("id = ?", sessionID).Updates(map[string]interface{}{
+// PlatformIMSessionMarkClosed 手动标记办结(31),返回影响行数,0=会话不存在
+func PlatformIMSessionMarkClosed(sessionID int64) (int64, error) {
+	result := db.Model(&model.ChatSession{}).Where("id = ?", sessionID).Updates(map[string]interface{}{
 		"risk_flag": model.RiskFlagClosed, "group_bucket": model.BucketClosed,
-	}).Error
+	})
+	return result.RowsAffected, result.Error
 }
 
 // ---------- 搜索历史 ----------
@@ -433,9 +494,9 @@ type WorkbenchItem struct {
 
 // PlatformIMWorkbenchGet 获取工作台数据
 func PlatformIMWorkbenchGet(uid int64) (*PlatformIMWorkbenchOverview, error) {
-	// 1) 今日0点
-	today0 := time.Now().Truncate(24*time.Hour)
-	yesterday0 := today0.Add(-24*time.Hour)
+	// 1) 今日0点 (修复时区 bug)
+	today0 := localMidnight(time.Now())
+	yesterday0 := today0.Add(-24 * time.Hour)
 	next2h := time.Now().Add(2 * time.Hour)
 
 	// 2) 统计
@@ -450,7 +511,10 @@ func PlatformIMWorkbenchGet(uid int64) (*PlatformIMWorkbenchOverview, error) {
 	overview.CountNewToday = int(nt)
 	{
 		var c int64
-		db.Model(&model.ChatSession{}).Where("risk_flag = ? AND last_msg_at < ?", model.RiskFlagTimeout, next2h).Count(&c)
+		// 修复: 即将超时 = 举证截止时间(last_msg_at+48h)在2h内
+		db.Model(&model.ChatSession{}).
+			Where("risk_flag = ? AND last_msg_at IS NOT NULL AND DATE_ADD(last_msg_at, INTERVAL 48 HOUR) < ?", model.RiskFlagTimeout, next2h).
+			Count(&c)
 		overview.CountTimeout = int(c)
 	}
 
@@ -460,13 +524,16 @@ func PlatformIMWorkbenchGet(uid int64) (*PlatformIMWorkbenchOverview, error) {
 	if len(layout.BucketOrder) > 0 {
 		var order []string
 		_ = json.Unmarshal(layout.BucketOrder, &order)
-		if len(order) > 0 {overview.BucketsOrder = order}
+		// 修复: 校验 bucket key 合法性,防注入
+		if len(order) > 0 {overview.BucketsOrder = validateBucketOrder(order)}
 	}
 
 	// 4) emergency = 敏感词预警 + 超时(2h内)
 	{
 		var list []*model.ChatSession
-		db.Where("(risk_flag = ?) OR (risk_flag = ? AND last_msg_at < ?)", model.RiskFlagSensitive, model.RiskFlagTimeout, next2h).
+		// 修复: 超时条件改为 deadline 在 2h 内,而非 last_msg_at < now+2h
+		db.Where("risk_flag = ? OR (risk_flag = ? AND last_msg_at IS NOT NULL AND DATE_ADD(last_msg_at, INTERVAL 48 HOUR) < ?)",
+			model.RiskFlagSensitive, model.RiskFlagTimeout, next2h).
 			Order("priority_level DESC, last_msg_at DESC").Limit(50).Find(&list)
 		for _, s := range list {
 			overview.Buckets[model.TaskBucketEmergency] = append(overview.Buckets[model.TaskBucketEmergency],
@@ -496,9 +563,11 @@ func PlatformIMWorkbenchGet(uid int64) (*PlatformIMWorkbenchOverview, error) {
 	return overview, nil
 }
 
-// PlatformIMWorkbenchLayoutSave 保存板块顺序(62)
+// PlatformIMWorkbenchLayoutSave 保存板块顺序(62),校验合法 bucket key
 func PlatformIMWorkbenchLayoutSave(uid int64, order []string) error {
-	b, _ := json.Marshal(order)
+	// 修复: 校验合法 bucket key,防止注入
+	safeOrder := validateBucketOrder(order)
+	b, _ := json.Marshal(safeOrder)
 	now := time.Now()
 	return db.Where(model.ImWorkbenchLayout{PlatformUID: uid}).Assign(model.ImWorkbenchLayout{
 		BucketOrder: datatypes.JSON(b), UpdatedAt: &now,
@@ -572,7 +641,8 @@ func PlatformIMPullMyStyle(uid int64, currentClubID int64) (*PlatformIMStyleResu
 			// scope 校验
 			var clubs []int64
 			_ = json.Unmarshal(grant.ScopeClubIDs, &clubs)
-			if fs.OnlySelfClub == 1 && len(clubs) > 0 {
+			if fs.OnlySelfClub == 1 {
+				// 修复: OnlySelfClub=1 且 scope 为空时也应隐藏(不能默认全显示)
 				hit := false
 				for _, c := range clubs {if c == currentClubID {hit = true}}
 				if !hit {fs = model.ImAvatarFrameStyle{} /* 跨俱乐部不显示 */}
@@ -599,12 +669,27 @@ func PlatformIMPullAllStyles() (map[string]*model.ImBubbleStyle, map[string]*mod
 
 // ---------- 群聊免打扰/隐藏/同俱乐部聚合 (41~45) ----------
 
-// PlatformIMGroupSetting 更新群聊设置
+// PlatformIMGroupSetting 更新群聊设置(白名单校验,防篡改任意字段)
 func PlatformIMGroupSetting(groupID int64, fields map[string]interface{}) error {
-	return db.Model(&model.GroupChat{}).Where("id = ?", groupID).Updates(fields).Error
+	// 修复: 白名单校验,防止注入 status/club_id 等敏感字段
+	allowed := map[string]bool{"mute_notify": true, "is_hidden": true, "aggregate_same_club": true}
+	safe := make(map[string]interface{})
+	for k, v := range fields {
+		if allowed[k] {safe[k] = v}
+	}
+	if len(safe) == 0 {return fmt.Errorf("无可更新字段")}
+	return db.Model(&model.GroupChat{}).Where("id = ?", groupID).Updates(safe).Error
 }
 
 // PlatformIMGroupBatchMute 批量设免打扰
 func PlatformIMGroupBatchMute(groupIDs []int64, mute int8) error {
+	// 修复: 空数组会导致 WHERE id IN () SQL 语法错误
+	if len(groupIDs) == 0 {
+		// apply_silent=1: 自动筛选所有沉寂群(>7天无消息)批量免打扰
+		silentThreshold := time.Now().Add(-7 * 24 * time.Hour)
+		return db.Model(&model.GroupChat{}).
+			Where("last_msg_at < ? OR last_msg_at IS NULL", silentThreshold).
+			Update("mute_notify", mute).Error
+	}
 	return db.Model(&model.GroupChat{}).Where("id IN ?", groupIDs).Update("mute_notify", mute).Error
 }

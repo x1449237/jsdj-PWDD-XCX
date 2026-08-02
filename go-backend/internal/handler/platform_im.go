@@ -16,14 +16,9 @@ type PlatformIMHandler struct{}
 // NewPlatformIMHandler 构造
 func NewPlatformIMHandler() *PlatformIMHandler { return &PlatformIMHandler{} }
 
-// 当前平台人员UID (和现有 getCurrentUserID 机制一致, authReq 中间件已注入)
+// 当前平台人员UID (修复: 直接复用 utils.GetCurrentUserID,与全局中间件一致)
 func (h *PlatformIMHandler) getUID(c *gin.Context) int64 {
-	v, ok := c.Get("user_id")
-	if !ok {return 0}
-	if uid, ok := v.(int64); ok {return uid}
-	if u, ok := v.(uint); ok {return int64(u)}
-	if u, ok := v.(float64); ok {return int64(u)}
-	return 0
+	return utils.GetCurrentUserID(c)
 }
 
 // ---------- 会话列表 + 排序筛选 (1~26) ----------
@@ -56,9 +51,10 @@ func (h *PlatformIMHandler) ListSessions(c *gin.Context) {
 // MarkSessionClosed POST /platform-im/sessions/:id/close  标记办结 (31)
 func (h *PlatformIMHandler) MarkSessionClosed(c *gin.Context) {
 	id := parseInt64Path(c, "id")
-	if err := service.PlatformIMSessionMarkClosed(id); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, err.Error()); return
-	}
+	if id <= 0 {utils.Fail(c, utils.CodeBadRequest, "会话ID无效"); return}
+	affected, err := service.PlatformIMSessionMarkClosed(id)
+	if err != nil {utils.Fail(c, utils.CodeServerError, err.Error()); return}
+	if affected == 0 {utils.Fail(c, utils.CodeNotFound, "会话不存在"); return}
 	utils.Success(c, gin.H{"msg": "ok"})
 }
 
@@ -107,15 +103,32 @@ func (h *PlatformIMHandler) DeleteTag(c *gin.Context) {
 	utils.Success(c, gin.H{"msg": "ok"})
 }
 
-// TagSession POST /platform-im/sessions/:id/tags
+// TagSession POST /platform-im/sessions/:id/tags  (支持批量 tag_ids + star_flag)
 func (h *PlatformIMHandler) TagSession(c *gin.Context) {
 	sid := parseInt64Path(c, "id")
-	var req struct {TagID int64 `json:"tag_id"`}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, "参数错误"); return
+	if sid <= 0 {utils.Fail(c, utils.CodeBadRequest, "会话ID无效"); return}
+	// 修复: 兼容前端传 tag_id(单个) 和 tag_ids(批量)
+	var req struct {
+		TagID    int64   `json:"tag_id"`
+		TagIDs   []int64 `json:"tag_ids"`
+		StarFlag *int8   `json:"star_flag"`
 	}
-	if err := service.PlatformIMSessionTagSet(sid, req.TagID, h.getUID(c)); err != nil {
-		utils.Fail(c, utils.CodeBadRequest, err.Error()); return
+	if err := c.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error()); return
+	}
+	uid := h.getUID(c)
+	// 打标签
+	if req.TagID > 0 {req.TagIDs = append(req.TagIDs, req.TagID)}
+	if len(req.TagIDs) > 0 {
+		if err := service.PlatformIMSessionTagSetBatch(sid, req.TagIDs, uid); err != nil {
+			utils.Fail(c, utils.CodeBadRequest, err.Error()); return
+		}
+	}
+	// 星标切换
+	if req.StarFlag != nil {
+		if err := service.PlatformIMNoteUpsert(&model.ImSessionNote{
+			SessionID: sid, PlatformUID: uid, IsStarred: *req.StarFlag,
+		}); err != nil {utils.Fail(c, utils.CodeBadRequest, err.Error()); return}
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
 }
@@ -132,15 +145,23 @@ func (h *PlatformIMHandler) UntagSession(c *gin.Context) {
 
 // ---------- 备注与星标 (32~34) ----------
 
-// UpsertNote PUT /platform-im/sessions/:id/note
+// UpsertNote PUT /platform-im/sessions/:id/note  (兼容前端 note_text 和 content)
 func (h *PlatformIMHandler) UpsertNote(c *gin.Context) {
 	sid := parseInt64Path(c, "id")
-	var req struct {Content string `json:"content"`; IsStarred int8 `json:"is_starred"`}
+	if sid <= 0 {utils.Fail(c, utils.CodeBadRequest, "会话ID无效"); return}
+	// 修复: 兼容前端传 note_text 或 content
+	var req struct {
+		Content  string `json:"content"`
+		NoteText string `json:"note_text"`
+		IsStarred int8  `json:"is_starred"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误"); return
 	}
+	content := req.Content
+	if content == "" {content = req.NoteText}
 	note := &model.ImSessionNote{
-		SessionID: sid, PlatformUID: h.getUID(c), Content: req.Content, IsStarred: req.IsStarred,
+		SessionID: sid, PlatformUID: h.getUID(c), Content: content, IsStarred: req.IsStarred,
 	}
 	if err := service.PlatformIMNoteUpsert(note); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error()); return
@@ -174,13 +195,26 @@ func (h *PlatformIMHandler) GetWorkbench(c *gin.Context) {
 	utils.Success(c, res)
 }
 
-// SaveWorkbenchLayout PUT /platform-im/workbench/layout
+// SaveWorkbenchLayout PUT /platform-im/workbench/layout  (兼容前端 layout_json.order 和 bucket_order)
 func (h *PlatformIMHandler) SaveWorkbenchLayout(c *gin.Context) {
-	var req struct {BucketOrder []string `json:"bucket_order"`}
+	// 修复: 兼容前端传 layout_json.order 或 bucket_order
+	var req struct {
+		BucketOrder []string                `json:"bucket_order"`
+		LayoutJSON  map[string]interface{}  `json:"layout_json"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, "参数错误"); return
 	}
-	if err := service.PlatformIMWorkbenchLayoutSave(h.getUID(c), req.BucketOrder); err != nil {
+	order := req.BucketOrder
+	if len(order) == 0 && req.LayoutJSON != nil {
+		if v, ok := req.LayoutJSON["order"].([]interface{}); ok {
+			for _, item := range v {
+				if s, ok := item.(string); ok {order = append(order, s)}
+			}
+		}
+	}
+	if len(order) == 0 {utils.Fail(c, utils.CodeBadRequest, "板块顺序不能为空"); return}
+	if err := service.PlatformIMWorkbenchLayoutSave(h.getUID(c), order); err != nil {
 		utils.Fail(c, utils.CodeBadRequest, err.Error()); return
 	}
 	utils.Success(c, gin.H{"msg": "ok"})
@@ -257,10 +291,14 @@ func (h *PlatformIMHandler) PullMyStyle(c *gin.Context) {
 }
 
 // PullAllStyles GET /platform-im/styles/all
+// 修复: 前端 message-item.js 按 list.forEach 遍历,需返回气泡样式数组(而非 map)
 func (h *PlatformIMHandler) PullAllStyles(c *gin.Context) {
 	bubbles, frames, err := service.PlatformIMPullAllStyles()
 	if err != nil {utils.Fail(c, utils.CodeServerError, err.Error()); return}
-	utils.Success(c, gin.H{"bubbles": bubbles, "avatar_frames": frames})
+	// 返回气泡数组(前端按 role_key 建 map)
+	bubbleList := make([]*model.ImBubbleStyle, 0, len(bubbles))
+	for _, b := range bubbles {bubbleList = append(bubbleList, b)}
+	utils.Success(c, gin.H{"bubbles": bubbleList, "avatar_frames": frames})
 }
 
 // ---------- 群聊批量免打扰 / 隐藏 / 聚合 (41~45) ----------

@@ -7,23 +7,21 @@
   <!-- 自己发送的消息 -->
   <view wx:elif="{{message.isSelf}}" class="message-self">
     <view class="message-bubble-wrapper">
-      <!-- 68 官方V标 + 70 运营标签 (尺寸由后端下发) -->
       <view wx:if="{{message.senderRoleKey==='platform' || message.officialTag}}" class="name-row name-right">
-        <text wx:if="{{message.officialTag}}" class="official-tag" style="background:{{roleStyle.tag_bg||'#409eff'}};">{{message.officialTag}}</text>
+        <text wx:if="{{message.officialTag}}" class="official-tag">{{message.officialTag}}</text>
         <text class="sn">{{message.senderName}}</text>
         <text wx:if="{{message.vBadgeType}}" class="v-badge" style="font-size:{{message.officialVSize||24}}rpx;">{{message.vBadgeType}}</text>
       </view>
 
-      <!-- 77: 官方关键消息左侧蓝色竖线 -->
       <view class="bubble-row">
         <view wx:if="{{message.verticalMark}}" class="vm-line"></view>
-        <view class="message-bubble bubble-self" style="{{bubbleStyle()}}">
-          <text wx:if="{{message.type === 'text'}}" class="bubble-text" style="{{textStyle()}}; {{message.content.length>60?'line-height:1.7em':''}}">{{message.content}}</text>
+        <view class="message-bubble bubble-self" style="{{bubbleStyleStr}}">
+          <text wx:if="{{message.type === 'text'}}" class="bubble-text" style="{{textStyleStr}}">{{message.content}}</text>
           <view wx:if="{{message.type === 'voice'}}" class="bubble-voice" bindtap="onPlayVoice">
             <text class="voice-icon">🔊</text>
-            <text class="voice-duration" style="color:{{roleStyle.text_color||'#fff'}}">{{message.voiceDuration}}″</text>
+            <text class="voice-duration">{{message.voiceDuration}}″</text>
             <view class="voice-waves">
-              <view class="voice-wave {{playing?'playing':''}}" wx:for="{{4}}" wx:key="index" style="{{voiceWaveStyle()}}"></view>
+              <view class="voice-wave {{playing?'playing':''}}" wx:for="{{4}}" wx:key="index" style="{{voiceWaveStr}}"></view>
             </view>
           </view>
           <image wx:if="{{message.type === 'image'}}" class="bubble-image" src="{{message.imageUrl}}" mode="aspectFill" bindtap="onPreviewImage"></image>
@@ -36,34 +34,32 @@
         <text class="meta-time text-xs text-tip">{{message.time}}</text>
       </view>
     </view>
-    <!-- 80~92: 头像框样式完全由 avfStyle (后端下发) 渲染 -->
-    <view class="avatar-frame" style="{{avfStyle.frame_style||''}}">
-      <image class="message-avatar" src="{{message.avatar}}" mode="aspectFill" style="border-radius:{{avfStyle.radius||'50%'}};"></image>
+    <view class="avatar-frame" style="{{avatarFrameStr}}">
+      <image class="message-avatar" src="{{message.avatar}}" mode="aspectFill"></image>
     </view>
   </view>
 
   <!-- 对方发送的消息 -->
   <view wx:else class="message-other">
-    <!-- 80~92: 头像框样式 (后端下发) -->
-    <view class="avatar-frame" style="{{avfStyle.frame_style||''}}">
-      <image class="message-avatar" src="{{message.avatar}}" mode="aspectFill" style="border-radius:{{avfStyle.radius||'50%'}};"></image>
+    <view class="avatar-frame" style="{{avatarFrameStr}}">
+      <image class="message-avatar" src="{{message.avatar}}" mode="aspectFill"></image>
     </view>
 
     <view class="message-bubble-wrapper">
       <view wx:if="{{message.senderRoleKey==='platform' || message.officialTag || message.vBadgeType}}" class="name-row">
-        <text wx:if="{{message.officialTag}}" class="official-tag" style="background:{{roleStyle.tag_bg||'#409eff'}};">{{message.officialTag}}</text>
+        <text wx:if="{{message.officialTag}}" class="official-tag">{{message.officialTag}}</text>
         <text class="sn">{{message.senderName}}</text>
         <text wx:if="{{message.vBadgeType}}" class="v-badge" style="font-size:{{message.officialVSize||24}}rpx;">{{message.vBadgeType}}</text>
       </view>
       <view class="bubble-row">
         <view wx:if="{{message.verticalMark}}" class="vm-line"></view>
-        <view class="message-bubble bubble-other" style="{{bubbleStyle()}}">
-          <text wx:if="{{message.type === 'text'}}" class="bubble-text" style="{{textStyle()}}; {{message.content.length>60?'line-height:1.7em':''}}">{{message.content}}</text>
+        <view class="message-bubble bubble-other" style="{{bubbleStyleStr}}">
+          <text wx:if="{{message.type === 'text'}}" class="bubble-text" style="{{textStyleStr}}">{{message.content}}</text>
           <view wx:if="{{message.type === 'voice'}}" class="bubble-voice" bindtap="onPlayVoice">
             <text class="voice-icon">🔊</text>
-            <text class="voice-duration" style="color:{{roleStyle.text_color||'#fff'}};">{{message.voiceDuration}}″</text>
+            <text class="voice-duration">{{message.voiceDuration}}″</text>
             <view class="voice-waves">
-              <view class="voice-wave {{playing?'playing':''}}" wx:for="{{4}}" wx:key="index" style="{{voiceWaveStyle()}}"></view>
+              <view class="voice-wave {{playing?'playing':''}}" wx:for="{{4}}" wx:key="index" style="{{voiceWaveStr}}"></view>
             </view>
           </view>
           <image wx:if="{{message.type === 'image'}}" class="bubble-image" src="{{message.imageUrl}}" mode="aspectFill" bindtap="onPreviewImage"></image>

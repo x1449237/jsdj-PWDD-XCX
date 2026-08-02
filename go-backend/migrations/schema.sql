@@ -3759,6 +3759,7 @@ CREATE TABLE `im_session_tags` (
   `created_by` BIGINT NOT NULL DEFAULT 0 COMMENT '打标人平台账号ID',
   `created_at` DATETIME NULL DEFAULT NULL COMMENT '创建时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_tag` (`session_id`, `tag_id`),
   KEY `idx_session_id` (`session_id`),
   KEY `idx_tag_id` (`tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IM会话-自定义处理标签关联表';

@@ -34,10 +34,11 @@
     <input class="sf-input" type="number" placeholder="游戏品类ID" value="{{gameID}}" bindchange="onGameChange" />
   </view>
 
-  <!-- 一、会话自动优先级分组 + 沉寂折叠 + 星标 -->
-  <block wx:for="{{groups}}" wx:key="bucketKey" wx:for-item="g">
+  <!-- 一、会话自动优先级分组 -->
+  <block wx:for="{{groups}}" wx:key="bucket_key" wx:for-item="g">
     <view class="group-wrap">
-      <view class="group-head" data-k="{{g.bucketKey}}" bindtap="onToggleBucket">
+      <!-- 修复: 用 bucket_key (snake_case) 匹配后端字段 -->
+      <view class="group-head" data-k="{{g.bucket_key}}" bindtap="onToggleBucket">
         <text class="arrow {{g.isCollapsed?'collapsed':''}}">▼</text>
         <text class="group-name">{{g.bucket_name}}</text>
         <text class="group-count">{{g.items.length}}条</text>
@@ -45,13 +46,12 @@
       </view>
       <block wx:if="{{!g.isCollapsed}}">
         <view wx:if="{{g.items.length===0}}" class="empty">分组为空</view>
-        <view wx:for="{{g.items}}" wx:key="session_id" wx:for-item="s" class="sess-item" data-id="{{s.session_id}}" bindtap="onOpenSession">
-          <!-- 风险/置顶色边 -->
+        <!-- 修复: 传整个 session 对象 s 给 onOpenSession 判断类型 -->
+        <view wx:for="{{g.items}}" wx:key="session_id" wx:for-item="s" class="sess-item" data-id="{{s.session_id}}" data-s="{{s}}" bindtap="onOpenSession">
           <view wx:if="{{s.risk_flag>=2}}" class="sess-side {{s.riskCls}}"></view>
           <view class="sess-avatar">
-            <!-- 十、头像框占位 (样式从 styles/me 拉取后动态设置,此处仅结构) -->
             <view class="avatar-wrap">
-              <image class="avatar" src="{{s.sender_avatar || '/assets/icons/default-avatar.png'}}" mode="aspectFill" />
+              <image class="avatar" src="/assets/icons/default-avatar.png" mode="aspectFill" />
             </view>
             <view wx:if="{{s.unreadDisplay}}" class="badge {{s.unread_bold?'b-bold':''}}">{{s.unreadDisplay}}</view>
           </view>
@@ -71,15 +71,17 @@
             </view>
             <view class="sess-last">
               <text class="last-preview">{{s.last_msg_preview}}</text>
-              <text wx:if="{{s.my_note_preview}}" class="note-preview">📝{{s.my_note_preview}}</text>
+              <!-- 修复: note_preview (后端字段名) -->
+              <text wx:if="{{s.note_preview}}" class="note-preview">📝{{s.note_preview}}</text>
             </view>
-            <!-- 四、标签色块 29 -->
+            <!-- 修复: tags 字段名 id/name/color (后端 TagBrief) -->
             <view class="sess-tags" wx:if="{{s.tags.length>0}}">
-              <text wx:for="{{s.tags}}" wx:key="tag_id" wx:for-item="t" class="tag" style="background:{{t.tag_color}};">{{t.tag_name}}</text>
+              <text wx:for="{{s.tags}}" wx:key="id" wx:for-item="t" class="tag" style="background:{{t.color}};">{{t.name}}</text>
             </view>
           </view>
           <view class="sess-opt">
-            <view class="opt" catchtap="onToggleStar" data-id="{{s.session_id}}">{{s.star_flag===1?'⭐':'☆'}}</view>
+            <!-- 修复: is_starred (后端字段名) -->
+            <view class="opt" catchtap="onToggleStar" data-id="{{s.session_id}}" data-starred="{{s.is_starred}}">{{s.is_starred===1?'⭐':'☆'}}</view>
             <view class="opt" catchtap="onQuickTag" data-id="{{s.session_id}}">🏷</view>
             <view class="opt" catchtap="onMarkDone" data-id="{{s.session_id}}">✓</view>
           </view>

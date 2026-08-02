@@ -13,6 +13,10 @@ const FALLBACK_STYLE = {
   voice_wave_color: '#C0C4CC'
 };
 
+// 全局缓存:样式只拉取一次,所有消息组件实例共享(修复: 原代码每条消息都发HTTP请求)
+let globalStyleMap = null;
+let globalStylePromise = null;
+
 const innerAudioContext = wx.createInnerAudioContext();
 
 Component({
@@ -21,49 +25,111 @@ Component({
       type: Object,
       value: {
         id: '', type: 'text', content: '', isSelf: false, avatar: '',
-        senderRoleKey: 'user', // platform/club_admin/user/player (后端下发)
+        senderRoleKey: 'user',
         senderName: '',
         time: '', isRead: false, voiceDuration: 0, imageUrl: '', voiceUrl: '',
         officialVSize: 0, vBadgeType: '', officialTag: '',
-        isImportant: false, verticalMark: 0, // 77
-        avatarFrameStyle: {} // 后端下发头像框样式 (94)
+        isImportant: false, verticalMark: 0,
+        avatarFrameStyle: {}
       }
     },
-    // 80~92 三级头像框样式:由后端下发,前端仅套参数渲染
     extraClass: { type: String, value: '' },
-    // 平台人员账号ID (比对判断身份)
     myUid: { type: String, value: '' }
   },
   data: {
     playing: false,
-    // 93-98: 从后端拉取样式,存在组件内
-    styleMap: {},        // { role_key: bubbleStyle }
     roleStyle: FALLBACK_STYLE,
-    avfStyle: {}         // 头像框样式 (94)
+    avfStyle: {},
+    // 修复: 预计算 style 字符串,WXML 不能调用 JS 方法,只能用 data 字段
+    bubbleStyleStr: '',
+    textStyleStr: '',
+    voiceWaveStr: '',
+    avatarFrameStr: ''
   },
   lifetimes: {
     attached() {
-      this.loadRoleStyles();
+      this.computeStyles();
+      this.ensureStylesLoaded();
     },
     detached() { innerAudioContext.stop(); }
   },
   observers: {
-    'message.senderRoleKey,styleMap': function (rk, map) {
-      // 98: 后端未下发则强制降级为普通样式,不允许默认展示官方样式
-      const r = (map && map[rk]) || FALLBACK_STYLE;
-      const avf = (this.data.message && this.data.message.avatarFrameStyle) || {};
-      this.setData({ roleStyle: r, avfStyle: avf });
+    'message': function () {
+      this.computeStyles();
     }
   },
   methods: {
-    // 93~96: 每次进入会话必拉取最新样式,无缓存
-    loadRoleStyles() {
-      request.get('/platform-im/styles/all').then(res => {
-        const list = res.data || [];
+    // 修复: 全局只拉取一次样式,所有组件实例共享缓存
+    ensureStylesLoaded() {
+      if (globalStyleMap) {
+        this.applyStyles(globalStyleMap);
+        return;
+      }
+      if (globalStylePromise) {
+        globalStylePromise.then(map => this.applyStyles(map));
+        return;
+      }
+      globalStylePromise = request.get('/platform-im/styles/all').then(res => {
+        const data = res || {};
+        const bubbles = data.bubbles || [];
         const map = {};
-        list.forEach(s => { map[s.role_key] = s; });
-        this.setData({ styleMap: map });
+        bubbles.forEach(s => { map[s.role_key] = s; });
+        globalStyleMap = map;
+        this.applyStyles(map);
+        return map;
       }).catch(() => {});
+    },
+    applyStyles(map) {
+      const rk = (this.data.message && this.data.message.senderRoleKey) || 'user';
+      const r = map[rk] || FALLBACK_STYLE;
+      this.setData({ roleStyle: r }, () => this.computeStyles());
+    },
+    // 修复: 预计算所有 style 字符串,WXML 只读 data 不能调方法
+    computeStyles() {
+      const s = this.data.roleStyle || FALLBACK_STYLE;
+      const msg = this.data.message || {};
+      const isImportant = msg.isImportant || s.text_bold_important === 1;
+
+      // 气泡样式
+      const radius = parseInt(s.bubble_radius || 12);
+      const bubbleParts = [
+        'background:' + (s.bubble_bg || '#fff'),
+        'border-radius:' + radius + 'rpx',
+        s.bubble_shadow ? ('box-shadow:' + s.bubble_shadow) : ''
+      ].filter(Boolean);
+      if (isImportant) bubbleParts.push('font-weight:700');
+
+      // 文字样式
+      const sw = parseFloat(s.text_stroke_width || 0);
+      const textParts = ['color:' + (s.text_color || '#303133')];
+      if (isImportant) {
+        textParts.push('font-weight:800');
+        if (sw > 0) {
+          textParts.push('text-shadow:0 0 ' + (sw * 2) + 'px ' + (s.text_stroke_color || '#000'));
+        }
+      }
+      if (sw > 0) {
+        textParts.push('-webkit-text-stroke:' + sw + 'px ' + (s.text_stroke_color || 'transparent'));
+      }
+
+      // 语音波形
+      const voiceStr = 'background:' + (s.voice_wave_color || '#C0C4CC');
+
+      // 头像框
+      const avf = (msg.avatarFrameStyle) || {};
+      let avfStr = avf.frame_style || '';
+
+      // 长消息行间距
+      if (msg.content && msg.content.length > 60) {
+        textParts.push('line-height:1.7em');
+      }
+
+      this.setData({
+        bubbleStyleStr: bubbleParts.join(';'),
+        textStyleStr: textParts.join(';'),
+        voiceWaveStr: voiceStr,
+        avatarFrameStr: avfStr
+      });
     },
     onPlayVoice() {
       const { message, playing } = this.data;
@@ -91,39 +157,6 @@ Component({
           } else if (res.tapIndex === 2) this.triggerEvent('delete', { message });
         }
       });
-    },
-    // 64~66 动态计算:气泡样式 完全由后端下发
-    bubbleStyle() {
-      const s = this.data.roleStyle || FALLBACK_STYLE;
-      const r = parseInt(s.bubble_radius || 12);
-      return [
-        'background:' + (s.bubble_bg || '#fff'),
-        'border-radius:' + r + 'rpx',
-        'box-shadow:' + (s.bubble_shadow || 'none'),
-        (s.text_bold_important === 1 || this.data.message.isImportant) ? 'font-weight:700' : ''
-      ].filter(Boolean).join(';');
-    },
-    // 66 文字描边 + 颜色 + 行间距
-    textStyle() {
-      const s = this.data.roleStyle || FALLBACK_STYLE;
-      const sw = parseFloat(s.text_stroke_width || 0);
-      const bold = (s.text_bold_important === 1 || this.data.message.isImportant) ? 'font-weight:800' : '';
-      const doubleStroke = (s.text_bold_important === 1 || this.data.message.isImportant) && sw > 0 ?
-        'text-shadow:0 0 ' + (sw*2) + 'px ' + (s.text_stroke_color || '#000') : '';
-      const parts = [
-        'color:' + (s.text_color || '#303133'),
-        bold,
-        doubleStroke
-      ];
-      if (sw > 0) {
-        // 98: 无文字描边样式降级逻辑,严格按后端下发
-        parts.push('-webkit-text-stroke:' + sw + 'px ' + (s.text_stroke_color || 'transparent'));
-      }
-      return parts.filter(Boolean).join(';');
-    },
-    voiceWaveStyle() {
-      const s = this.data.roleStyle || FALLBACK_STYLE;
-      return 'background:' + (s.voice_wave_color || '#C0C4CC');
     }
   }
 });

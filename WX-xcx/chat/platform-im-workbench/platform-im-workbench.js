@@ -1,12 +1,11 @@
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 // 平台方管理人员 IM 工作台（需求 46-52）
 Page({
   data: {
     loading: true,
     overview: {},
-    buckets: [], // [{bucketKey:'todo', bucketName:'待跟进', order:2, items:[...]}]
+    buckets: [],
     bucketsOrder: ['emergency', 'todo', 'yesterday']
   },
   onLoad() {
@@ -18,17 +17,23 @@ Page({
   },
   loadWorkbench() {
     this.setData({ loading: true });
-    request.get('/platform-im/workbench').then((res) => {
-      const data = res.data || {};
-      const bucketsOrder = data.bucketsOrder || ['emergency', 'todo', 'yesterday'];
+    // request.js resolve(data.data), res = overview 对象
+    request.get('/platform-im/workbench').then(res => {
+      const data = res || {};
+      const overview = {
+        count_emergency: data.count_emergency || 0,
+        count_new_today: data.count_new_today || 0,
+        count_timeout: data.count_timeout || 0
+      };
+      const bucketsOrder = data.buckets_order || ['emergency', 'todo', 'yesterday'];
+      const rawBuckets = data.buckets || {};
       const buckets = bucketsOrder.map((k) => ({
         bucketKey: k,
         bucketName: this.getBucketName(k),
-        order: k,
-        items: (data.buckets && data.buckets[k]) || []
+        items: rawBuckets[k] || []
       })).filter(b => b.items.length > 0 || b.bucketKey === 'emergency');
       this.setData({
-        overview: data.overview || {},
+        overview: overview,
         bucketsOrder: bucketsOrder,
         buckets: buckets,
         loading: false
@@ -43,21 +48,32 @@ Page({
     };
     return map[k] || k;
   },
-  // 快捷操作：立即进入
+  // 修复: 跳转到会话归类清单,而非不存在的页面
   onOpenSession(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({
-      url: '/chat/platform-im-sessions/platform-im-sessions?openId=' + id
+      url: '/chat/platform-im-sessions/platform-im-sessions'
     });
   },
-  // 快捷操作：添加标签
   onAddTag(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({
-      url: '/chat/platform-im-sessions/platform-im-sessions?openId=' + id + '&action=tag'
+    const that = this;
+    request.get('/platform-im/tags').then(res => {
+      const tags = Array.isArray(res) ? res : (res.list || []);
+      if (tags.length === 0) return wx.showToast({ title: '暂无标签', icon: 'none' });
+      wx.showActionSheet({
+        itemList: tags.map(t => t.name),
+        success(r) {
+          const t = tags[r.tapIndex];
+          request.post('/platform-im/sessions/' + id + '/tags', { tag_ids: [t.id] }).then(() => {
+            wx.showToast({ title: '已打标' });
+            that.loadWorkbench();
+          });
+        }
+      });
     });
   },
-  // 快捷操作：备注
+  // 修复: 字段名用 note_text (handler 兼容)
   onAddNote(e) {
     const id = e.currentTarget.dataset.id;
     const that = this;
@@ -75,7 +91,6 @@ Page({
       }
     });
   },
-  // 完成一条
   onComplete(e) {
     const id = e.currentTarget.dataset.id;
     const that = this;
@@ -95,7 +110,7 @@ Page({
   onGotoSessionList() {
     wx.navigateTo({ url: '/chat/platform-im-sessions/platform-im-sessions' });
   },
-  // 自定义顺序 - 62
+  // 修复: 用 bucket_order 字段名 (handler 兼容 layout_json.order 和 bucket_order)
   onChangeOrder() {
     const that = this;
     wx.showActionSheet({
@@ -106,7 +121,7 @@ Page({
           ['todo', 'emergency', 'yesterday'],
           ['yesterday', 'emergency', 'todo']
         ][r.tapIndex];
-        request.put('/platform-im/workbench/layout', { layout_json: { order: order } }).then(() => {
+        request.put('/platform-im/workbench/layout', { bucket_order: order }).then(() => {
           that.loadWorkbench();
         });
       }

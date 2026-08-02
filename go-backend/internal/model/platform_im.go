@@ -75,8 +75,8 @@ const (
 // ImSessionTag 会话-标签关联
 type ImSessionTag struct {
 	ID        int64      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	SessionID int64      `gorm:"column:session_id;index:idx_session_id;not null;default:0" json:"session_id"`
-	TagID     int64      `gorm:"column:tag_id;index:idx_tag_id;not null;default:0" json:"tag_id"`
+	SessionID int64      `gorm:"column:session_id;uniqueIndex:uk_session_tag;not null;default:0" json:"session_id"`
+	TagID     int64      `gorm:"column:tag_id;uniqueIndex:uk_session_tag;not null;default:0" json:"tag_id"`
 	TagName   string     `gorm:"column:tag_name;size:64;not null;default:''" json:"tag_name"`
 	TagColor  string     `gorm:"column:tag_color;size:16;not null;default:''" json:"tag_color"`
 	CreatedBy int64      `gorm:"column:created_by;not null;default:0" json:"created_by"`
