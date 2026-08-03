@@ -1,13 +1,10 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（extApi）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const extApi = require('../../utils/ext-api');
 const app = getApp();
-
-const CHANGE_TYPE_MAP = {
-  income: { text: '收入', tagClass: 'tag-success' },
-  expense: { text: '支出', tagClass: 'tag-primary' }
-};
-
-const formatMoney = (v) => ((Number(v) || 0) / 100).toFixed(2);
-const formatTime = (v) => v ? String(v).replace('T', ' ').slice(0, 16) : '-';
 
 Page({
   data: {
@@ -56,20 +53,15 @@ Page({
     if (ct) params.change_type = ct;
 
     extApi.listWalletLogs(params).then((res) => {
-      const list = (res.list || []).map((item) => {
-        const isIncome = item.change_type === 'income';
-        const conf = CHANGE_TYPE_MAP[item.change_type] || { text: item.change_type || '其他', tagClass: 'tag-warning' };
-        const amt = Math.abs(Number(item.amount) || 0) / 100;
-        return {
-          ...item,
-          typeText: conf.text,
-          tagClass: conf.tagClass,
-          amountText: (isIncome ? '+' : '-') + amt.toFixed(2),
-          amountColor: isIncome ? '#07c160' : '#e94560',
-          balanceText: formatMoney(item.balance_after),
-          createdText: formatTime(item.created_at)
-        };
-      });
+      const list = (res.list || []).map((item) => ({
+        ...item,
+        typeText: item.change_type_text || '',
+        tagClass: item.tag_class || '',
+        amountText: item.amount_text || '',
+        amountColor: item.amount_color || '',
+        balanceText: item.balance_after_text || '',
+        createdText: item.time_text || ''
+      }));
       this.setData({
         list: this.data.list.concat(list),
         page: this.data.page + 1,

@@ -1,3 +1,11 @@
+/**
+ * 架构规则：小程序前端不包含任何业务逻辑。
+ * 前端仅：1) 通过 request.get/post/put/del 调用后端接口
+ *         2) 渲染后端返回字段（discount_label/save_amount_text/remain_time_text/progress_percent 等）
+ *         3) 提供纯 UI 反馈（toast/loading/非空提示/进度条）
+ * 禁止：mock 数据、状态/类型文本映射、金额换算、时间格式化、脱敏、业务校验、随机数、折扣/进度计算。
+ * 约定：request.get(url, data) 直接 resolve 出内层 data.data，res 即数据对象本身。
+ */
 const request = require('../../../utils/request');
 const app = getApp();
 
@@ -56,7 +64,7 @@ Page({
       page: this.data.page,
       limit: this.data.pageSize
     }).then((res) => {
-      const list = (res.data?.list || []).map(item => this.formatActivity(item));
+      const list = (res.list || []).map(item => this.formatActivity(item));
       const newList = this.data.page === 1 ? list : this.data.activityList.concat(list);
       this.setData({
         activityList: newList,
@@ -65,102 +73,20 @@ Page({
       });
     }).catch((err) => {
       console.error('加载活动失败:', err);
-      const mockList = this.getMockActivities();
-      const newList = this.data.page === 1 ? mockList : this.data.activityList.concat(mockList);
-      this.setData({
-        activityList: newList,
-        hasMore: false
-      });
-      if (!res || !res.data) {
-        wx.showToast({ title: '加载失败', icon: 'none' });
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      if (this.data.page === 1) {
+        this.setData({ activityList: [], hasMore: false });
+      } else {
+        this.setData({ hasMore: false });
       }
     }).finally(() => {
       this.setData({ loading: false });
     });
   },
 
+  // 展示字段（discount_label/save_amount_text/remain_time_text/on_going_groups/progress_percent 等）均由后端返回
   formatActivity(item) {
-    const groupPrice = Number(item.group_price || 0);
-    const originalPrice = Number(item.original_price || 0);
-    const discountPercent = originalPrice > 0 ? Math.round((groupPrice / originalPrice) * 100) : 100;
-    const discountLabel = discountPercent >= 100 ? '' : `${Math.round(discountPercent / 10)}折`;
-    const saveAmount = originalPrice > groupPrice ? (originalPrice - groupPrice).toFixed(2) : '';
-
-    const remainSeconds = this.calcRemainSeconds(item.end_time, item.duration_hours);
-    const remainTimeText = this.formatRemainTime(remainSeconds);
-    const onGoingGroups = Number(item.on_going_groups || Math.floor(Math.random() * 20));
-    const progressPercent = Math.min(100, Math.round((onGoingGroups / Math.max(5, item.min_people * 4)) * 100));
-
-    return {
-      ...item,
-      group_price: groupPrice.toFixed(2),
-      original_price: originalPrice.toFixed(2),
-      discount_label: item.discount_label || discountLabel,
-      save_amount: item.save_amount || saveAmount,
-      remain_time_text: item.remain_time_text || remainTimeText,
-      on_going_groups: onGoingGroups,
-      progress_percent: item.progress_percent || progressPercent
-    };
-  },
-
-  calcRemainSeconds(endTime, durationHours) {
-    if (endTime) {
-      const end = new Date(endTime.replace(/-/g, '/')).getTime();
-      const now = Date.now();
-      return Math.max(0, Math.floor((end - now) / 1000));
-    }
-    return (durationHours || 24) * 3600;
-  },
-
-  formatRemainTime(totalSeconds) {
-    if (!totalSeconds || totalSeconds <= 0) return '活动已结束';
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    if (days > 0) return `${days}天${hours}小时`;
-    if (hours > 0) return `${hours}小时${minutes}分`;
-    return `${minutes}分钟`;
-  },
-
-  getMockActivities() {
-    return [
-      {
-        id: 1001,
-        name: '王者荣耀·钻石上分2人团',
-        service_name: '排位代练',
-        group_price: '29.90',
-        original_price: '59.80',
-        min_people: 2,
-        max_people: 2,
-        duration_hours: 48,
-        min_consume: '50',
-        end_time: new Date(Date.now() + 3600 * 1000 * 24 * 3).toISOString()
-      },
-      {
-        id: 1002,
-        name: '英雄联盟·黄金-铂金3人团',
-        service_name: '段位陪玩',
-        group_price: '49.00',
-        original_price: '98.00',
-        min_people: 3,
-        max_people: 5,
-        duration_hours: 72,
-        min_consume: '80',
-        end_time: new Date(Date.now() + 3600 * 1000 * 24 * 5).toISOString()
-      },
-      {
-        id: 1003,
-        name: '和平精英·吃鸡娱乐5人团',
-        service_name: '娱乐陪玩',
-        group_price: '19.90',
-        original_price: '49.90',
-        min_people: 3,
-        max_people: 5,
-        duration_hours: 24,
-        min_consume: '30',
-        end_time: new Date(Date.now() + 3600 * 1000 * 12).toISOString()
-      }
-    ].map(item => this.formatActivity(item));
+    return { ...item };
   },
 
   loadMyGroups() {
@@ -172,7 +98,7 @@ Page({
       page: this.data.page,
       limit: this.data.pageSize
     }).then((res) => {
-      const list = (res.data?.list || []).map(item => this.formatMyGroup(item));
+      const list = (res.list || []).map(item => this.formatMyGroup(item));
       const newList = this.data.page === 1 ? list : this.data.myGroupList.concat(list);
       this.setData({
         myGroupList: newList,
@@ -186,15 +112,9 @@ Page({
     });
   },
 
+  // 展示字段（group_progress/group_price 等）均由后端返回
   formatMyGroup(item) {
-    const current = Number(item.current_people || 1);
-    const max = Number(item.max_people || item.min_people || 2);
-    const groupProgress = max > 0 ? Math.round((current / max) * 100) : 0;
-    return {
-      ...item,
-      group_progress: groupProgress,
-      group_price: Number(item.group_price || 0).toFixed(2)
-    };
+    return { ...item };
   },
 
   onJoinGroup(e) {
@@ -237,7 +157,7 @@ Page({
       wx.showToast({ title: '加入成功', icon: 'success' });
       setTimeout(() => {
         wx.navigateTo({
-          url: `/pages/marketing/group-buy-detail?id=${res.data?.id || res.id}`
+          url: `/pages/marketing/group-buy-detail?id=${res.id}`
         });
       }, 1000);
     }).catch((err) => {
@@ -274,7 +194,7 @@ Page({
       activity_id: activityId
     }).then((res) => {
       wx.hideLoading();
-      const groupId = res.data?.id || res.id;
+      const groupId = res.id;
       wx.showToast({ title: '开团成功', icon: 'success' });
       setTimeout(() => {
         wx.showModal({

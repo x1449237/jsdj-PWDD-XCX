@@ -1,5 +1,9 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验、权限控制、折扣计算、建议出价计算。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -18,30 +22,22 @@ Page({
   onLoad(options) {
     const { orderId } = options;
     this.setData({ orderId });
-    this.checkUserRole();
     this.loadOrderDetail();
     this.loadBidList();
-    this.startCountdown();
-  },
-
-  checkUserRole() {
-    request.get('/user/profile').then((res) => {
-      this.setData({ isPlayer: res.is_player || false });
-    }).catch(() => {});
   },
 
   loadOrderDetail() {
     request.get(`/orders/${this.data.orderId}`).then((res) => {
-      const orderInfo = {
-        ...res,
-        amount_text: util.fenToYuan(res.order_amount),
-        current_price_text: res.current_bid_price ? util.fenToYuan(res.current_bid_price) : util.fenToYuan(res.order_amount)
-      };
+      // 金额/当前价/最低出价均使用后端返回的 *_text 字段
+      const currentPriceText = res.current_price_text || res.amount_text || '';
       this.setData({
-        orderInfo,
-        currentPrice: orderInfo.current_price_text,
-        minBidPrice: orderInfo.current_price_text
+        orderInfo: res,
+        currentPrice: currentPriceText,
+        minBidPrice: res.min_bid_price_text || currentPriceText,
+        // is_player 仅作 UI 提示，竞价权限由后端在 /player/bid 接口拦截
+        isPlayer: !!res.is_player
       });
+      this.startCountdown();
     }).catch(() => {
       wx.showToast({ title: '加载失败', icon: 'none' });
     });
@@ -49,89 +45,74 @@ Page({
 
   loadBidList() {
     request.get(`/orders/${this.data.orderId}/bids`).then((res) => {
-      const list = (res.list || []).map(item => ({
-        ...item,
-        bid_price_text: util.fenToYuan(item.bid_price),
-        bid_time_text: this.formatBidTime(item.bid_time)
-      }));
-      
-      let myBid = null;
-      const userId = wx.getStorageSync('userId');
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].player_user_id == userId) {
-          myBid = list[i];
-          break;
-        }
-      }
-
-      this.setData({ bidList: list, myBid });
+      // 直接使用后端返回的 bid_price_text / bid_time_text，my_bid 由后端识别当前用户返回
+      this.setData({
+        bidList: res.list || [],
+        myBid: res.my_bid || null
+      });
     }).catch(() => {});
   },
 
-  formatBidTime(timeStr) {
-    if (!timeStr) return '';
-    const date = new Date(timeStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
-    return timeStr.slice(5, 16);
-  },
-
+  // 纯 UI 计时：以后端 remain_seconds 为初始值递减用于平滑显示；
+  // 初始文本使用后端 remain_time_text；到期/自动取消等业务由后端处理。
   startCountdown() {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+    }
+    let remainSeconds = this.data.orderInfo.remain_seconds || 0;
+    if (remainSeconds <= 0) {
+      this.setData({ countdown: this.data.orderInfo.remain_time_text || '竞价已结束' });
+      return;
+    }
+    this.setData({ countdown: this.data.orderInfo.remain_time_text || this.formatCountdown(remainSeconds) });
     this.countdownTimer = setInterval(() => {
-      const endTime = new Date(this.data.orderInfo.bid_end_time || '').getTime();
-      const now = Date.now();
-      const diff = endTime - now;
-
-      if (diff <= 0) {
+      remainSeconds--;
+      if (remainSeconds <= 0) {
         this.setData({ countdown: '竞价已结束' });
         clearInterval(this.countdownTimer);
         return;
       }
-
-      const hours = Math.floor(diff / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-
-      this.setData({
-        countdown: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-      });
+      this.setData({ countdown: this.formatCountdown(remainSeconds) });
     }, 1000);
+  },
+
+  // 纯 UI 格式化：将秒数格式化为 HH:MM:SS 供倒计时显示
+  formatCountdown(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   },
 
   onBidPriceInput(e) {
     this.setData({ bidPrice: e.detail.value });
   },
 
+  // 快捷加价：建议出价由后端计算返回 suggested_bid_text，前端不做加法
   onQuickBid(e) {
     const addAmount = e.currentTarget.dataset.amount;
-    const current = parseFloat(this.data.currentPrice) || 0;
-    const newPrice = (current + parseFloat(addAmount)).toFixed(2);
-    this.setData({ bidPrice: newPrice });
+    request.get(`/orders/${this.data.orderId}/bid/preview`, {
+      add_amount: addAmount
+    }).then((res) => {
+      this.setData({ bidPrice: res.suggested_bid_text || '' });
+    }).catch(() => {
+      wx.showToast({ title: '获取建议出价失败', icon: 'none' });
+    });
   },
 
   onPlaceBid() {
-    const { bidPrice, currentPrice, submitting, orderId, isPlayer } = this.data;
+    const { bidPrice, submitting, orderId } = this.data;
 
-    if (!isPlayer) {
-      wx.showToast({ title: '仅打手可参与竞价', icon: 'none' });
-      return;
-    }
     if (submitting) return;
-    if (!bidPrice || isNaN(bidPrice)) {
+    // 非空提示（纯 UI 校验），出价上限/低于当前价/打手身份等业务校验由后端完成
+    if (!bidPrice) {
       wx.showToast({ title: '请输入出价金额', icon: 'none' });
-      return;
-    }
-    if (parseFloat(bidPrice) <= parseFloat(currentPrice)) {
-      wx.showToast({ title: '出价需高于当前价格', icon: 'none' });
       return;
     }
 
     this.setData({ submitting: true });
 
+    // 直接提交元字符串，由后端转换与校验
     request.post('/player/bid', {
       order_id: orderId,
       bid_price: bidPrice

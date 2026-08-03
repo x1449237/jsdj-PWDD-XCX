@@ -1,5 +1,10 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 状态/类型文案、金额、时间、脱敏等均由后端返回：
+ *   type_text / status_text / status_color / relative_time_text
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -34,34 +39,16 @@ Page({
     if (this.data.loading || this.data.noMore) return;
     this.setData({ loading: true });
 
-    const typeMap = {
-      phone: '手机号申诉',
-      order: '订单申诉',
-      account: '账号申诉'
-    };
-    const statusMap = {
-      0: '待处理',
-      1: '处理中',
-      2: '已完成',
-      3: '已驳回'
-    };
-    const statusColorMap = {
-      0: '#ff976a',
-      1: '#0f3460',
-      2: '#07c160',
-      3: '#e94560'
-    };
-
     request.get('/appeals', {
       page: this.data.page,
       page_size: this.data.pageSize
     }).then((res) => {
       const list = (res.list || []).map((item) => ({
         ...item,
-        typeText: typeMap[item.type] || item.type,
-        statusText: statusMap[item.status] || '未知',
-        statusColor: statusColorMap[item.status] || '#999999',
-        create_time: util.formatRelativeTime(item.create_time)
+        typeText: item.type_text || '',
+        statusText: item.status_text || '',
+        statusColor: item.status_color || '',
+        relativeTimeText: item.relative_time_text || ''
       }));
 
       const appeals = this.data.appeals.concat(list);

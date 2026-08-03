@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -31,15 +35,15 @@ Page({
     try {
       const res = await request.get('/player/wallet/balance');
       this.setData({
-        availableBalance: util.fenToYuan(res.availableBalance || 0),
-        frozenBalance: util.fenToYuan(res.frozenBalance || 0)
+        availableBalance: res.available_balance_text || res.availableBalance || '0.00',
+        frozenBalance: res.frozen_balance_text || res.frozenBalance || '0.00'
       });
     } catch (err) {
       // 忽略错误
     }
   },
 
-  /* ========== 收入明细 ========== */
+  /* ========== 收入明细（后端返回预分组 groups 与 months） ========== */
   async loadIncomeList() {
     this.setData({ loading: true });
     try {
@@ -49,12 +53,12 @@ Page({
         month: this.data.selectedMonth
       });
 
-      const groupedList = this.groupByMonth(res.list || []);
-      const months = this.extractMonths(groupedList);
+      const groups = (res.groups || []).map(group => this.formatIncomeGroup(group));
 
       this.setData({
-        incomeList: groupedList,
-        monthFilter: ['全部月份', ...months],
+        incomeList: groups,
+        // 月份筛选选项由后端下发 month_filter_options(含"全部"选项),前端不硬编码
+        monthFilter: res.month_filter_options || [],
         hasMore: res.hasMore !== false,
         loading: false
       });
@@ -74,11 +78,19 @@ Page({
         month: this.data.selectedMonth
       });
 
-      const newItems = res.list || [];
-      const mergedList = this.mergeGroupedList(this.data.incomeList, newItems);
+      const newGroups = (res.groups || []).map(group => this.formatIncomeGroup(group));
+      const merged = [...this.data.incomeList];
+      newGroups.forEach(newGroup => {
+        const existing = merged.find(g => g.month === newGroup.month);
+        if (existing) {
+          existing.items = [...(existing.items || []), ...(newGroup.items || [])];
+        } else {
+          merged.push(newGroup);
+        }
+      });
 
       this.setData({
-        incomeList: mergedList,
+        incomeList: merged,
         page: nextPage,
         hasMore: res.hasMore !== false,
         loadingMore: false
@@ -92,86 +104,35 @@ Page({
     this.loadMoreIncome();
   },
 
-  groupByMonth(rawList) {
-    const grouped = {};
-    rawList.forEach(item => {
-      const date = new Date(item.createTime);
-      const month = `${date.getFullYear()}年${date.getMonth() + 1}月`;
-      if (!grouped[month]) {
-        grouped[month] = { month, items: [], monthTotal: 0 };
-      }
-      const formatted = this.formatIncomeItem(item);
-      grouped[month].items.push(formatted);
-      grouped[month].monthTotal += (item.amount || 0);
-    });
-
-    const result = Object.values(grouped);
-    result.forEach(group => {
-      group.monthTotal = util.fenToYuan(group.monthTotal);
-      group.items.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
-    });
-    result.sort((a, b) => {
-      const [ay, am] = a.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      const [by, bm] = b.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      return new Date(by, bm - 1) - new Date(ay, am - 1);
-    });
-    return result;
-  },
-
-  mergeGroupedList(existing, newItems) {
-    const merged = [...existing];
-    const newGrouped = this.groupByMonth(newItems);
-    newGrouped.forEach(newGroup => {
-      const existingGroup = merged.find(g => g.month === newGroup.month);
-      if (existingGroup) {
-        const existingIds = new Set(existingGroup.items.map(i => i.id));
-        const uniqueNew = newGroup.items.filter(i => !existingIds.has(i.id));
-        existingGroup.items = [...existingGroup.items, ...uniqueNew];
-        const totalFen = existingGroup.items.reduce((sum, i) => sum + (i.amountFen || 0), 0);
-        existingGroup.monthTotal = util.fenToYuan(totalFen);
-      } else {
-        merged.push(newGroup);
-      }
-    });
-    merged.sort((a, b) => {
-      const [ay, am] = a.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      const [by, bm] = b.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      return new Date(by, bm - 1) - new Date(ay, am - 1);
-    });
-    return merged;
-  },
-
-  extractMonths(groupedList) {
-    return groupedList.map(g => g.month);
+  formatIncomeGroup(group) {
+    return {
+      ...group,
+      month: group.month || '',
+      monthTotal: group.month_total_text || group.monthTotal || '',
+      items: (group.items || []).map(item => this.formatIncomeItem(item))
+    };
   },
 
   formatIncomeItem(item) {
-    const typeMap = {
-      1: { text: '服务收入', iconClass: 'service', class: 'type-service' },
-      2: { text: '打赏', iconClass: 'tip', class: 'type-tip' },
-      3: { text: '佣金', iconClass: 'commission', class: 'type-commission' }
-    };
-    const typeInfo = typeMap[item.type] || { text: '其他', iconClass: 'other', class: 'type-service' };
-
     return {
       ...item,
-      amountFen: item.amount || 0,
-      amountText: util.fenToYuan(Math.abs(item.amount || 0)),
-      typeText: typeInfo.text,
-      typeIconClass: typeInfo.iconClass,
-      typeClass: typeInfo.class,
-      timeText: util.formatTime(item.createTime, 'MM-DD HH:mm'),
-      statusText: item.status === 1 ? '已到账' : (item.status === 0 ? '冻结中' : '')
+      typeText: item.type_text || '',
+      typeIconClass: item.type_icon_class || '',
+      typeClass: item.type_class || '',
+      amountText: item.amount_text || '',
+      timeText: item.time_text || '',
+      statusText: item.status_text || '',
+      orderNo: item.order_no || item.orderNo || ''
     };
   },
 
   /* ========== 月份筛选 ========== */
   onMonthChange(e) {
     const index = parseInt(e.detail.value);
-    const month = index === 0 ? '' : this.data.monthFilter[index];
+    const monthItem = this.data.monthFilter[index] || {};
     this.setData({
       monthIndex: index,
-      selectedMonth: month,
+      selectedMonth: monthItem.value || '',
       page: 1,
       incomeList: []
     });
@@ -179,14 +140,16 @@ Page({
   },
 
   /* ========== 提现 ========== */
+  // 是否可提现由后端 can_withdraw 字段决定,前端不解析余额数值
   goWithdraw() {
-    const available = parseFloat(this.data.availableBalance);
-    if (available <= 0) {
-      wx.showToast({ title: '暂无可提现余额', icon: 'none' });
-      return;
-    }
-    wx.navigateTo({
-      url: '/package-wallet/withdraw/withdraw'
+    request.get('/player/wallet/withdraw-check').then((res) => {
+      if (res && res.can_withdraw === true) {
+        wx.navigateTo({ url: '/package-wallet/withdraw/withdraw' });
+      } else {
+        wx.showToast({ title: res.message || '暂不可提现', icon: 'none' });
+      }
+    }).catch(() => {
+      wx.showToast({ title: '查询失败', icon: 'none' });
     });
   },
 

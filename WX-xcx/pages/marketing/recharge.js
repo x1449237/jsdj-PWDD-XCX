@@ -30,9 +30,10 @@ Page({
   },
 
   loadBalance() {
+    // 余额文案由后端返回 balance_text，前端不做分转元换算
     request.get('/wallet/balance').then((res) => {
       this.setData({
-        balance: (res.balance / 100).toFixed(2)
+        balance: res.balance_text || '0.00'
       });
     }).catch(() => {
       this.setData({ balance: '0.00' });

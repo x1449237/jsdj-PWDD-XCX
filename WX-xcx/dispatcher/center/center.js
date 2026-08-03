@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -31,8 +35,8 @@ Page({
     request.get('/dispatcher/pending-orders').then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        amount: util.fenToYuan(item.amount),
-        create_time: util.formatTime(item.create_time, 'MM-DD HH:mm')
+        amount: item.amount_text || '',
+        create_time: item.create_time_text || item.create_time || ''
       }));
 
       this.setData({

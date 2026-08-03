@@ -1,3 +1,8 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 状态文案由后端返回 status_text，前端不做状态码到文案的映射。
+ */
 const request = require('../../../utils/request');
 
 Page({
@@ -9,14 +14,7 @@ Page({
     total: 0,
     loading: false,
     noMore: false,
-    status: '',
-    statusMap: {
-      1: '待接单',
-      2: '已接单',
-      3: '进行中',
-      4: '已完成',
-      5: '已取消'
-    }
+    status: ''
   },
 
   onLoad(options) {

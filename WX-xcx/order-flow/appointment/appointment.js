@@ -1,5 +1,9 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验（预约时间合法性等）、权限控制、折扣计算。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -21,17 +25,11 @@ Page({
     this.setData({ playerId, serviceId });
     this.initTimeOptions();
     this.loadPlayerInfo();
-    this.calculateMinDate();
   },
 
-  calculateMinDate() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    this.setData({ minDate: `${year}-${month}-${day}` });
-  },
-
+  // 纯 UI：生成时间选择器候选列(每 30 分钟一格,仅作 picker 选项骨架)
+  // 实际可选时段由后端在 /orders/preview 返回 available_time_slots 时覆盖,
+  // 业务规则(营业时间/玩家可用时段)在后端校验
   initTimeOptions() {
     const options = [];
     for (let h = 0; h < 24; h++) {
@@ -49,13 +47,16 @@ Page({
       player_id: this.data.playerId,
       service_id: this.data.serviceId
     }).then((res) => {
+      // 金额使用后端返回的 *_text 字段，前端不做分转元
+      // minDate 由后端返回 min_appoint_date(权威"今天"日期),前端不调 new Date()
       this.setData({
+        minDate: res.min_appoint_date || '',
         serviceInfo: {
           gameName: res.game_name || '',
           rank: res.rank || '',
           serviceName: res.service_name || '',
           duration: res.duration || 1,
-          price: util.fenToYuan(res.price)
+          price: res.price_text || ''
         },
         playerInfo: {
           avatar: res.player_avatar || '',
@@ -63,7 +64,7 @@ Page({
           rating: res.player_rating || 0,
           orderCount: res.player_order_count || 0
         },
-        totalAmount: util.fenToYuan(res.total_amount)
+        totalAmount: res.total_amount_text || '0.00'
       });
     }).catch(() => {
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -88,6 +89,7 @@ Page({
 
     if (submitting) return;
 
+    // 非空提示（纯 UI 校验），预约时间合法性（晚于当前时间等）由后端校验
     if (!appointDate) {
       wx.showToast({ title: '请选择预约日期', icon: 'none' });
       return;
@@ -98,13 +100,6 @@ Page({
     }
 
     const appointTimeStr = `${appointDate} ${appointTime}:00`;
-    const appointTimestamp = new Date(appointTimeStr).getTime();
-    const now = Date.now();
-
-    if (appointTimestamp <= now) {
-      wx.showToast({ title: '预约时间需晚于当前时间', icon: 'none' });
-      return;
-    }
 
     this.setData({ submitting: true });
 

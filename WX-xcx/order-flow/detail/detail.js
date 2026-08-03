@@ -1,5 +1,9 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验、权限控制、折扣计算、时间线构建。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -8,17 +12,15 @@ Page({
     timelineList: [],
     subscribeTmplIds: 'TEMPLATE_ID_PLACEHOLDER_02',
     serviceTimer: null,
-    serviceDurationText: '00:00:00',
+    serviceDurationText: '',
     evidenceList: [],
-    isPlayer: false,
-    timerInterval: null
+    isPlayer: false
   },
 
   onLoad(options) {
     const { orderId } = options;
     this.setData({ orderId });
     this.loadOrderDetail();
-    this.checkUserRole();
   },
 
   onShow() {
@@ -29,68 +31,28 @@ Page({
     }
   },
 
-  onUnload() {
-    if (this.data.timerInterval) {
-      clearInterval(this.data.timerInterval);
-    }
-  },
-
-  checkUserRole() {
-    request.get('/user/profile').then((res) => {
-      this.setData({ isPlayer: res.is_player || false });
-    }).catch(() => {});
-  },
-
   loadServiceTimer() {
     request.get(`/orders/${this.data.orderId}/service-timer`).then((res) => {
       if (res) {
-        this.setData({ serviceTimer: res });
-        this.updateDurationText(res.total_seconds || 0);
-        if (res.status === 1) {
-          this.startTimer();
-        }
+        // 服务时长文本由后端返回，前端不做秒数格式化
+        this.setData({
+          serviceTimer: res,
+          serviceDurationText: res.service_duration_text || ''
+        });
       }
     }).catch(() => {});
   },
 
-  startTimer() {
-    if (this.data.timerInterval) {
-      clearInterval(this.data.timerInterval);
-    }
-    let seconds = this.data.serviceTimer?.total_seconds || 0;
-    const timer = setInterval(() => {
-      seconds++;
-      this.updateDurationText(seconds);
-    }, 1000);
-    this.setData({ timerInterval: timer });
-  },
-
-  updateDurationText(totalSeconds) {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    const text = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    this.setData({ serviceDurationText: text });
-  },
-
   loadEvidenceList() {
     request.get(`/orders/${this.data.orderId}/evidences`).then((res) => {
+      // 直接使用后端返回的类型/时间文本字段
       const list = (res.list || []).map(item => ({
         ...item,
-        type_text: this.getEvidenceTypeText(item.type),
-        create_time_text: util.formatTime(item.create_time, 'MM-DD HH:mm')
+        type_text: item.evidence_type_text || '',
+        create_time_text: item.create_time_text || ''
       }));
       this.setData({ evidenceList: list });
     }).catch(() => {});
-  },
-
-  getEvidenceTypeText(type) {
-    const map = {
-      'gameplay_video': '录屏',
-      'rank_screenshot': '战绩截图',
-      'other': '其他'
-    };
-    return map[type] || '其他';
   },
 
   onUploadEvidence() {
@@ -114,7 +76,7 @@ Page({
 
   uploadEvidenceFiles(files, type) {
     wx.showLoading({ title: '上传中...' });
-    
+
     const uploadPromises = files.map(file => {
       return new Promise((resolve, reject) => {
         request.upload('/orders/evidence/upload', file.tempFilePath).then(res => {
@@ -150,67 +112,38 @@ Page({
 
   loadOrderDetail() {
     request.get(`/orders/${this.data.orderId}`).then((res) => {
-      const status = res.status;
+      // 状态文本/颜色/描述、金额、时间、可操作布尔位均由后端返回
       const orderInfo = {
         orderId: res.order_id,
-        status: status,
-        statusText: util.getOrderStatusText(status),
-        statusColor: util.getOrderStatusColor(status),
-        statusDesc: this.getStatusDesc(status),
+        status: res.status,
+        statusText: res.status_text || '',
+        statusColor: res.status_color || '',
+        statusDesc: res.status_desc || '',
         gameName: res.game_name || '',
         serviceName: res.service_name || '',
         rank: res.rank || '',
-        amount: util.fenToYuan(res.amount),
-        createTime: util.formatTime(res.create_time, 'YYYY-MM-DD HH:mm'),
+        amount: res.amount_text || '',
+        createTime: res.create_time_text || '',
         remark: res.remark || '',
         playerAvatar: res.player_avatar || '',
         playerName: res.player_name || '',
         playerRating: res.player_rating || 0,
         userAvatar: res.user_avatar || '',
         userName: res.user_name || '',
-        canCancel: status === 0 || status === 1,
-        canAppeal: status === 3 || status === 4
+        canCancel: !!res.can_cancel,
+        canAppeal: !!res.can_appeal
       };
 
       this.setData({
         orderInfo: orderInfo,
-        timelineList: this.buildTimeline(res)
+        // 时间线由后端构建返回，前端不做状态比较/时间格式化
+        timelineList: res.timeline || [],
+        // is_player 仅作 UI 提示，权限由后端在接口层拦截
+        isPlayer: !!res.is_player
       });
     }).catch((err) => {
       console.error('加载订单详情失败:', err);
     });
-  },
-
-  getStatusDesc(status) {
-    const descMap = {
-      0: '等待打手接单',
-      1: '打手已接单，准备开始服务',
-      2: '服务进行中',
-      3: '等待您确认完成',
-      4: '订单已完成',
-      5: '订单已取消',
-      6: '申诉处理中'
-    };
-    return descMap[status] || '';
-  },
-
-  buildTimeline(res) {
-    const status = res.status;
-    const items = [
-      { step: 1, title: '下单成功', time: util.formatTime(res.create_time, 'MM-DD HH:mm'), active: true, done: true },
-      { step: 2, title: '打手接单', time: res.accept_time ? util.formatTime(res.accept_time, 'MM-DD HH:mm') : '', active: status >= 1, done: status >= 1 },
-      { step: 3, title: '服务进行中', time: res.start_time ? util.formatTime(res.start_time, 'MM-DD HH:mm') : '', active: status >= 2, done: status >= 2 },
-      { step: 4, title: '服务完成', time: res.finish_time ? util.formatTime(res.finish_time, 'MM-DD HH:mm') : '', active: status >= 4, done: status >= 4 }
-    ];
-
-    if (status === 5) {
-      items.push({ step: 5, title: '订单已取消', time: res.cancel_time ? util.formatTime(res.cancel_time, 'MM-DD HH:mm') : '', active: true, done: true });
-    } else if (status === 6) {
-      items.push({ step: 5, title: '申诉中', time: res.appeal_time ? util.formatTime(res.appeal_time, 'MM-DD HH:mm') : '', active: true, done: false });
-    }
-
-    items[items.length - 1].last = true;
-    return items;
   },
 
   onChatWithPlayer() {

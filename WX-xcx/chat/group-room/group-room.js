@@ -1,3 +1,8 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
 const util = require('../../utils/util');
 const websocket = require('../../utils/websocket');
@@ -127,11 +132,10 @@ Page({
     request.get('/groups/detail', {
       group_id: this.data.groupId
     }).then((res) => {
-      const typeMap = { chat: '闲聊群', welfare: '福利群', after_sale: '售后群' };
       this.setData({
         groupName: res.group_name || this.data.groupName,
         groupType: res.group_type || '',
-        groupTypeLabel: typeMap[res.group_type] || '闲聊群',
+        groupTypeLabel: res.group_type_text || '闲聊群',
         memberList: res.members || [],
         announcement: res.announcement || '',
         isAdmin: res.is_admin || false,
@@ -162,6 +166,7 @@ Page({
     });
   },
 
+  // 纯 UI 状态包装:所有文本/大小/时间字段均由后端返回,前端不计算
   formatMessage(item) {
     return {
       ...item,
@@ -169,26 +174,9 @@ Page({
       playing: false,
       sensitive_blocked: item.sensitive_blocked || false,
       anti_fraud_risky: item.anti_fraud_risky || false,
-      file_size_text: item.file_size ? this.formatFileSize(item.file_size) : '',
+      file_size_text: item.file_size_text || '',
       show_asr: false
     };
-  },
-
-  formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + 'B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
-  },
-
-  getMessageTypeLabel(type) {
-    const typeMap = {
-      text: '',
-      image: '[图片]',
-      voice: '[语音]',
-      system: '[系统消息]',
-      announcement: '[群公告]'
-    };
-    return typeMap[type] || '';
   },
 
   scrollToBottom() {
@@ -258,7 +246,7 @@ Page({
       content: text
     }).then((res) => {
       if (res.anti_fraud_risky) {
-        this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
+        this.showAntiFraudWarning(res.warning_content || '');
       }
       this.updateMessageStatus(tempMsgId, res);
     }).catch((err) => {
@@ -266,7 +254,7 @@ Page({
         this.setMessageSensitiveBlocked(tempMsgId);
       } else if (err.code === 4002) {
         this.setMessageAntiFraudBlocked(tempMsgId);
-        this.showAntiFraudWarning(err.level || 'warning');
+        this.showAntiFraudWarning(err.warning_content || '');
       } else {
         this.removeMessage(tempMsgId);
         wx.showToast({ title: '发送失败', icon: 'none' });
@@ -378,7 +366,7 @@ Page({
     const tempMsg = {
       msg_id: tempMsgId,
       type: 'voice',
-      duration: Math.round(duration / 1000),
+      voice_duration_text: '',
       from_self: true,
       sending: true,
       user_id: this.data.myUserId
@@ -393,7 +381,7 @@ Page({
       return request.post('/groups/send-voice', {
         group_id: this.data.groupId,
         voice_url: data.url,
-        duration: Math.round(duration / 1000)
+        duration: duration
       }).then((res) => {
         this.updateMessageStatus(tempMsgId, res);
       });
@@ -448,9 +436,7 @@ Page({
     const msg = e.currentTarget.dataset.msg;
     if (!msg.from_self) return;
 
-    const now = Date.now();
-    const msgTime = new Date(msg.create_time).getTime();
-    if (now - msgTime > 120000) {
+    if (msg.can_recall === false) {
       wx.showToast({ title: '超过2分钟无法撤回', icon: 'none' });
       return;
     }
@@ -502,19 +488,13 @@ Page({
     const member = e.currentTarget.dataset.member;
     if (member.user_id === this.data.myUserId) return;
 
-    const itemList = [];
-    if (this.data.isAdmin || this.data.isCreator) {
-      itemList.push('禁言', '移出群聊');
-    }
-    if (itemList.length === 0) return;
-
     this.setData({
       selectedMember: member,
       showMuteAction: true
     });
 
     wx.showActionSheet({
-      itemList: itemList,
+      itemList: ['禁言', '移出群聊'],
       success: (res) => {
         if (res.tapIndex === 0) {
           this.muteMember(member);
@@ -639,12 +619,13 @@ Page({
 
   sendFile(filePath, fileName, fileSize) {
     const tempMsgId = util.generateId();
+    // 临时消息 file_size_text 留空,服务端响应后由后端 file_size_text 覆盖
     const tempMsg = {
       msg_id: tempMsgId,
       type: 'file',
       file_name: fileName,
       file_size: fileSize,
-      file_size_text: this.formatFileSize(fileSize),
+      file_size_text: '',
       file_url: filePath,
       from_self: true,
       sending: true,
@@ -668,7 +649,7 @@ Page({
         file_type: data.file_type || 'document'
       }).then((res) => {
         if (res.anti_fraud_risky) {
-          this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
+          this.showAntiFraudWarning(res.warning_content || '');
         }
         this.updateMessageStatus(tempMsgId, res);
       });
@@ -799,14 +780,9 @@ Page({
     });
   },
 
-  showAntiFraudWarning(level) {
-    let content = '检测到您发送的内容可能存在风险，为保障您的权益，请在平台内完成交易。';
-    if (level === 'mute') {
-      content = '警告：您发送的内容违反平台规则，已被禁言，请遵守平台规定。';
-    } else if (level === 'ban') {
-      content = '严重警告：您多次发送违规内容，账号已被封禁，请联系客服处理。';
-    }
-
+  // 飞单风控警告:文案由后端 warning_content 字段直接返回,前端不做级别→文案映射
+  showAntiFraudWarning(content) {
+    if (!content) return;
     this.setData({
       showAntiFraudModal: true,
       antiFraudModalContent: content

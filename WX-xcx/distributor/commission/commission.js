@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -26,7 +30,7 @@ Page({
     try {
       const res = await request.get('/distributor/commission/summary');
       this.setData({
-        totalCommission: util.fenToYuan(res.totalCommission || 0),
+        totalCommission: res.total_commission_text || res.totalCommission || '0.00',
         pendingCount: res.pendingCount || 0,
         settledCount: res.settledCount || 0,
         firstOrderCount: res.firstOrderCount || 0
@@ -80,16 +84,15 @@ Page({
   },
 
   formatCommissionItem(item) {
-    const rateMap = { 1: '5%', 2: '2%' };
     return {
       ...item,
       sourceAvatar: item.sourceAvatar || '/assets/images/default-avatar.png',
-      sourceName: util.maskName(item.sourceName || ''),
-      orderNo: item.orderNo || '',
-      amountText: util.fenToYuan(item.amount || 0),
-      rateText: `佣金${rateMap[item.level] || '--'}`,
-      timeText: util.formatTime(item.createTime, 'MM-DD HH:mm'),
-      statusText: item.status === 1 ? '已结算' : '待结算',
+      sourceName: item.source_name_masked || item.sourceName || '',
+      orderNo: item.orderNo || item.order_no || '',
+      amountText: item.amount_text || '',
+      rateText: item.rate_text || '',
+      timeText: item.time_text || '',
+      statusText: item.status_text || '',
       isFirstOrder: item.isFirstOrder || false
     };
   },

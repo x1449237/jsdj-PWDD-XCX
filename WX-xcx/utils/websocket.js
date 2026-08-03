@@ -1,3 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 本模块仅负责 WebSocket 传输层：连接、心跳、重连、离线消息拉取、按 type 分发。
+ * 消息的 type 字段由 Go 后端统一定义（见 go-backend/pkg/websocket/constants.go），
+ * 前端只按 data.type 原样分发到对应监听器，不做任何映射 / 归一化 / 兼容分支。
+ */
 const auth = require('./auth');
 
 let socketTask = null;
@@ -157,31 +163,15 @@ const stopTimeoutWatch = () => {
 const handleMessage = (data) => {
   const { type } = data;
 
+  // 心跳响应,不分发
   if (type === 'pong') return;
 
-  // 消息类型路由
-  const typeMap = {
-    'chat_message': 'chat_message',
-    'group_chat': 'group_chat',
-    'group_chat_message': 'group_chat',
-    'after_sale': 'after_sale',
-    'after_sale_message': 'after_sale',
-    'platform_intervene': 'platform_intervene',
-    'new_message': 'new_message',
-    'message_read': 'message_read'
-  };
-
-  const mappedType = typeMap[type] || type;
-
-  if (listeners[mappedType]) {
-    listeners[mappedType].forEach(callback => callback(data));
-  }
-
-  // 同时触发原始 type 的监听器（兼容旧代码）
-  if (mappedType !== type && listeners[type]) {
+  // 纯分发:type 由后端权威下发,前端不做任何映射/归一化
+  if (listeners[type]) {
     listeners[type].forEach(callback => callback(data));
   }
 
+  // 通配监听器
   if (listeners['*']) {
     listeners['*'].forEach(callback => callback(data));
   }

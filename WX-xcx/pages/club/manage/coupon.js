@@ -1,3 +1,8 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 券类型文案由后端返回 type_text，前端不做类型码到文案的映射。
+ */
 const request = require('../../../utils/request');
 
 Page({
@@ -9,11 +14,7 @@ Page({
     total: 0,
     loading: false,
     noMore: false,
-    type: '',
-    typeMap: {
-      discount: '满减券',
-      new_user: '新人券'
-    }
+    type: ''
   },
 
   onLoad(options) {

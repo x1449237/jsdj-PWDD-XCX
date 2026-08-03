@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 const websocket = require('../../utils/websocket');
 
 Page({
@@ -142,27 +146,18 @@ Page({
   },
 
   formatOrderItem(item) {
-    const publishTime = item.publishTime || item.createTime;
     return {
       ...item,
       gameIcon: item.gameIcon || '/assets/images/default-game.png',
       playerAvatar: item.playerAvatar || '/assets/images/default-avatar.png',
-      playerName: util.maskName(item.playerName || ''),
-      serviceTypeText: this.getServiceTypeText(item.serviceType),
-      amountText: util.fenToYuan(item.amount || 0),
-      publishTimeText: util.formatRelativeTime(publishTime),
+      playerName: item.player_name_masked || item.playerName || '',
+      serviceTypeText: item.service_type_text || '',
+      amountText: item.amount_text || '',
+      publishTimeText: item.relative_time_text || '',
       isConfirming: false,
       confirmCountdown: 3,
       freeCancelCount: item.freeCancelCount || 0
     };
-  },
-
-  getServiceTypeText(type) {
-    const map = {
-      1: '排位', 2: '匹配', 3: '陪玩', 4: '上分',
-      5: '教学', 6: '代练', 7: '其他'
-    };
-    return map[type] || '其他';
   },
 
   /* ========== 接单操作 ========== */

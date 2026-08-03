@@ -29,17 +29,13 @@ Page({
   },
 
   checkCoolingPeriod() {
+    // 冷却剩余时间文案由后端返回 cooling_remaining_text，前端不做秒数到时分换算
     request.get(`/orders/${this.data.orderId}/evaluate/check`).then((res) => {
-      if (res.cooling_remaining > 0) {
-        const hours = Math.floor(res.cooling_remaining / 3600);
-        const minutes = Math.floor((res.cooling_remaining % 3600) / 60);
-        this.setData({
-          inCoolingPeriod: true,
-          coolingRemaining: hours > 0 ? hours + '小时' + minutes + '分钟' : minutes + '分钟'
-        });
-      } else {
-        this.setData({ inCoolingPeriod: false });
-      }
+      const coolingText = res.cooling_remaining_text || '';
+      this.setData({
+        inCoolingPeriod: !!coolingText,
+        coolingRemaining: coolingText
+      });
     }).catch(() => {});
   },
 

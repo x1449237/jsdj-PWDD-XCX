@@ -1,5 +1,10 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 状态文案/颜色、金额、时间均由后端返回：
+ *   status_text / status_color / amount_text / time_text
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -97,10 +102,10 @@ Page({
     request.get('/shop-admin/orders', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        statusText: util.getOrderStatusText(item.status),
-        statusColor: util.getOrderStatusColor(item.status),
-        amount: util.fenToYuan(item.amount),
-        create_time: util.formatTime(item.create_time, 'YYYY-MM-DD HH:mm')
+        statusText: item.status_text || '',
+        statusColor: item.status_color || '',
+        amount: item.amount_text || '',
+        create_time: item.time_text || ''
       }));
 
       this.setData({
@@ -124,8 +129,8 @@ Page({
     }).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        amount: util.fenToYuan(item.amount),
-        create_time: util.formatTime(item.create_time, 'YYYY-MM-DD HH:mm')
+        amount: item.amount_text || '',
+        create_time: item.time_text || ''
       }));
 
       this.setData({

@@ -1,5 +1,10 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 风险等级/处理状态文案与颜色、时间均由后端返回：
+ *   risk_level_text / handle_status_text / handle_status_color / time_text
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -88,31 +93,13 @@ Page({
       params.risk_level = this.data.currentRiskLevel;
     }
 
-    const levelTextMap = {
-      high: '高',
-      medium: '中',
-      low: '低'
-    };
-
-    const handleStatusMap = {
-      0: '未处理',
-      1: '处理中',
-      2: '已处理'
-    };
-
-    const handleStatusColorMap = {
-      0: '#e94560',
-      1: '#ff976a',
-      2: '#07c160'
-    };
-
     request.get('/shop-admin/risk-users', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        risk_level_text: levelTextMap[item.risk_level] || '未知',
-        handle_status_text: handleStatusMap[item.handle_status] || '未知',
-        handle_status_color: handleStatusColorMap[item.handle_status] || '#999999',
-        trigger_time: util.formatTime(item.trigger_time, 'YYYY-MM-DD HH:mm')
+        risk_level_text: item.risk_level_text || '',
+        handle_status_text: item.handle_status_text || '',
+        handle_status_color: item.handle_status_color || '',
+        trigger_time: item.time_text || ''
       }));
 
       this.setData({

@@ -1,8 +1,11 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request/extApi）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const extApi = require('../../utils/ext-api');
+const request = require('../../utils/request');
 const app = getApp();
-
-const TYPE_OPTIONS = ['上分', '教学', '车队', '其他'];
-const TYPE_VALUES = [1, 2, 3, 4];
 
 Page({
   data: {
@@ -16,7 +19,8 @@ Page({
       game_id_text: '',
       requirement: ''
     },
-    typeOptions: TYPE_OPTIONS,
+    typeOptions: [],
+    typeValues: [],
     typeIndex: 0
   },
 
@@ -25,6 +29,7 @@ Page({
       wx.navigateTo({ url: '/pages/login/login' });
       return;
     }
+    this.loadTypeOptions();
     this.loadList();
   },
 
@@ -33,13 +38,24 @@ Page({
     wx.stopPullDownRefresh();
   },
 
+  async loadTypeOptions() {
+    try {
+      const res = await request.get('/order-ext/template-types');
+      const options = res.list || res || [];
+      this.setData({
+        typeOptions: options.map(o => o.text || o.label || ''),
+        typeValues: options.map(o => o.value)
+      });
+    } catch (e) {}
+  },
+
   loadList() {
     this.setData({ loading: true });
     extApi.listOrderTemplates().then((res) => {
       const raw = Array.isArray(res) ? res : (res && res.list) || [];
       const list = raw.map((item) => ({
         ...item,
-        typeText: TYPE_OPTIONS[item.type - 1] || '其他'
+        typeText: item.type_text || ''
       }));
       this.setData({ list, loading: false });
     }).catch(() => {
@@ -52,7 +68,7 @@ Page({
       showForm: true,
       form: {
         name: '',
-        type: 1,
+        type: this.data.typeValues[0] || 1,
         game_zone: '',
         game_id_text: '',
         requirement: ''
@@ -69,7 +85,7 @@ Page({
     const index = Number(e.detail.value);
     this.setData({
       typeIndex: index,
-      'form.type': TYPE_VALUES[index]
+      'form.type': this.data.typeValues[index]
     });
   },
 

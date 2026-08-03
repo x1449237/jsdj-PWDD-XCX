@@ -9,12 +9,8 @@ Page({
     total: 0,
     loading: false,
     noMore: false,
-    type: '',
-    typeMap: {
-      achievement: '战绩',
-      daily: '日常',
-      event: '活动'
-    }
+    type: ''
+    // 动态类型文案由后端返回 type_text,前端不硬编码 typeMap
   },
 
   onLoad(options) {
@@ -80,14 +76,21 @@ Page({
     wx.navigateTo({ url: '/pages/club/dynamic/publish?id=' + this.data.clubId });
   },
 
+  // 点赞:更新后的 like_count/liked 由后端返回,前端不本地自增
   handleLike(e) {
     const id = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
-    const list = this.data.list;
-    if (list[index]) {
-      list[index].like_count = (list[index].like_count || 0) + 1;
-      this.setData({ list });
-    }
+    if (!id || index == null) return;
+    request.post('/club/dynamic/like', { id }).then((res) => {
+      const list = this.data.list;
+      if (list[index]) {
+        list[index].like_count = res.like_count != null ? res.like_count : list[index].like_count;
+        list[index].liked = !!res.liked;
+        this.setData({ list });
+      }
+    }).catch(() => {
+      wx.showToast({ title: '操作失败', icon: 'none' });
+    });
   },
 
   previewImage(e) {

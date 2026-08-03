@@ -202,7 +202,7 @@ func SendMessage(userID int64, senderType string, in *SendMessageInput) (*model.
 func pushChatMessage(userID int64, m *model.ChatMessage) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	msg, err := websocket.NewMessage(websocket.MsgTypeChat, m.SessionID, m.SenderID, map[string]interface{}{
+	msg, err := websocket.NewMessage(websocket.MsgTypeChatMessage, m.SessionID, m.SenderID, map[string]interface{}{
 		"msg_id":   itoa(m.ID),
 		"msg_type": m.MsgType,
 		"content":  m.Content,

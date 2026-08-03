@@ -6,7 +6,8 @@ Page({
   data: {
     isLogin: false,
     tabIndex: 0,
-    tabs: ['可使用', '已使用', '已过期'],
+    // tab 选项及对应 status 由后端下发 [{label, status}],前端不硬编码
+    tabs: [],
     couponList: [],
     loading: false,
     page: 1,
@@ -17,6 +18,7 @@ Page({
 
   onLoad() {
     this.checkLogin();
+    this.loadTabs();
   },
 
   onShow() {
@@ -32,6 +34,13 @@ Page({
     this.setData({ isLogin });
   },
 
+  // 加载 tab 配置(后端下发 label + status)
+  loadTabs() {
+    request.get('/coupon/tabs').then((res) => {
+      this.setData({ tabs: (res && res.list) || [] });
+    }).catch(() => {});
+  },
+
   onTabTap(e) {
     const index = e.currentTarget.dataset.index;
     this.setData({ tabIndex: index, page: 1, couponList: [], hasMore: true });
@@ -41,10 +50,12 @@ Page({
   loadCoupons() {
     if (!this.data.isLogin) return;
     if (this.data.loading || !this.data.hasMore) return;
+    if (this.data.tabs.length === 0) return;
 
     this.setData({ loading: true });
-    const statusMap = ['unused', 'used', 'expired'];
-    const status = statusMap[this.data.tabIndex];
+    // status 直接取后端下发的 tab.status,前端不做 index→status 映射
+    const tab = this.data.tabs[this.data.tabIndex] || {};
+    const status = tab.status || '';
 
     request.get('/coupon/my', {
       status,
@@ -78,9 +89,10 @@ Page({
     wx.stopPullDownRefresh();
   },
 
+  // 是否可使用由后端 can_use 字段决定,前端不比较 status 字符串
   onUseCoupon(e) {
     const coupon = e.currentTarget.dataset.item;
-    if (coupon.status !== 'unused') return;
+    if (!coupon || coupon.can_use !== true) return;
     wx.switchTab({
       url: '/pages/index/index'
     });

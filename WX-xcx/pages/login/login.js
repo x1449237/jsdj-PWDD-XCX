@@ -109,6 +109,8 @@ Page({
   },
 
   reportAgreementLog(field, isAgree) {
+    // roleMap 仅为内部勾选字段到后端 agreement_type 协议值的映射（非展示文案），予以保留。
+    // 协议签署签名属合规/安全凭证，应由后端生成，前端不再用时间戳+随机数伪造。
     const roleMap = {
       agreeAgreementPlayer: 'player',
       agreePrivacy: 'privacy',
@@ -117,13 +119,11 @@ Page({
       agreeAgreementClub: 'club'
     };
     const agreementType = roleMap[field] || field;
-    const signature = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     request.post('/agreement/sign-logs', {
       agreement_type: agreementType,
       agreement_field: field,
       is_agree: isAgree,
-      signature: signature,
       source: 'wx_login',
       user_agent: 'miniprogram'
     }).catch(() => {});

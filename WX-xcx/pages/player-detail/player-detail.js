@@ -1,5 +1,12 @@
+/**
+ * 架构规则：小程序前端不包含任何业务逻辑。
+ * 前端仅：1) 通过 request.get/post/put/del 调用后端接口
+ *         2) 渲染后端返回字段（relative_time_text 等）
+ *         3) 提供纯 UI 反馈（toast/loading/非空提示/进度条）
+ * 禁止：mock 数据、状态/类型文本映射、金额换算、时间格式化、脱敏、业务校验、随机数。
+ * 约定：request.get(url, data) 直接 resolve 出内层 data.data，res 即数据对象本身。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -53,7 +60,7 @@ Page({
 
   onToggleFavorite() {
     const { isFavorited, playerId } = this.data;
-    
+
     if (isFavorited) {
       request.post('/player/favorite/cancel', {
         player_user_id: playerId
@@ -81,29 +88,8 @@ Page({
         player: res
       });
     }).catch(() => {
-      this.setData({
-        player: {
-          id: this.data.playerId,
-          nickname: '大神玩家',
-          avatar: '/assets/images/default-avatar.png',
-          gender: 1,
-          is_online: true,
-          rank: '王者',
-          server: '微信区',
-          tags: ['技术过硬', '耐心', '声音好听'],
-          good_rate: 98,
-          order_count: 1560,
-          online_hours: 320,
-          fans_count: 5200,
-          intro: '资深游戏陪玩，多年游戏经验，擅长各种英雄，可教学可陪玩。',
-          min_price: 30,
-          services: [
-            { id: 1, name: '排位上分', description: '王者荣耀排位赛，包上分', estimated_duration: 30, price: 50, unit: '局' },
-            { id: 2, name: '娱乐陪玩', description: '轻松娱乐，边玩边聊', estimated_duration: 30, price: 30, unit: '局' },
-            { id: 3, name: '教学指导', description: '一对一教学，讲解英雄技巧', estimated_duration: 60, price: 80, unit: '小时' }
-          ]
-        }
-      });
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      this.setData({ player: {} });
     });
   },
 
@@ -112,34 +98,10 @@ Page({
       page: 1,
       page_size: 5
     }).then((res) => {
-      const list = (res.list || []).map((item) => ({
-        ...item,
-        create_time: util.formatRelativeTime(item.create_time)
-      }));
-      this.setData({ reviews: list });
+      this.setData({ reviews: res.list || [] });
     }).catch(() => {
-      this.setData({
-        reviews: [
-          {
-            id: 1,
-            user_avatar: '/assets/images/default-avatar.png',
-            user_name: '用户****',
-            rating: 5,
-            content: '技术很厉害，态度也很好，非常满意！',
-            tags: ['技术好', '态度好'],
-            create_time: '2小时前'
-          },
-          {
-            id: 2,
-            user_avatar: '/assets/images/default-avatar.png',
-            user_name: '用户****',
-            rating: 5,
-            content: '声音好听，打得也好，下次还来~',
-            tags: ['声音好听', '技术好'],
-            create_time: '1天前'
-          }
-        ]
-      });
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      this.setData({ reviews: [] });
     });
   },
 

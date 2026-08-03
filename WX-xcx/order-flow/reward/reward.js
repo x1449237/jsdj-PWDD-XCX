@@ -1,15 +1,21 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验（宵禁/限额等）、权限控制、折扣计算。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
     orderId: '',
     playerInfo: {},
-    presetAmounts: [5, 10, 18, 28, 50, 88],
-    quickAmounts: [6.66, 8.88, 18.88, 66.66],
+    // 预设金额/快捷金额由后端下发(避免前端硬编码金额配置)
+    presetAmounts: [],
+    quickAmounts: [],
     selectedAmount: 0,
     customAmount: '',
     isCustomAmount: false,
+    finalAmount: '',
     message: '',
     paying: false,
     isMinor: false
@@ -22,11 +28,10 @@ Page({
     this.checkUserAge();
   },
 
+  // 仅拉取未成年人标识用于展示，宵禁等业务校验由后端在打赏接口拦截
   checkUserAge() {
     request.get('/user/profile').then((res) => {
-      if (res.is_minor) {
-        this.setData({ isMinor: true });
-      }
+      this.setData({ isMinor: !!res.is_minor });
     }).catch(() => {});
   },
 
@@ -36,7 +41,10 @@ Page({
         playerInfo: {
           avatar: res.player_avatar || '',
           nickname: res.player_nickname || ''
-        }
+        },
+        // 后端下发预设金额/快捷金额配置(含限额规则)
+        presetAmounts: res.preset_amounts || [],
+        quickAmounts: res.quick_amounts || []
       });
     }).catch(() => {});
   },
@@ -46,7 +54,8 @@ Page({
     this.setData({
       selectedAmount: amount,
       customAmount: '',
-      isCustomAmount: false
+      isCustomAmount: false,
+      finalAmount: amount ? String(amount) : ''
     });
   },
 
@@ -55,7 +64,8 @@ Page({
     this.setData({
       customAmount: value,
       selectedAmount: 0,
-      isCustomAmount: !!value
+      isCustomAmount: !!value,
+      finalAmount: value
     });
   },
 
@@ -71,31 +81,14 @@ Page({
   },
 
   onReward() {
-    const { selectedAmount, customAmount, isCustomAmount, message, orderId, isMinor } = this.data;
+    const { selectedAmount, customAmount, isCustomAmount, message, orderId } = this.data;
 
-    if (isMinor) {
-      const currentHour = new Date().getHours();
-      if (currentHour >= 22 || currentHour < 8) {
-        wx.showModal({
-          title: '未成年人宵禁提醒',
-          content: '宵禁时间（22:00-次日08:00）未成年人无法打赏，请在白天再进行操作。',
-          showCancel: false,
-          confirmText: '我知道了'
-        });
-        return;
-      }
-    }
-
+    // 非空提示（纯 UI 校验），单笔上限/宵禁等业务校验由后端完成
     let amount = selectedAmount;
-
     if (isCustomAmount) {
       amount = parseFloat(customAmount);
       if (!amount || amount <= 0) {
         wx.showToast({ title: '请输入有效的打赏金额', icon: 'none' });
-        return;
-      }
-      if (amount > 200) {
-        wx.showToast({ title: '单笔打赏不能超过¥200', icon: 'none' });
         return;
       }
     }
@@ -107,8 +100,9 @@ Page({
 
     this.setData({ paying: true });
 
+    // 直接提交元字符串，由后端 ParseYuanToFen 转换
     request.post(`/orders/${orderId}/reward`, {
-      amount: util.yuanToFen(amount),
+      amount: String(amount),
       message: message.trim()
     }).then((res) => {
       this.requestPayment(res.pay_info).then(() => {

@@ -92,8 +92,10 @@ Page({
         try {
           const data = JSON.parse(res.data);
           if (data.code === 200) {
+            // 仅用本地自增计数生成临时 temp_id，不使用时间戳/随机数；真实 id 由后端在提交时分配
+            this._evidenceSeq = (this._evidenceSeq || 0) + 1;
             const evidence = {
-              id: Date.now() + Math.random(),
+              id: this._evidenceSeq,
               type: type,
               file_url: data.data.url,
               description: ''

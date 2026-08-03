@@ -80,6 +80,9 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	// 99~582 需求扩展 handler
 	platform99H := handler.NewPlatform99582Handler()
 
+	// 小程序前端零逻辑配套 handler
+	thinH := handler.NewThinClientHandler()
+
 	// WebSocket 升级处理器
 	wsHandler := websocket.NewHandler(deps.Hub, deps.Logger)
 
@@ -121,6 +124,8 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		// 入驻开关查询(公开，前端入驻页打开时先查询)
 		clubs.GET("/join-switch", clubH.CheckClubSwitch)
 		clubs.POST("/join-click", authReq, clubH.RecordClubJoinClick)
+		// 合同模板下发(公开,前端下载用)
+		clubs.GET("/contract-template", clubH.GetContractTemplate)
 
 		// 入驻流程(需登录)
 		clubs.POST("/abbr", authReq, clubH.GenerateAbbr)
@@ -130,6 +135,11 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 		clubs.POST("/draft", authReq, clubH.SaveDraft)
 		clubs.GET("/draft", authReq, clubH.GetDraft)
 		clubs.GET("/seal-remind", authReq, clubH.GetSealRemind)
+
+		// 小程序前端零逻辑配套接口(所有业务校验/认证/提交在后端完成)
+		clubs.POST("/validate-step", authReq, clubH.ValidateStep)
+		clubs.POST("/liveness-check", authReq, clubH.LivenessCheck)
+		clubs.POST("/submit", authReq, clubH.Submit)
 	}
 
 	// ---------------- 用户侧(需登录) ----------------
@@ -706,4 +716,30 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	admin.POST("/admin/global-group/config", platform99H.UpsertGlobalGroupConfig)
 	admin.POST("/admin/badge-config", platform99H.UpdateBadgeRenderConfig)
 	admin.POST("/admin/announcements/:id/status", platform99H.UpdateAnnouncementStatus)
+
+	// ===== 小程序前端零逻辑配套 API (前端只渲染,不做任何业务计算/校验) =====
+	thin := api.Group("/thin")
+	{
+		// 校验类(前端提交原始值,后端返回校验结果)
+		thin.POST("/id-card/validate", thinH.ValidateIDCard)
+		thin.POST("/phone/validate", thinH.ValidatePhone)
+		thin.POST("/password/strength", thinH.CalcPasswordStrength)
+		thin.POST("/amount/validate", thinH.ValidateAmount)
+		thin.POST("/amount/yuan-to-fen", thinH.YuanToFen)
+		thin.POST("/file/validate-size", thinH.ValidateFileSize)
+		thin.POST("/message/can-recall", thinH.CanRecallMessage)
+		thin.POST("/mask", thinH.MaskData)
+		thin.GET("/minor/curfew-check", thinH.MinorCurfewCheck)
+		// 计算类
+		thin.POST("/discount/calc", thinH.CalcDiscount)
+		// 配置下发类(标签/金额/状态列表等,前端不硬编码)
+		thin.GET("/config/service-tags", thinH.GetServiceTags)
+		thin.GET("/config/reward-presets", thinH.GetRewardPresets)
+		thin.GET("/config/order-tabs", thinH.GetOrderTabs)
+		thin.GET("/config/appeal", thinH.GetAppealConfig)
+		thin.GET("/config/group-types", thinH.GetGroupTypes)
+		thin.GET("/config/service-types", thinH.GetServiceTypes)
+		thin.GET("/config/intervene", thinH.GetInterveneConfig)
+		thin.GET("/config/dispute-types", thinH.GetDisputeTypes)
+	}
 }

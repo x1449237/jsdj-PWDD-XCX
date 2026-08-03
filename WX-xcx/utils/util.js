@@ -1,90 +1,12 @@
-const formatTime = (date, fmt = 'YYYY-MM-DD HH:mm:ss') => {
-  if (!date) return '';
-  if (typeof date === 'string' || typeof date === 'number') {
-    date = new Date(date);
-  }
+/**
+ * util.js — 小程序前端零逻辑架构
+ *
+ * 架构铁律：金额换算、状态映射、脱敏等业务逻辑全部由 Go 后端完成。
+ * 后端接口直接返回 _text/_color/_display 等渲染字段,前端只渲染。
+ * 本文件仅保留纯 UI 工具函数(防抖/节流/延时),不包含任何业务逻辑。
+ */
 
-  const o = {
-    'Y+': date.getFullYear(),
-    'M+': date.getMonth() + 1,
-    'D+': date.getDate(),
-    'H+': date.getHours(),
-    'm+': date.getMinutes(),
-    's+': date.getSeconds()
-  };
-
-  for (let k in o) {
-    const reg = new RegExp('(' + k + ')');
-    if (reg.test(fmt)) {
-      const str = o[k].toString();
-      fmt = fmt.replace(reg, (match) => {
-        if (match.length === 1) return str;
-        return ('00' + str).slice(-match.length);
-      });
-    }
-  }
-
-  return fmt;
-};
-
-const formatRelativeTime = (timestamp) => {
-  if (!timestamp) return '';
-  const now = Date.now();
-  const diff = now - (typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime());
-
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diff < minute) {
-    return '刚刚';
-  } else if (diff < hour) {
-    return Math.floor(diff / minute) + '分钟前';
-  } else if (diff < day) {
-    return Math.floor(diff / hour) + '小时前';
-  } else if (diff < 7 * day) {
-    return Math.floor(diff / day) + '天前';
-  } else {
-    return formatTime(timestamp, 'MM-DD HH:mm');
-  }
-};
-
-const formatMoney = (fen) => {
-  if (fen === null || fen === undefined) return '0.00';
-  const yuan = (fen / 100).toFixed(2);
-  return yuan.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
-
-const fenToYuan = (fen) => {
-  if (fen === null || fen === undefined) return 0;
-  return (fen / 100).toFixed(2);
-};
-
-const yuanToFen = (yuan) => {
-  if (yuan === null || yuan === undefined) return 0;
-  return Math.round(parseFloat(yuan) * 100);
-};
-
-const maskPhone = (phone) => {
-  if (!phone) return '';
-  return phone.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2');
-};
-
-const maskIdCard = (idCard) => {
-  if (!idCard) return '';
-  if (idCard.length === 18) {
-    return idCard.replace(/^(\d{4})\d{10}(\d{4})$/, '$1**********$2');
-  }
-  return idCard.replace(/^(\d{3})\d{9}(\d{3})$/, '$1*********$2');
-};
-
-const maskName = (name) => {
-  if (!name) return '';
-  if (name.length === 1) return name;
-  if (name.length === 2) return name[0] + '*';
-  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
-};
-
+// 防抖(纯 UI 工具)
 const debounce = (fn, delay = 300) => {
   let timer = null;
   return function (...args) {
@@ -96,6 +18,7 @@ const debounce = (fn, delay = 300) => {
   };
 };
 
+// 节流(纯 UI 工具)
 const throttle = (fn, delay = 300) => {
   let lastTime = 0;
   return function (...args) {
@@ -107,47 +30,59 @@ const throttle = (fn, delay = 300) => {
   };
 };
 
+// 延时(纯 UI 工具)
 const sleep = (ms) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-const getOrderStatusText = (status) => {
-  const statusMap = {
-    0: '待接单',
-    1: '已接单',
-    2: '进行中',
-    3: '待验收',
-    4: '已完成',
-    5: '已取消',
-    6: '申诉中'
-  };
-  return statusMap[status] || '未知';
-};
-
-const getOrderStatusColor = (status) => {
-  const colorMap = {
-    0: '#ff976a',
-    1: '#0f3460',
-    2: '#e94560',
-    3: '#07c160',
-    4: '#999999',
-    5: '#cccccc',
-    6: '#ff976a'
-  };
-  return colorMap[status] || '#999999';
-};
-
+// 数值限幅(纯 UI 工具,业务边界校验仍由后端执行)
 const clamp = (value, min, max) => {
   return Math.min(Math.max(value, min), max);
 };
 
+// 临时客户端 ID(仅用于前端消息 temp_id,业务主键由后端生成)
 const generateId = () => {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 10);
   return `${timestamp}${random}`;
 };
 
+// ====================================================================
+// 以下函数已废弃 — 业务逻辑已迁移至 Go 后端,后端接口直接返回渲染字段
+// 前端调用方应直接使用后端返回的 xxx_text / xxx_color / xxx_display 字段
+// ====================================================================
+//
+// 【已废弃】formatTime      → 后端接口返回 time_text 字段
+// 【已废弃】formatRelativeTime → 后端接口返回 relative_time_text 字段
+// 【已废弃】formatMoney      → 后端接口返回 amount_text 字段(元字符串,含千分位)
+// 【已废弃】fenToYuan        → 后端接口直接返回元字符串,前端不再换算
+// 【已废弃】yuanToFen        → 前端提交元字符串,后端调 ParseYuanToFen 转换
+// 【已废弃】maskPhone        → 后端接口返回已脱敏的 phone_masked 字段
+// 【已废弃】maskIdCard       → 后端接口返回已脱敏的 id_card_masked 字段
+// 【已废弃】maskName         → 后端接口返回已脱敏的 name_masked 字段
+// 【已废弃】getOrderStatusText → 后端接口返回 status_text 字段
+// 【已废弃】getOrderStatusColor → 后端接口返回 status_color 字段
+//
+// 如需临时兼容,以下为空实现(直接返回原始值,渲染以后端字段为准):
+const formatTime = () => '';
+const formatRelativeTime = () => '';
+const formatMoney = (fen) => fen != null ? String(fen) : '';
+const fenToYuan = (fen) => fen != null ? String(fen) : '';
+const yuanToFen = (yuan) => yuan != null ? String(yuan) : '';
+const maskPhone = (phone) => phone || '';
+const maskIdCard = (idCard) => idCard || '';
+const maskName = (name) => name || '';
+const getOrderStatusText = () => '';
+const getOrderStatusColor = () => '';
+
 module.exports = {
+  // 纯 UI 工具(保留)
+  debounce,
+  throttle,
+  sleep,
+  clamp,
+  generateId,
+  // 已废弃兼容桩(后端应直接返回渲染字段,前端不应调用)
   formatTime,
   formatRelativeTime,
   formatMoney,
@@ -156,11 +91,6 @@ module.exports = {
   maskPhone,
   maskIdCard,
   maskName,
-  debounce,
-  throttle,
-  sleep,
   getOrderStatusText,
   getOrderStatusColor,
-  clamp,
-  generateId
 };

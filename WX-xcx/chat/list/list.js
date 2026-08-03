@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 const websocket = require('../../utils/websocket');
 
 const APP = getApp();
@@ -106,10 +110,6 @@ Page({
     }
   },
 
-  onUnload() {
-    websocket.off('new_message', this.onNewMessage);
-  },
-
   initWebSocket() {
     websocket.on('new_message', this.onNewMessage);
     websocket.on('message_read', this.onMessageRead);
@@ -169,8 +169,8 @@ Page({
     request.get('/chat/conversations', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        last_time: this.formatChatTime(item.last_time),
-        last_message: this.formatLastMessage(item)
+        last_time: item.last_message_time_text || item.last_time || '',
+        last_message: item.last_message_preview || item.last_message || ''
       }));
 
       this.setData({
@@ -182,36 +182,6 @@ Page({
     }).catch(() => {
       this.setData({ loading: false });
     });
-  },
-
-  formatChatTime(timestamp) {
-    if (!timestamp) return '';
-    const now = new Date();
-    const date = new Date(timestamp);
-    const diff = now - date;
-
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-    if (diff < 86400000) return util.formatTime(timestamp, 'HH:mm');
-    if (diff < 172800000) return '昨天 ' + util.formatTime(timestamp, 'HH:mm');
-    if (diff < 604800000) {
-      const days = ['日', '一', '二', '三', '四', '五', '六'];
-      return '周' + days[date.getDay()] + ' ' + util.formatTime(timestamp, 'HH:mm');
-    }
-    return util.formatTime(timestamp, 'MM-DD HH:mm');
-  },
-
-  formatLastMessage(item) {
-    if (!item.last_message) return '';
-    const typeMap = {
-      text: item.last_message_content || '',
-      image: '[图片]',
-      voice: '[语音]',
-      system: '[系统消息]',
-      order: '[订单消息]',
-      recall: '消息已撤回'
-    };
-    return typeMap[item.last_message_type] || item.last_message_content || '';
   },
 
   onOpenChat(e) {

@@ -59,42 +59,16 @@ App({
     websocket.close();
   },
 
+  // 待签协议列表由后端按当前用户身份权威返回,前端不做 role→agreement_type 映射
   checkAgreementVersions() {
-    const userInfo = wx.getStorageSync('user_info');
-    if (!userInfo || !userInfo.role) return;
-
-    const role = userInfo.role;
-    const agreementTypes = ['user_service', 'privacy'];
-    if (role === 'player') {
-      agreementTypes.push('player_entry');
-    } else if (role === 'club') {
-      agreementTypes.push('club_entry');
-    }
-
-    let pendingAgreements = [];
-    let checkedCount = 0;
-
-    agreementTypes.forEach(type => {
-      const signedKey = 'agreement_' + role + '_' + type + '_version';
-      const signedVersion = wx.getStorageSync(signedKey);
-
-      request.get('/compliance/agreement/latest', {
-        role: role,
-        agreement_type: type
-      }).then(res => {
-        if (res.version && res.version !== signedVersion) {
-          pendingAgreements.push({
-            type: type,
-            version: res.version
-          });
-        }
-        checkedCount++;
-        if (checkedCount === agreementTypes.length && pendingAgreements.length > 0) {
-          this.showAgreementSignPage(role, pendingAgreements[0].type);
-        }
-      }).catch(() => {
-        checkedCount++;
-      });
+    request.get('/compliance/agreement/pending').then(res => {
+      const list = (res && res.list) || [];
+      if (list.length > 0) {
+        const first = list[0];
+        this.showAgreementSignPage(first.role || '', first.agreement_type || '');
+      }
+    }).catch(() => {
+      // 未登录或接口异常时静默,不阻断用户使用
     });
   },
 

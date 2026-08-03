@@ -1,5 +1,11 @@
 const request = require('../../utils/request');
-const util = require('../../utils/util');
+
+// 架构铁律:身份证校验位算法、姓名/身份证格式校验、年龄计算、活体认证逻辑
+// 全部由 Go 后端执行。前端只负责:
+//   1) 收集用户输入 → 调用后端 API
+//   2) 渲染后端返回的字段
+//   3) 纯 UI 反馈(进度条百分比、loading、toast)
+// 前端禁止实现:校验位算法、正则格式校验、业务规则判断。
 
 Page({
   data: {
@@ -13,30 +19,27 @@ Page({
     startDate: '',    // 起始日期
     endDate: '',      // 截止日期
 
-    // 实时错误提示
+    // 实时错误提示(由后端 /thin/id-card/validate 异步返回)
     nameErr: '',
     idCardErr: '',
 
     // 协议勾选
     agreementChecked: false,
 
-    // 按钮可用
-    canSubmit: false,
-
-    // 完成度百分比(0-100)
+    // 完成度百分比(纯 UI 进度展示,非业务规则)
     completePercent: 0,
 
-    // 当前步骤高亮(1/2/3)
+    // 当前步骤高亮(1/2/3,纯 UI 展示)
     currentStep: 1,
 
-    // 活体检测
+    // 活体检测(UI 状态机,非业务状态)
     livenessStatus: 'idle', // idle | scanning | success | fail
     livenessStatusText: '待检测',
     livenessLoading: false,
     livenessFailReason: '',
     livenessModalVisible: false,
 
-    // 未成年人
+    // 未成年人(由后端 submit 返回)
     isMinor: false,
     overLimit: false,
     showMinorTip: false,
@@ -48,23 +51,13 @@ Page({
     if (options && options.overLimit) {
       this.setData({ overLimit: true });
     }
-    this._updateAllDerived();
+    this._updateProgressUI();
   },
 
-  // 统一更新所有派生状态
-  _updateAllDerived() {
+  // 纯 UI 进度展示(仅统计已填写字段数,不做业务规则判定)
+  // 提交资格由后端 /user/realname/submit 权威校验
+  _updateProgressUI() {
     const d = this.data;
-
-    // 1. canSubmit
-    const baseValid =
-      !!d.idCardFront && !!d.idCardBack &&
-      !!d.validityType &&
-      !!d.realName && !!d.idCard &&
-      !!d.startDate &&
-      (d.validityType === 'permanent' || !!d.endDate) &&
-      !!d.agreementChecked;
-
-    // 2. completePercent: 逐项计分,共 7 项(人像/国徽/有效期/姓名/身份证/起始/协议) + 截止日期(非长期时)
     const items = [
       !!d.idCardFront ? 1 : 0,
       !!d.idCardBack ? 1 : 0,
@@ -82,24 +75,17 @@ Page({
     const sum = items.reduce((a, b) => a + b, 0);
     const percent = Math.round((sum / total) * 100);
 
-    // 3. currentStep: 按进度高亮
     let currentStep = 1;
     if (sum >= 2 && d.idCardFront && d.idCardBack) currentStep = 2;
-    if (baseValid) currentStep = 3;
+    if (sum === total) currentStep = 3;
 
-    // 4. 批量 setData
-    const patch = {
-      canSubmit: baseValid,
-      completePercent: percent,
-      currentStep: currentStep
-    };
-    this.setData(patch);
+    this.setData({ completePercent: percent, currentStep: currentStep });
   },
 
   // 包装 setData
   setDataMerged(patch) {
     this.setData(patch, () => {
-      this._updateAllDerived();
+      this._updateProgressUI();
     });
   },
 
@@ -109,48 +95,31 @@ Page({
     });
   },
 
+  // 姓名输入:仅 setData,不做格式校验(校验由后端 submit 执行)
   onNameInput(e) {
     const val = (e.detail.value || '').trim();
-    let err = '';
-    if (val.length > 0) {
-      // 姓名: 中文或少数名中间点, 2-20 位
-      const reg = /^[\u4e00-\u9fa5·]{2,20}$/;
-      if (!reg.test(val)) {
-        err = '请输入2-20位中文姓名';
-      }
-    }
-    this.setDataMerged({ realName: val, nameErr: err });
+    this.setDataMerged({ realName: val, nameErr: '' });
   },
 
+  // 身份证输入:仅 setData,不做格式校验
   onIdCardInput(e) {
     const val = (e.detail.value || '').trim().toUpperCase();
-    let err = '';
-    if (val.length > 0 && val.length !== 18) {
-      err = '身份证号需为18位';
-    } else if (val.length === 18) {
-      // 基础格式校验
-      const reg = /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dX]$/;
-      if (!reg.test(val)) {
-        err = '身份证号格式不正确';
-      }
-    }
-    this.setDataMerged({ idCard: val, idCardErr: err });
+    this.setDataMerged({ idCard: val, idCardErr: '' });
   },
 
-  // 失焦时做更严格的校验码检查
+  // 失焦时调后端做权威校验(校验位算法+年龄计算在后端)
   onIdCardBlur() {
-    const d = this.data;
-    const val = (d.idCard || '').trim();
+    const val = (this.data.idCard || '').trim();
     if (val.length !== 18) return;
-    // 校验码计算
-    const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
-    const codes = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
-    let sum = 0;
-    for (let i = 0; i < 17; i++) sum += parseInt(val[i], 10) * weights[i];
-    const expected = codes[sum % 11];
-    if (val[17] !== expected) {
-      this.setDataMerged({ idCardErr: '身份证校验码错误，请检查' });
-    }
+    request.post('/thin/id-card/validate', { id_card: val }).then((data) => {
+      if (!data.valid) {
+        this.setDataMerged({ idCardErr: data.message || '身份证号不正确' });
+      } else {
+        this.setDataMerged({ idCardErr: '' });
+      }
+    }).catch(() => {
+      // 校验失败不阻断输入,最终以后端 submit 校验为准
+    });
   },
 
   onStartDateChange(e) {
@@ -210,15 +179,11 @@ Page({
                 wx.showToast({ title: data.message || '上传失败', icon: 'none' });
               }
             } catch (e2) {
-              const patch = {};
-              patch[type === 'front' ? 'idCardFront' : 'idCardBack'] = tempPath;
-              this.setDataMerged(patch);
+              wx.showToast({ title: '上传失败', icon: 'none' });
             }
           },
           fail: () => {
-            const patch = {};
-            patch[type === 'front' ? 'idCardFront' : 'idCardBack'] = tempPath;
-            this.setDataMerged(patch);
+            wx.showToast({ title: '上传失败', icon: 'none' });
           },
           complete: () => wx.hideLoading()
         });
@@ -226,37 +191,27 @@ Page({
     });
   },
 
-  // 活体状态文字映射
+  // 活体状态文字映射(纯 UI 状态机文案,非业务状态)
   _updateLivenessStatusText() {
     const s = this.data.livenessStatus;
     const map = { idle: '待检测', scanning: '检测中', success: '已通过', fail: '未通过' };
     this.setData({ livenessStatusText: map[s] || '待检测' });
   },
 
-  // 点击付费认证:先校验必填 → 弹活体检测
+  // 点击付费认证:提示未填项(纯 UI 反馈),资格校验由后端执行
   onPayAndAuth() {
-    if (!this.data.canSubmit) {
-      const missing = [];
-      const d = this.data;
-      if (!d.idCardFront) missing.push('身份证人像面');
-      if (!d.idCardBack) missing.push('身份证国徽面');
-      if (!d.validityType) missing.push('有效期类型');
-      if (!d.realName) missing.push('用户姓名');
-      if (!d.idCard) missing.push('证件号码');
-      if (!d.startDate) missing.push('起始日期');
-      if (d.validityType === 'non_permanent' && !d.endDate) missing.push('截止日期');
-      if (!d.agreementChecked) missing.push('用户协议');
+    const d = this.data;
+    const missing = [];
+    if (!d.idCardFront) missing.push('身份证人像面');
+    if (!d.idCardBack) missing.push('身份证国徽面');
+    if (!d.validityType) missing.push('有效期类型');
+    if (!d.realName) missing.push('用户姓名');
+    if (!d.idCard) missing.push('证件号码');
+    if (!d.startDate) missing.push('起始日期');
+    if (d.validityType === 'non_permanent' && !d.endDate) missing.push('截止日期');
+    if (!d.agreementChecked) missing.push('用户协议');
+    if (missing.length > 0) {
       wx.showToast({ title: '请完善' + missing.join('、'), icon: 'none' });
-      return;
-    }
-
-    // 二次校验身份证校验码错误
-    if (this.data.idCardErr) {
-      wx.showToast({ title: '请先修正证件号码错误', icon: 'none' });
-      return;
-    }
-    if (this.data.nameErr) {
-      wx.showToast({ title: '请先修正姓名错误', icon: 'none' });
       return;
     }
 
@@ -272,7 +227,7 @@ Page({
     this.setData({ livenessModalVisible: false });
   },
 
-  // 开始活体检测(先扣费再检测,失败不退款)
+  // 开始活体检测(扣费+检测逻辑由后端执行,前端只触发并渲染状态)
   onStartLiveness() {
     const { realName, idCard } = this.data;
     if (!realName || !idCard) {
@@ -288,7 +243,7 @@ Page({
     request.post('/user/realname/face-verify', {
       real_name: realName,
       id_card: idCard
-    }).then((res) => {
+    }).then(() => {
       this.setData({
         livenessStatus: 'success',
         livenessLoading: false
@@ -320,7 +275,7 @@ Page({
     });
   },
 
-  // 活体通过后提交认证
+  // 活体通过后提交认证(所有业务校验由后端 /user/realname/submit 执行)
   onSubmitAuth() {
     if (this.data.livenessStatus !== 'success') {
       wx.showToast({ title: '请先完成活体检测', icon: 'none' });
@@ -339,13 +294,13 @@ Page({
       end_date: d.endDate
     };
 
-    request.post('/user/realname/submit', payload).then((res) => {
+    request.post('/user/realname/submit', payload).then((data) => {
       this.setData({
         submitting: false,
         livenessModalVisible: false
       });
-      const isMinor = res.is_minor || false;
-      const overLimit = res.over_limit || false;
+      const isMinor = data.is_minor || false;
+      const overLimit = data.over_limit || false;
       if (isMinor) {
         this.setData({
           isMinor: true,

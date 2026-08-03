@@ -1,5 +1,9 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验（宵禁/限额等）、权限控制、折扣计算。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -35,7 +39,6 @@ Page({
     this.checkUserAge();
     this.loadOrderTypes();
     this.initTimeOptions();
-    this.calculateMinDate();
     this.loadUsableCoupons();
   },
 
@@ -43,25 +46,15 @@ Page({
     request.get('/orders/types').then((res) => {
       this.setData({ orderTypes: res.list || [] });
     }).catch(() => {
-      this.setData({
-        orderTypes: [
-          { type: 'instant', name: '即时单', iconClass: 'instant' },
-          { type: 'appointment', name: '预约单', iconClass: 'appointment' },
-          { type: 'team', name: '车队单', iconClass: 'team' },
-          { type: 'teaching', name: '教学单', iconClass: 'teaching' }
-        ]
-      });
+      // 移除 mock 回退，仅提示错误并置空
+      wx.showToast({ title: '订单类型加载失败', icon: 'none' });
+      this.setData({ orderTypes: [] });
     });
   },
 
-  calculateMinDate() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    this.setData({ minDate: `${year}-${month}-${day}` });
-  },
-
+  // 纯 UI：生成时间选择器候选列(每 30 分钟一格,仅作 picker 选项骨架)
+  // 实际可选时段由后端在 /orders/preview 返回 available_time_slots 时覆盖,
+  // 业务规则(营业时间/玩家可用时段)在后端校验
   initTimeOptions() {
     const options = [];
     for (let h = 0; h < 24; h++) {
@@ -77,7 +70,7 @@ Page({
   onTypeChange(e) {
     const type = e.currentTarget.dataset.type;
     this.setData({ currentType: type });
-    
+
     if (type === 'appointment') {
       wx.navigateTo({
         url: `/order-flow/appointment/appointment?playerId=${this.data.playerId}&serviceId=${this.data.serviceId}`
@@ -109,14 +102,16 @@ Page({
       player_id: playerId,
       service_id: serviceId
     }).then((res) => {
-      const totalAmount = util.fenToYuan(res.total_amount);
+      // 金额、单价均使用后端返回的 *_text 字段，前端不做分转元
+      // minDate 由后端返回 min_appoint_date(权威"今天"日期),前端不调 new Date()
       this.setData({
+        minDate: res.min_appoint_date || '',
         serviceInfo: {
           gameName: res.game_name || '',
           rank: res.rank || '',
           serviceName: res.service_name || '',
           duration: res.duration || 1,
-          price: util.fenToYuan(res.price)
+          price: res.price_text || ''
         },
         playerInfo: {
           avatar: res.player_avatar || '',
@@ -125,8 +120,9 @@ Page({
           orderCount: res.player_order_count || 0,
           tags: res.player_tags || []
         },
-        totalAmount: totalAmount,
-        payAmount: totalAmount
+        totalAmount: res.total_amount_text || '0.00',
+        discountAmount: res.discount_amount_text || '0.00',
+        payAmount: res.pay_amount_text || res.total_amount_text || '0.00'
       });
       this.loadUsableCoupons();
     }).catch((err) => {
@@ -135,14 +131,13 @@ Page({
     });
   },
 
+  // 仅拉取未成年人标识用于展示提示，宵禁/消费限额等业务校验由后端在下单时拦截
   checkUserAge() {
     request.get('/user/profile').then((res) => {
-      if (res.is_minor) {
-        this.setData({
-          isMinor: true,
-          minorLimit: res.minor_limit || 200
-        });
-      }
+      this.setData({
+        isMinor: !!res.is_minor,
+        minorLimit: res.minor_limit || 200
+      });
     }).catch(() => {});
   },
 
@@ -153,7 +148,7 @@ Page({
       amount: this.data.totalAmount
     }).then((res) => {
       this.setData({
-        couponList: res.data?.list || []
+        couponList: res.list || []
       });
     }).catch(() => {});
   },
@@ -175,7 +170,6 @@ Page({
     const prevCoupon = this.data.selectedCoupon;
     let newCoupon = null;
     let newCouponId = 0;
-    let discountAmount = '0.00';
 
     if (prevCoupon && prevCoupon.id === coupon.id) {
       newCoupon = null;
@@ -183,30 +177,33 @@ Page({
     } else {
       newCoupon = coupon;
       newCouponId = coupon.id;
-      discountAmount = coupon.value;
     }
 
-    const totalAmount = parseFloat(this.data.totalAmount);
-    const discount = parseFloat(discountAmount);
-    const payAmount = Math.max(0, totalAmount - discount).toFixed(2);
-
-    this.setData({
-      selectedCoupon: newCoupon,
-      selectedCouponId: newCouponId,
-      discountAmount: discountAmount,
-      payAmount: payAmount,
-      showCouponPicker: false
-    });
+    // 折扣/应付金额由后端 preview 接口根据 coupon_id 计算返回，前端不做减法
+    this.refreshPayAmount(newCouponId, newCoupon);
   },
 
   onNoCoupon() {
-    const totalAmount = parseFloat(this.data.totalAmount);
-    this.setData({
-      selectedCoupon: null,
-      selectedCouponId: 0,
-      discountAmount: '0.00',
-      payAmount: totalAmount.toFixed(2),
-      showCouponPicker: false
+    this.refreshPayAmount(0, null);
+  },
+
+  refreshPayAmount(couponId, coupon) {
+    request.get('/orders/preview', {
+      player_id: this.data.playerId,
+      service_id: this.data.serviceId,
+      coupon_id: couponId
+    }).then((res) => {
+      this.setData({
+        selectedCoupon: coupon,
+        selectedCouponId: couponId,
+        totalAmount: res.total_amount_text || this.data.totalAmount,
+        discountAmount: res.discount_amount_text || '0.00',
+        payAmount: res.pay_amount_text || res.total_amount_text || '0.00',
+        showCouponPicker: false
+      });
+    }).catch(() => {
+      this.setData({ showCouponPicker: false });
+      wx.showToast({ title: '金额计算失败', icon: 'none' });
     });
   },
 
@@ -227,36 +224,7 @@ Page({
   },
 
   onPay() {
-    const { isMinor, totalAmount, minorLimit, playerId, serviceId, remark } = this.data;
-
-    if (isMinor) {
-      const currentHour = new Date().getHours();
-      if (currentHour >= 22 || currentHour < 8) {
-        wx.showModal({
-          title: '未成年人宵禁提醒',
-          content: '宵禁时间（22:00-次日08:00）未成年人无法下单，请在白天再进行操作。',
-          showCancel: false,
-          confirmText: '我知道了'
-        });
-        return;
-      }
-    }
-
-    if (isMinor && parseFloat(totalAmount) > minorLimit) {
-      wx.showModal({
-        title: '未成年人消费限额',
-        content: '您的订单金额超出未成年人消费限额，需要监护人验证后才能继续支付。',
-        confirmText: '去验证',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            this.onGuardianVerify();
-          }
-        }
-      });
-      return;
-    }
-
+    // 未成年人宵禁/消费限额等业务校验由后端在下单接口拦截并返回错误
     this.checkAntiBoosting().then(allowed => {
       if (!allowed) return;
       this.doPay();

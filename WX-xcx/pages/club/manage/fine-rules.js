@@ -1,3 +1,9 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 状态文案/颜色由后端返回 status_text / status_color；
+ * 金额以元为单位字符串直接提交，展示使用后端 amount_text，不做元分换算。
+ */
 const request = require('../../../utils/request');
 
 Page({
@@ -22,19 +28,7 @@ Page({
     },
     // 详情弹窗
     detailVisible: false,
-    detail: null,
-    statusMap: {
-      pending: '待审核',
-      approved: '已通过',
-      rejected: '已驳回',
-      revoked: '已下架'
-    },
-    statusColorMap: {
-      pending: '#e6a23c',
-      approved: '#67c23a',
-      rejected: '#f56c6c',
-      revoked: '#909399'
-    }
+    detail: null
   },
 
   onLoad(options) {
@@ -111,7 +105,7 @@ Page({
     this.setData({ ['form.' + field]: e.detail.value });
   },
 
-  // 提交新建/编辑
+  // 提交新建/编辑（金额以元字符串提交，由后端处理）
   async onSubmitForm() {
     const f = this.data.form;
     if (!f.rule_name.trim()) {
@@ -132,7 +126,7 @@ Page({
         id: f.id || 0,
         club_id: this.data.clubId,
         rule_name: f.rule_name.trim(),
-        amount: Math.round(Number(f.amount) * 100), // 元转分
+        amount: f.amount,
         scene: f.scene.trim(),
         content: f.content.trim()
       });
@@ -145,17 +139,12 @@ Page({
     }
   },
 
-  // 查看详情
+  // 查看详情（文案/颜色/金额均使用后端返回字段）
   async onDetail(e) {
     const id = e.currentTarget.dataset.id;
     try {
       const res = await request.get('/club/fine-rules/detail', { id });
-      const detail = res.data || {};
-      detail.status_text = this.data.statusMap[detail.status] || '未知';
-      detail.status_color = this.data.statusColorMap[detail.status] || '#909399';
-      detail.amount_yuan = detail.amount_yuan !== undefined
-        ? detail.amount_yuan
-        : (detail.amount !== undefined ? (detail.amount / 100).toFixed(2) : '0.00');
+      const detail = res.data || res || {};
       this.setData({ detail, detailVisible: true });
     } catch (e) {
       wx.showToast({ title: e.message || '加载详情失败', icon: 'none' });
@@ -176,7 +165,7 @@ Page({
       form: {
         id: d.id,
         rule_name: d.rule_name || '',
-        amount: d.amount_yuan !== undefined ? String(d.amount_yuan) : '',
+        amount: d.amount_text !== undefined ? String(d.amount_text) : '',
         scene: d.scene || '',
         content: d.content || ''
       }

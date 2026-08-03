@@ -1,3 +1,8 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 Component({
   properties: {
     order: {
@@ -45,17 +50,9 @@ Component({
   methods: {
     updateStatusInfo(order) {
       if (!order) return;
-      const statusMap = {
-        'pending': { text: '待支付', tagClass: 'tag-pending' },
-        'doing': { text: '进行中', tagClass: 'tag-doing' },
-        'done': { text: '已完成', tagClass: 'tag-done' },
-        'cancel': { text: '已取消', tagClass: 'tag-cancel' },
-        'appeal': { text: '申诉中', tagClass: 'tag-appeal' }
-      };
-      const info = statusMap[order.status] || { text: '未知', tagClass: '' };
       this.setData({
-        orderStatusText: info.text,
-        statusTagClass: info.tagClass
+        orderStatusText: order.status_text || '',
+        statusTagClass: order.status_tag_class || ''
       });
     },
 

@@ -55,16 +55,96 @@ func (h *ClubHandler) RecordClubJoinClick(c *gin.Context) {
 
 // ================ 板块一：入驻前置全局 ================
 
-// CheckClubSwitch 查询俱乐部入驻开关
+// CheckClubSwitch 查询俱乐部入驻开关 + 保证金配置(前端零逻辑直读)
 // GET /api/v1/clubs/join-switch
-// 公开接口：用户在前端入驻页打开时先查询开关状态
+// 公开接口：用户在前端入驻页打开时先查询开关状态与保证金金额
+// 返回 club_join_open / personal_deposit / enterprise_deposit / *_deposit_text
+// 前端不再做金额换算,直接渲染后端下发的 _text 字段
 func (h *ClubHandler) CheckClubSwitch(c *gin.Context) {
-	enabled, err := service.CheckClubSwitch()
+	info, err := service.CheckClubSwitchFull()
 	if err != nil {
 		utils.Fail(c, utils.CodeServerError, err.Error())
 		return
 	}
-	utils.Success(c, gin.H{"enabled": enabled})
+	// 兼容老接口字段 enabled
+	utils.Success(c, gin.H{
+		"enabled":                info.ClubJoinOpen,
+		"club_join_open":         info.ClubJoinOpen,
+		"personal_deposit":       info.PersonalDeposit,
+		"enterprise_deposit":     info.EnterpriseDeposit,
+		"personal_deposit_text":  info.PersonalDepositText,
+		"enterprise_deposit_text": info.EnterpriseDepositText,
+	})
+}
+
+// ValidateStep 入驻步骤权威校验(前端零逻辑配套)
+// POST /api/v1/clubs/validate-step
+// 前端只回传当前步骤表单,后端统一执行所有业务规则校验(身份证/年龄/地址/PDF等)
+// 返回 {can_next, message, error_field}
+func (h *ClubHandler) ValidateStep(c *gin.Context) {
+	var form service.ClubStepForm
+	if err := c.ShouldBindJSON(&form); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	result, err := service.ValidateClubStep(form)
+	if err != nil {
+		utils.Fail(c, utils.CodeServerError, err.Error())
+		return
+	}
+	utils.Success(c, result)
+}
+
+// LivenessCheck 活体认证(前端零逻辑配套)
+// POST /api/v1/clubs/liveness-check
+// 前端只触发,认证算法由后端/微信 SDK 完成,返回 status/message
+func (h *ClubHandler) LivenessCheck(c *gin.Context) {
+	userID := getCurrentUserID(c)
+	var req struct {
+		ClubType string `json:"club_type"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.ClubType == "" {
+		req.ClubType = "green_v"
+	}
+	result, err := service.ClubLivenessCheck(userID, req.ClubType)
+	if err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, result)
+}
+
+// GetContractTemplate 合同模板下发(前端零逻辑配套)
+// GET /api/v1/clubs/contract-template?club_type=green_v
+// 返回模板 URL/文件名/是否需要盖章/盖章提醒文案
+func (h *ClubHandler) GetContractTemplate(c *gin.Context) {
+	clubType := c.DefaultQuery("club_type", "green_v")
+	info, err := service.GetContractTemplate(clubType)
+	if err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, info)
+}
+
+// Submit 统一入驻提交(前端零逻辑配套)
+// POST /api/v1/clubs/submit
+// 前端只回传整个表单,后端再次执行全步骤校验后分发到个人/企业入驻流程
+// 返回 {registration_id, club_type, corporate_account_masked, status_text, message}
+func (h *ClubHandler) Submit(c *gin.Context) {
+	userID := getCurrentUserID(c)
+	var form service.ClubStepForm
+	if err := c.ShouldBindJSON(&form); err != nil {
+		utils.Fail(c, utils.CodeBadRequest, "参数错误: "+err.Error())
+		return
+	}
+	result, err := service.SubmitClubRegistrationUnified(userID, form)
+	if err != nil {
+		utils.Fail(c, utils.CodeBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, result)
 }
 
 // generateAbbrRequest 生成俱乐部缩写请求

@@ -1,16 +1,11 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request/extApi）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const extApi = require('../../utils/ext-api');
+const request = require('../../utils/request');
 const app = getApp();
-
-const TYPE_OPTIONS = ['建议', '投诉', '其他'];
-const TYPE_VALUES = [1, 2, 3];
-const TYPE_TAG_CLASS = { 1: 'tag-success', 2: 'tag-primary', 3: 'tag-warning' };
-
-const STATUS_MAP = {
-  0: { text: '待处理', tagClass: 'tag-warning' },
-  1: { text: '已回复', tagClass: 'tag-success' }
-};
-
-const formatTime = (v) => v ? String(v).replace('T', ' ').slice(0, 16) : '-';
 
 Page({
   data: {
@@ -20,7 +15,8 @@ Page({
     loading: false,
     noMore: false,
     showForm: false,
-    typeOptions: TYPE_OPTIONS,
+    typeOptions: [],
+    typeValues: [],
     typeIndex: 0,
     content: '',
     imageList: []
@@ -31,6 +27,7 @@ Page({
       wx.navigateTo({ url: '/pages/login/login' });
       return;
     }
+    this.loadTypeOptions();
     this.setData({ page: 1, list: [], noMore: false });
     this.loadList();
   },
@@ -47,21 +44,29 @@ Page({
     }
   },
 
+  async loadTypeOptions() {
+    try {
+      const res = await request.get('/user/feedback-types');
+      const options = res.list || res || [];
+      this.setData({
+        typeOptions: options.map(o => o.text || o.label || ''),
+        typeValues: options.map(o => o.value)
+      });
+    } catch (e) {}
+  },
+
   loadList() {
     if (this.data.loading || this.data.noMore) return;
     this.setData({ loading: true });
     extApi.listMyFeedbacks(this.data.page, this.data.pageSize).then((res) => {
-      const list = (res.list || []).map((item) => {
-        const conf = STATUS_MAP[item.status] || { text: '未知', tagClass: 'tag-warning' };
-        return {
-          ...item,
-          typeText: TYPE_OPTIONS[TYPE_VALUES.indexOf(item.type)] || '其他',
-          typeTagClass: TYPE_TAG_CLASS[item.type] || 'tag-warning',
-          statusText: conf.text,
-          statusTagClass: conf.tagClass,
-          createdText: formatTime(item.created_at)
-        };
-      });
+      const list = (res.list || []).map((item) => ({
+        ...item,
+        typeText: item.type_text || '',
+        typeTagClass: item.type_tag_class || '',
+        statusText: item.status_text || '',
+        statusTagClass: item.status_tag_class || '',
+        createdText: item.time_text || ''
+      }));
       this.setData({
         list: this.data.list.concat(list),
         page: this.data.page + 1,
@@ -126,7 +131,7 @@ Page({
     }
     const images = this.data.imageList.join(',');
     extApi.createFeedback({
-      type: TYPE_VALUES[this.data.typeIndex],
+      type: this.data.typeValues[this.data.typeIndex],
       content: content.trim(),
       images
     }).then(() => {

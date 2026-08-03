@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -34,9 +38,9 @@ Page({
     request.get('/after-sales').then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        intervene_label: this.getInterveneLabel(item.intervene_status),
-        intervene_class: this.getInterveneClass(item.intervene_status),
-        last_time: util.formatRelativeTime(item.last_msg_time),
+        intervene_label: item.intervene_status_text || '',
+        intervene_class: item.intervene_status_class || '',
+        last_time: item.relative_time_text || '',
         order_sn_preview: item.order_sn ? '订单: ' + item.order_sn : ''
       }));
 
@@ -47,24 +51,6 @@ Page({
     }).catch(() => {
       this.setData({ loading: false });
     });
-  },
-
-  getInterveneLabel(status) {
-    const statusMap = {
-      0: '未介入',
-      1: '介入中',
-      2: '已解除'
-    };
-    return statusMap[status] || '未介入';
-  },
-
-  getInterveneClass(status) {
-    const classMap = {
-      0: 'intervene-none',
-      1: 'intervene-ing',
-      2: 'intervene-done'
-    };
-    return classMap[status] || 'intervene-none';
   },
 
   onOpenSession(e) {

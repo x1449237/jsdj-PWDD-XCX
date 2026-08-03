@@ -22,6 +22,7 @@ Page({
     this.loadAgreement();
   },
 
+  // 协议标题/内容/版本均由后端下发,前端不做类型→标题映射
   loadAgreement() {
     request.get('/compliance/agreement/latest', {
       role: this.data.role,
@@ -30,23 +31,13 @@ Page({
       this.setData({
         agreementContent: res.content || '',
         agreementVersion: res.version || '',
-        agreementTitle: this.getAgreementTitle(),
+        agreementTitle: res.title || '',
         loading: false
       });
     }).catch(err => {
       wx.showToast({ title: err.msg || '加载失败', icon: 'none' });
       this.setData({ loading: false });
     });
-  },
-
-  getAgreementTitle() {
-    const titleMap = {
-      user_service: '用户服务协议',
-      privacy: '隐私政策',
-      club_entry: '俱乐部入驻协议',
-      player_entry: '打手入驻协议'
-    };
-    return titleMap[this.data.agreementType] || '服务协议';
   },
 
   onAgreeChange(e) {

@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -83,10 +87,10 @@ Page({
       avatar: item.avatar || '/assets/images/default-avatar.png',
       nickname: item.nickname || '未知用户',
       level: item.level || this.data.activeTab,
-      registerTimeText: util.formatTime(item.registerTime, 'YYYY-MM-DD'),
+      registerTimeText: item.register_time_text || item.registerTimeText || '',
       orderCount: item.orderCount || 0,
       isRealName: item.isRealName || false,
-      parentName: item.parentName ? util.maskName(item.parentName) : ''
+      parentName: item.parent_name_masked || item.parentName || ''
     };
   },
 

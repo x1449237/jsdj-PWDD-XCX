@@ -1,5 +1,9 @@
+// 架构规则：小程序前端不得包含任何业务逻辑。
+// 前端只负责：1) 调用后端 API（request.get/post/put/del）
+// 2) 渲染后端返回的字段（status_text、amount_text、*_masked、*_color、time_text 等）
+// 3) 提供纯 UI 反馈（toast、loading、非空提示、进度条）
+// 后端负责：状态/类型文本映射、金额转换、时间格式化、脱敏、业务校验（宵禁等）、权限控制、折扣计算。
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -10,25 +14,16 @@ Page({
       name: '',
       type: 'chat'
     },
+    // 纯 UI 常量：创建群聊表单的类型选项
     groupTypes: [
       { value: 'chat', label: '闲聊群' },
       { value: 'welfare', label: '福利群' },
       { value: 'after_sale', label: '售后群' }
-    ],
-    isMinor: false
+    ]
   },
 
   onLoad() {
     this.loadGroupList();
-    this.checkUserAge();
-  },
-
-  checkUserAge() {
-    request.get('/user/profile').then((res) => {
-      if (res.is_minor) {
-        this.setData({ isMinor: true });
-      }
-    }).catch(() => {});
   },
 
   onShow() {
@@ -45,11 +40,12 @@ Page({
     this.setData({ loading: true });
 
     request.get('/groups').then((res) => {
+      // 直接使用后端返回的文本字段，前端不做类型映射/消息格式化/相对时间计算
       const list = (res.list || []).map(item => ({
         ...item,
-        group_type_label: this.getGroupTypeLabel(item.group_type),
-        last_msg_preview: this.formatLastMessage(item),
-        last_time: util.formatRelativeTime(item.last_msg_time)
+        group_type_label: item.group_type_text || '',
+        last_msg_preview: item.last_message_preview || '',
+        last_time: item.last_time_text || ''
       }));
 
       this.setData({
@@ -57,47 +53,16 @@ Page({
         loading: false
       });
     }).catch(() => {
-      this.setData({ loading: false });
+      this.setData({
+        groupList: [],
+        loading: false
+      });
     });
-  },
-
-  getGroupTypeLabel(type) {
-    const typeMap = {
-      chat: '闲聊群',
-      welfare: '福利群',
-      after_sale: '售后群'
-    };
-    return typeMap[type] || '闲聊群';
-  },
-
-  formatLastMessage(item) {
-    if (!item.last_msg_type) return '';
-    const typeMap = {
-      text: item.last_msg_content || '',
-      image: '[图片]',
-      voice: '[语音]',
-      system: '[系统消息]',
-      announcement: '[群公告]'
-    };
-    return typeMap[item.last_msg_type] || item.last_msg_content || '';
   },
 
   onOpenGroup(e) {
     const group = e.currentTarget.dataset.group;
-
-    if (this.data.isMinor) {
-      const currentHour = new Date().getHours();
-      if (currentHour >= 22 || currentHour < 8) {
-        wx.showModal({
-          title: '未成年人宵禁提醒',
-          content: '宵禁时间（22:00-次日08:00）未成年人无法进入群聊，请在白天再进行操作。',
-          showCancel: false,
-          confirmText: '我知道了'
-        });
-        return;
-      }
-    }
-
+    // 未成年人宵禁等业务校验由后端在进入群聊/发送消息时拦截
     wx.navigateTo({
       url: '/chat/group-room/group-room?groupId=' + group.group_id + '&groupName=' + encodeURIComponent(group.group_name || '群聊')
     });
@@ -159,6 +124,7 @@ Page({
 
   onCreateGroup() {
     const { name, type } = this.data.createForm;
+    // 非空提示（纯 UI 校验）
     if (!name.trim()) {
       wx.showToast({ title: '请输入群名称', icon: 'none' });
       return;

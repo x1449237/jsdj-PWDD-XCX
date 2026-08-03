@@ -29,7 +29,6 @@ Page({
     pageSize: 20,
     voiceStartY: 0,
     currentPlayingId: null,
-    recallTimeLimit: 300000,
     // 介入状态
     interveneStatus: 0,
     showInterveneBanner: false,
@@ -191,6 +190,7 @@ Page({
     });
   },
 
+  // 纯 UI 状态包装:所有文本/大小/时间字段均由后端返回,前端不计算
   formatMessage(item) {
     return {
       ...item,
@@ -199,16 +199,10 @@ Page({
       sensitive_blocked: item.sensitive_blocked || false,
       is_platform_official: item.is_platform_official || false,
       anti_fraud_risky: item.anti_fraud_risky || false,
-      file_size_text: item.file_size ? this.formatFileSize(item.file_size) : '',
+      file_size_text: item.file_size_text || '',
       asr_text: item.asr_text || '',
       show_asr: false
     };
-  },
-
-  formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + 'B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
   },
 
   scrollToBottom() {
@@ -279,7 +273,7 @@ Page({
       content: text
     }).then((res) => {
       if (res.anti_fraud_risky) {
-        this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
+        this.showAntiFraudWarning(res.warning_content || '');
       }
       this.updateMessageStatus(tempMsgId, res);
     }).catch((err) => {
@@ -287,7 +281,7 @@ Page({
         this.setMessageSensitiveBlocked(tempMsgId);
       } else if (err.code === 4002) {
         this.setMessageAntiFraudBlocked(tempMsgId);
-        this.showAntiFraudWarning(err.level || 'warning');
+        this.showAntiFraudWarning(err.warning_content || '');
       } else {
         this.removeMessage(tempMsgId);
         wx.showToast({ title: '发送失败', icon: 'none' });
@@ -399,7 +393,6 @@ Page({
     const tempMsg = {
       msg_id: tempMsgId,
       type: 'voice',
-      duration: Math.round(duration / 1000),
       from_self: true,
       sending: true
     };
@@ -414,7 +407,7 @@ Page({
         conversation_id: this.data.conversationId,
         type: 'voice',
         voice_url: data.url,
-        duration: Math.round(duration / 1000)
+        duration: duration
       }).then((res) => {
         this.updateMessageStatus(tempMsgId, res);
       });
@@ -473,10 +466,9 @@ Page({
     const msg = e.currentTarget.dataset.msg;
     if (!msg.from_self) return;
 
-    const now = Date.now();
-    const msgTime = new Date(msg.create_time).getTime();
-    if (now - msgTime > this.data.recallTimeLimit) {
-      wx.showToast({ title: '超过5分钟无法撤回', icon: 'none' });
+    // 是否可撤回由后端 can_recall 字段决定，前端不解析消息时间
+    if (msg.can_recall === false) {
+      wx.showToast({ title: '超过可撤回时间', icon: 'none' });
       return;
     }
 
@@ -605,12 +597,13 @@ Page({
 
   sendFile(filePath, fileName, fileSize) {
     const tempMsgId = util.generateId();
+    // 临时消息 file_size_text 留空,服务端响应后由后端 file_size_text 覆盖
     const tempMsg = {
       msg_id: tempMsgId,
       type: 'file',
       file_name: fileName,
       file_size: fileSize,
-      file_size_text: this.formatFileSize(fileSize),
+      file_size_text: '',
       file_url: filePath,
       from_self: true,
       sending: true
@@ -633,7 +626,7 @@ Page({
         file_type: data.file_type || 'document'
       }).then((res) => {
         if (res.anti_fraud_risky) {
-          this.showAntiFraudWarning(res.anti_fraud_level || 'warning');
+          this.showAntiFraudWarning(res.warning_content || '');
         }
         this.updateMessageStatus(tempMsgId, res);
       });
@@ -752,14 +745,9 @@ Page({
     }
   },
 
-  showAntiFraudWarning(level) {
-    let content = '检测到您发送的内容可能存在风险，为保障您的权益，请在平台内完成交易。';
-    if (level === 'mute') {
-      content = '警告：您发送的内容违反平台规则，已被禁言，请遵守平台规定。';
-    } else if (level === 'ban') {
-      content = '严重警告：您多次发送违规内容，账号已被封禁，请联系客服处理。';
-    }
-
+  // 飞单风控警告:文案由后端 warning_content 字段直接返回,前端不做级别→文案映射
+  showAntiFraudWarning(content) {
+    if (!content) return;
     this.setData({
       showAntiFraudModal: true,
       antiFraudModalContent: content

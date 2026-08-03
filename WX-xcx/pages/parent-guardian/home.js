@@ -1,3 +1,11 @@
+/**
+ * 架构规则：小程序前端不包含任何业务逻辑。
+ * 前端仅：1) 通过 request.get/post/put/del 调用后端接口
+ *         2) 渲染后端返回字段（monthly_limit_text 等）
+ *         3) 提供纯 UI 反馈（toast/loading/非空提示/进度条）
+ * 禁止：mock 数据、状态/类型文本映射、金额换算、时间格式化、脱敏、业务校验、随机数。
+ * 约定：request.get(url, data) 直接 resolve 出内层 data.data，res 即数据对象本身。
+ */
 const request = require('../../../utils/request');
 const app = getApp();
 
@@ -32,7 +40,7 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await request.get('/guardian/bind_list');
-      const list = (res && res.data) || [];
+      const list = res || [];
       this.setData({ bindList: list });
 
       if (list.length > 0) {
@@ -54,24 +62,12 @@ Page({
 
   async loadChildInfo(bindId) {
     try {
-      let childInfo = null;
-      let settingInfo = { allow_order: 1, allow_reward: 1, is_frozen: 0, monthly_limit: 0 };
-      try {
-        const [childRes, settingRes] = await Promise.all([
-          request.get('/guardian/child_info', { bind_id: bindId }),
-          request.get('/guardian/setting', { bind_id: bindId })
-        ]);
-        childInfo = childRes.data || {};
-        settingInfo = settingRes.data || settingInfo;
-      } catch (e) {
-        childInfo = {
-          nickname: '小明',
-          avatar: '',
-          month_consume: 12800,
-          user_id: bindId
-        };
-      }
-
+      const [childRes, settingRes] = await Promise.all([
+        request.get('/guardian/child_info', { bind_id: bindId }),
+        request.get('/guardian/setting', { bind_id: bindId })
+      ]);
+      const childInfo = childRes || {};
+      const settingInfo = settingRes || { allow_order: 1, allow_reward: 1, is_frozen: 0, monthly_limit: 0 };
       this.setData({
         currentChild: childInfo,
         setting: settingInfo,
@@ -80,6 +76,13 @@ Page({
       });
     } catch (err) {
       console.error('加载孩子信息失败:', err);
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      this.setData({
+        currentChild: null,
+        setting: { allow_order: 1, allow_reward: 1, is_frozen: 0, monthly_limit: 0 },
+        monthConsume: 0,
+        monthlyLimit: 0
+      });
     }
   },
 
@@ -131,7 +134,7 @@ Page({
 
   async updateSetting(key, value, successMsg) {
     const { selectedBindId } = this.data;
-    if (!selectedBindId) return;
+    if (!selectedBindId) return false;
 
     try {
       let url = '';
@@ -155,28 +158,27 @@ Page({
 
       const settingKey = `setting.${key}`;
       this.setData({ [settingKey]: value });
+      return true;
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+      return false;
     }
   },
 
   onEditLimit() {
-    const { monthlyLimit } = this.data;
     wx.showModal({
       title: '设置月消费限额',
       editable: true,
       placeholderText: '请输入限额（元）',
-      content: (monthlyLimit / 100).toString(),
+      content: this.data.setting.monthly_limit_text || '',
       success: (res) => {
         if (res.confirm && res.content) {
-          const amount = parseFloat(res.content);
-          if (isNaN(amount) || amount < 0) {
-            wx.showToast({ title: '请输入有效金额', icon: 'none' });
-            return;
-          }
-          const fenAmount = Math.round(amount * 100);
-          this.updateSetting('monthly_limit', fenAmount, '限额已更新');
-          this.setData({ monthlyLimit: fenAmount });
+          // 直接提交元字符串，由后端校验与换算；成功后重新拉取以刷新 monthly_limit_text 等展示字段
+          this.updateSetting('monthly_limit', res.content, '限额已更新').then((ok) => {
+            if (ok && this.data.selectedBindId) {
+              this.loadChildInfo(this.data.selectedBindId);
+            }
+          });
         }
       }
     });

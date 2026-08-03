@@ -39,14 +39,30 @@ const (
 )
 
 // 消息类型常量(对应 message.go 中 Message.Type)
+// 架构规则:WebSocket 消息的 type 字段由后端统一定义,小程序前端仅按 type 原样分发,
+// 不做任何映射/归一化。下方业务类型常量即为前端 websocket.on(type) 监听的契约字符串。
 const (
-	// MsgTypeChat 聊天消息
-	MsgTypeChat = "chat"
-	// MsgTypeGroup 群聊消息
-	MsgTypeGroup = "group"
+	// MsgTypeChatMessage 一对一聊天消息(前端监听 chat_message)
+	MsgTypeChatMessage = "chat_message"
+	// MsgTypeGroupChat 群聊消息(前端监听 group_chat)
+	MsgTypeGroupChat = "group_chat"
+	// MsgTypeAfterSale 售后会话消息(前端监听 after_sale)
+	MsgTypeAfterSale = "after_sale"
+	// MsgTypePlatformIntervene 平台介入通知(前端监听 platform_intervene)
+	MsgTypePlatformIntervene = "platform_intervene"
+	// MsgTypeMessageRecall 消息撤回(前端监听 message_recall)
+	MsgTypeMessageRecall = "message_recall"
+	// MsgTypeNewMessage 会话列表新消息(前端监听 new_message)
+	MsgTypeNewMessage = "new_message"
+	// MsgTypeMessageRead 已读回执(前端监听 message_read)
+	MsgTypeMessageRead = "message_read"
+	// MsgTypeNewOrder 新订单通知(陪玩端监听 new_order)
+	MsgTypeNewOrder = "new_order"
+	// MsgTypeOrderTaken 订单被接单通知(order_taken)
+	MsgTypeOrderTaken = "order_taken"
 	// MsgTypeSystem 系统通知
 	MsgTypeSystem = "system"
-	// MsgTypeOrder 订单状态变更
+	// MsgTypeOrder 订单状态变更(通用)
 	MsgTypeOrder = "order"
 	// MsgTypePing 心跳 Ping
 	MsgTypePing = "ping"

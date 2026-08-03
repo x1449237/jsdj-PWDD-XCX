@@ -1,14 +1,10 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（extApi）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const extApi = require('../../utils/ext-api');
 const app = getApp();
-
-const STATUS_MAP = {
-  0: { text: '已退', tagClass: 'tag-warning' },
-  1: { text: '可用', tagClass: 'tag-success' },
-  2: { text: '已过期', tagClass: 'tag-primary' }
-};
-
-const formatMoney = (v) => ((Number(v) || 0) / 100).toFixed(2);
-const formatTime = (v) => v ? String(v).replace('T', ' ').slice(0, 16) : '-';
 
 Page({
   data: {
@@ -46,18 +42,15 @@ Page({
     if (this.data.loading || this.data.noMore) return;
     this.setData({ loading: true });
     extApi.listDeposits(this.data.page, this.data.pageSize).then((res) => {
-      const list = (res.list || []).map((item) => {
-        const conf = STATUS_MAP[item.status] || { text: '未知', tagClass: 'tag-warning' };
-        return {
-          ...item,
-          statusText: conf.text,
-          tagClass: conf.tagClass,
-          amountText: formatMoney(item.amount),
-          balanceText: formatMoney(item.balance),
-          expiredText: formatTime(item.expired_at),
-          createdText: formatTime(item.created_at)
-        };
-      });
+      const list = (res.list || []).map((item) => ({
+        ...item,
+        statusText: item.status_text || '',
+        tagClass: item.tag_class || '',
+        amountText: item.amount_text || '',
+        balanceText: item.balance_text || '',
+        expiredText: item.expired_time_text || '',
+        createdText: item.time_text || ''
+      }));
       this.setData({
         list: this.data.list.concat(list),
         page: this.data.page + 1,
@@ -88,8 +81,7 @@ Page({
       wx.showToast({ title: '请输入有效金额', icon: 'none' });
       return;
     }
-    const cents = Math.round(num * 100);
-    extApi.createDeposit({ amount: cents }).then(() => {
+    extApi.createDeposit({ amount: amount }).then(() => {
       wx.showToast({ title: '预存成功', icon: 'success' });
       this.setData({ showForm: false, page: 1, list: [], noMore: false });
       this.loadList();

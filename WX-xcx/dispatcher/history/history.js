@@ -1,5 +1,9 @@
+/**
+ * 架构规则：小程序前端不含任何业务逻辑。
+ * 仅负责：调用后端 API（request）、渲染后端返回字段（*_text/*_color/*_masked/amount_text/time_text 等）、纯 UI 反馈（toast/loading/非空提示）。
+ * 禁止：状态/类型硬编码映射、金额换算、时间格式化、脱敏、按月分组、权限判断。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -56,26 +60,14 @@ Page({
       params.status = this.data.currentStatus;
     }
 
-    const statusTextMap = {
-      in_progress: '进行中',
-      completed: '已完成',
-      cancelled: '已取消'
-    };
-
-    const statusColorMap = {
-      in_progress: '#e94560',
-      completed: '#07c160',
-      cancelled: '#cccccc'
-    };
-
     request.get('/dispatcher/dispatch-records', params).then((res) => {
       const list = (res.list || []).map(item => ({
         ...item,
-        statusText: statusTextMap[item.status] || '未知',
-        statusColor: statusColorMap[item.status] || '#999999',
-        amount: util.fenToYuan(item.amount),
-        dispatch_time: util.formatTime(item.dispatch_time, 'YYYY-MM-DD HH:mm'),
-        finish_time: item.finish_time ? util.formatTime(item.finish_time, 'YYYY-MM-DD HH:mm') : ''
+        statusText: item.status_text || '',
+        statusColor: item.status_color || '',
+        amount: item.amount_text || '',
+        dispatch_time: item.dispatch_time_text || item.dispatch_time || '',
+        finish_time: item.finish_time_text || item.finish_time || ''
       }));
 
       this.setData({

@@ -1,22 +1,24 @@
+/**
+ * 架构规则：前端零业务逻辑。
+ * 本页面仅负责：调用后端 API、setData 渲染后端返回字段、纯 UI 反馈。
+ * 角色/状态文案、金额、时间均由后端返回：
+ *   role_text / role_class / status_text / status_class / amount_text / time_text / tax_text / ratio_text
+ * 月份分组、月度小计、排序均由后端预聚合后返回 groups（含 month_total_text）。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
-    totalIncome: '0.00',
-    totalSettled: '0.00',
-    totalPending: '0.00',
-    totalTax: '0.00',
+    totalIncome: '',
+    totalSettled: '',
+    totalPending: '',
+    totalTax: '',
     profitList: [],
     monthFilter: [],
     monthIndex: -1,
     selectedMonth: '',
-    roleFilter: [
-      { label: '全部', value: '' },
-      { label: '打手', value: 1 },
-      { label: '俱乐部', value: 2 },
-      { label: '分销商', value: 3 }
-    ],
+    // 角色筛选选项由后端下发,前端不硬编码角色 label/value
+    roleFilter: [],
     roleIndex: 0,
     selectedRole: '',
     page: 1,
@@ -40,10 +42,12 @@ Page({
     try {
       const res = await request.get('/profit_share/summary');
       this.setData({
-        totalIncome: util.fenToYuan(res.totalIncome || 0),
-        totalSettled: util.fenToYuan(res.totalSettled || 0),
-        totalPending: util.fenToYuan(res.totalPending || 0),
-        totalTax: util.fenToYuan(res.totalTax || 0)
+        totalIncome: res.total_income_text || '',
+        totalSettled: res.total_settled_text || '',
+        totalPending: res.total_pending_text || '',
+        totalTax: res.total_tax_text || '',
+        // 后端下发角色筛选选项 [{label, value}]
+        roleFilter: res.role_filter_options || []
       });
     } catch (err) {
       // 忽略错误
@@ -60,12 +64,12 @@ Page({
         role: this.data.selectedRole
       });
 
-      const groupedList = this.groupByMonth(res.list || []);
-      const months = this.extractMonths(groupedList);
+      const groups = this.mapGroups(res.groups || []);
 
       this.setData({
-        profitList: groupedList,
-        monthFilter: ['全部月份', ...months],
+        profitList: groups,
+        // 月份筛选选项由后端下发 month_filter_options(含"全部"选项),前端不硬编码
+        monthFilter: res.month_filter_options || [],
         hasMore: res.hasMore !== false,
         loading: false
       });
@@ -86,11 +90,11 @@ Page({
         role: this.data.selectedRole
       });
 
-      const newItems = res.list || [];
-      const mergedList = this.mergeGroupedList(this.data.profitList, newItems);
+      const newGroups = this.mapGroups(res.groups || []);
+      const merged = this.mergeGroupedList(this.data.profitList, newGroups);
 
       this.setData({
-        profitList: mergedList,
+        profitList: merged,
         page: nextPage,
         hasMore: res.hasMore !== false,
         loadingMore: false
@@ -104,96 +108,51 @@ Page({
     this.loadMoreProfit();
   },
 
-  groupByMonth(rawList) {
-    const grouped = {};
-    rawList.forEach(item => {
-      const date = new Date(item.createTime);
-      const month = `${date.getFullYear()}年${date.getMonth() + 1}月`;
-      if (!grouped[month]) {
-        grouped[month] = { month, items: [], monthTotal: 0 };
-      }
-      const formatted = this.formatProfitItem(item);
-      grouped[month].items.push(formatted);
-      grouped[month].monthTotal += (item.amount || 0);
-    });
-
-    const result = Object.values(grouped);
-    result.forEach(group => {
-      group.monthTotal = util.fenToYuan(group.monthTotal);
-      group.items.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
-    });
-    result.sort((a, b) => {
-      const [ay, am] = a.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      const [by, bm] = b.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      return new Date(by, bm - 1) - new Date(ay, am - 1);
-    });
-    return result;
+  // 仅做结构映射：后端返回的预聚合分组转为前端渲染字段，不做金额换算/日期解析/排序
+  mapGroups(groups) {
+    return groups.map(group => ({
+      month: group.month || '',
+      monthTotal: group.month_total_text || '',
+      items: (group.items || []).map(item => this.mapProfitItem(item))
+    }));
   },
 
-  mergeGroupedList(existing, newItems) {
+  mapProfitItem(item) {
+    return {
+      ...item,
+      amountText: item.amount_text || '',
+      ratioText: item.ratio_text || '',
+      roleText: item.role_text || '',
+      roleClass: item.role_class || '',
+      statusText: item.status_text || '',
+      statusClass: item.status_class || '',
+      timeText: item.time_text || '',
+      taxText: item.tax_text || ''
+    };
+  },
+
+  // 分页合并：仅按月份名拼接 items，不重算小计、不排序（均由后端负责）
+  mergeGroupedList(existing, newGroups) {
     const merged = [...existing];
-    const newGrouped = this.groupByMonth(newItems);
-    newGrouped.forEach(newGroup => {
+    newGroups.forEach(newGroup => {
       const existingGroup = merged.find(g => g.month === newGroup.month);
       if (existingGroup) {
         const existingIds = new Set(existingGroup.items.map(i => i.id));
         const uniqueNew = newGroup.items.filter(i => !existingIds.has(i.id));
         existingGroup.items = [...existingGroup.items, ...uniqueNew];
-        const totalFen = existingGroup.items.reduce((sum, i) => sum + (i.amountFen || 0), 0);
-        existingGroup.monthTotal = util.fenToYuan(totalFen);
       } else {
         merged.push(newGroup);
       }
     });
-    merged.sort((a, b) => {
-      const [ay, am] = a.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      const [by, bm] = b.month.replace(/[年月]/g, '-').split('-').filter(Boolean);
-      return new Date(by, bm - 1) - new Date(ay, am - 1);
-    });
     return merged;
-  },
-
-  extractMonths(groupedList) {
-    return groupedList.map(g => g.month);
-  },
-
-  formatProfitItem(item) {
-    const roleMap = {
-      1: { text: '打手', class: 'role-player' },
-      2: { text: '俱乐部', class: 'role-club' },
-      3: { text: '分销商', class: 'role-distributor' },
-      4: { text: '平台', class: 'role-platform' }
-    };
-    const roleInfo = roleMap[item.role] || { text: '未知', class: 'role-player' };
-
-    const statusMap = {
-      0: { text: '待结算', class: 'status-pending' },
-      1: { text: '已结算', class: 'status-settled' },
-      2: { text: '已冻结', class: 'status-frozen' },
-      3: { text: '已退款', class: 'status-refund' }
-    };
-    const statusInfo = statusMap[item.status] || { text: '未知', class: 'status-pending' };
-
-    return {
-      ...item,
-      amountFen: item.amount || 0,
-      amountText: util.fenToYuan(Math.abs(item.amount || 0)),
-      ratioText: item.ratio ? item.ratio + '%' : '',
-      roleText: roleInfo.text,
-      roleClass: roleInfo.class,
-      statusText: statusInfo.text,
-      statusClass: statusInfo.class,
-      timeText: util.formatTime(item.createTime, 'MM-DD HH:mm'),
-      taxText: item.taxAmount ? util.fenToYuan(item.taxAmount) : '0.00'
-    };
   },
 
   onMonthChange(e) {
     const index = parseInt(e.detail.value);
-    const month = index === 0 ? '' : this.data.monthFilter[index];
+    const monthItem = this.data.monthFilter[index] || {};
     this.setData({
       monthIndex: index,
-      selectedMonth: month,
+      selectedMonth: monthItem.value || '',
       page: 1,
       profitList: []
     });

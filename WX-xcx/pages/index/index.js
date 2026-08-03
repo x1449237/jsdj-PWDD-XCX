@@ -1,5 +1,12 @@
+/**
+ * 架构规则：小程序前端不包含任何业务逻辑。
+ * 前端仅：1) 通过 request.get/post/put/del 调用后端接口
+ *         2) 渲染后端返回字段
+ *         3) 提供纯 UI 反馈（toast/loading/非空提示/进度条）
+ * 禁止：mock 数据、状态/类型文本映射、金额换算、时间格式化、脱敏、业务校验、随机数。
+ * 约定：request.get(url, data) 直接 resolve 出内层 data.data，res 即数据对象本身。
+ */
 const request = require('../../utils/request');
-const util = require('../../utils/util');
 
 Page({
   data: {
@@ -49,13 +56,8 @@ Page({
     request.get('/banners').then((res) => {
       this.setData({ banners: res.list || [] });
     }).catch(() => {
-      this.setData({
-        banners: [
-          { id: 1, image: '/assets/images/banner1.png' },
-          { id: 2, image: '/assets/images/banner2.png' },
-          { id: 3, image: '/assets/images/banner3.png' }
-        ]
-      });
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      this.setData({ banners: [] });
     });
   },
 
@@ -63,15 +65,8 @@ Page({
     request.get('/categories').then((res) => {
       this.setData({ categories: res.list || [] });
     }).catch(() => {
-      this.setData({
-        categories: [
-          { id: 1, name: '王者荣耀', icon: '/assets/icons/game-wzry.png' },
-          { id: 2, name: '英雄联盟', icon: '/assets/icons/game-lol.png' },
-          { id: 3, name: '和平精英', icon: '/assets/icons/game-hpjy.png' },
-          { id: 4, name: '原神', icon: '/assets/icons/game-ys.png' },
-          { id: 5, name: '无畏契约', icon: '/assets/icons/game-valorant.png' }
-        ]
-      });
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      this.setData({ categories: [] });
     });
   },
 
@@ -85,7 +80,7 @@ Page({
       page_size: this.data.pageSize,
       keyword: this.data.keyword
     }).then((res) => {
-      const list = res.list || res.data || [];
+      const list = res.list || [];
       const players = this.data.players.concat(list);
 
       this.setData({
@@ -95,49 +90,13 @@ Page({
         noMore: list.length < this.data.pageSize
       });
     }).catch(() => {
-      this.setData({
-        players: this.data.players.length === 0 ? this.getMockPlayers() : this.data.players,
-        loading: false
-      });
-    });
-  },
-
-  getMockPlayers() {
-    return [
-      {
-        id: 1,
-        nickname: '王者大神',
-        avatar: '/assets/images/default-avatar.png',
-        gender: 1,
-        is_online: true,
-        rank: '王者',
-        good_rate: 98,
-        order_count: 1560,
-        price: 50
-      },
-      {
-        id: 2,
-        nickname: '吃鸡少女',
-        avatar: '/assets/images/default-avatar.png',
-        gender: 2,
-        is_online: true,
-        rank: '超级王牌',
-        good_rate: 95,
-        order_count: 890,
-        price: 40
-      },
-      {
-        id: 3,
-        nickname: 'LOL王者',
-        avatar: '/assets/images/default-avatar.png',
-        gender: 1,
-        is_online: false,
-        rank: '钻石',
-        good_rate: 92,
-        order_count: 2300,
-        price: 35
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      if (this.data.page === 1) {
+        this.setData({ players: [], loading: false, noMore: true });
+      } else {
+        this.setData({ loading: false });
       }
-    ];
+    });
   },
 
   onSearchTap() {
