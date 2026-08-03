@@ -33,7 +33,10 @@
             </div>
           </template>
           <div class="chart-container">
-            <div class="bar-chart">
+            <div v-if="trendData.length === 0" class="empty-tip">
+              暂无趋势数据
+            </div>
+            <div v-else class="bar-chart">
               <div
                 v-for="(item, index) in trendData"
                 :key="index"
@@ -207,7 +210,8 @@ export default {
         this.targetValues.totalOrders = data.totalOrders || 0
         this.targetValues.todayRevenue = data.todayRevenue || 0
         this.targetValues.pendingCount = data.pendingCount || 0
-        this.trendData = data.trendData || this.generateMockTrendData()
+        // 趋势数据由后端权威返回,失败/为空时显示空状态,前端不伪造 mock 数据
+        this.trendData = data.trendData || []
         if (data.pendingItems) {
           this.pendingItems.forEach(item => {
             const updated = data.pendingItems[item.key]
@@ -219,22 +223,8 @@ export default {
         this.startCountAnimation()
       } catch (err) {
         console.error('获取仪表盘数据失败:', err)
-        this.trendData = this.generateMockTrendData()
+        this.trendData = []
       }
-    },
-    generateMockTrendData() {
-      const data = []
-      const now = new Date()
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date(now)
-        date.setDate(date.getDate() - i)
-        const dateStr = date.toISOString().slice(0, 10)
-        data.push({
-          date: dateStr,
-          count: Math.floor(Math.random() * 100) + 10
-        })
-      }
-      return data
     },
     startCountAnimation() {
       const duration = 1500
@@ -340,6 +330,15 @@ export default {
 .chart-container {
   height: 260px;
   padding: 10px 0;
+}
+
+.empty-tip {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 14px;
 }
 
 .bar-chart {

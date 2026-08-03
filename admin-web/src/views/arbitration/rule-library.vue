@@ -23,7 +23,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Search" @click="loadData">搜索</el-button>
+          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
           <el-button type="success" :icon="Plus" @click="handleAdd">新增规则</el-button>
         </el-form-item>
@@ -137,7 +137,8 @@ export default {
         ruleType: '',
         faultSide: ''
       },
-      tableData: [],
+      // 全量数据(一次加载),tableData 由 computed 本地过滤,减轻后端压力
+      allData: [],
       dialogVisible: false,
       isEdit: false,
       submitting: false,
@@ -158,29 +159,40 @@ export default {
         }
     }
   },
+  computed: {
+    // 前端本地按规则类型 + 责任方双条件过滤,不再每次筛选都请求后端
+    tableData() {
+      const { ruleType, faultSide } = this.searchForm
+      return this.allData.filter(r => {
+        if (ruleType && r.rule_type !== ruleType) return false
+        if (faultSide && r.fault_side !== faultSide) return false
+        return true
+      })
+    }
+  },
   mounted() {
     this.loadData()
   },
   methods: {
+    // 仅全量加载一次(及写操作后刷新),不带筛选参数
     loadData() {
       this.loading = true
-      request.get('/arbitration/rule_list', {
-        params: {
-          rule_type: this.searchForm.ruleType,
-          fault_side: this.searchForm.faultSide
-        }
-      }).then(res => {
-        this.tableData = res || []
+      request.get('/arbitration/rule_list').then(res => {
+        this.allData = res || []
       }).finally(() => {
         this.loading = false
       })
+    },
+    // 搜索:纯前端过滤,computed 自动响应,不调后端
+    handleSearch() {
+      // tableData 为 computed,searchForm 变化即自动更新
     },
     handleReset() {
       this.searchForm = {
         ruleType: '',
         faultSide: ''
       }
-      this.loadData()
+      // computed 自动响应,无需调后端
     },
     handleAdd() {
       this.isEdit = false

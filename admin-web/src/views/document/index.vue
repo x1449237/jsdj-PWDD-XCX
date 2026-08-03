@@ -16,7 +16,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="fetchList">搜索</el-button>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
         </el-form-item>
         <el-form-item>
           <el-button type="success" @click="showUploadDialog">上传文档</el-button>
@@ -187,7 +187,8 @@ export default {
   data() {
     return {
       searchForm: { docType: '' },
-      tableData: [],
+      // 全量数据(一次加载),tableData 由 computed 本地过滤,减轻后端压力
+      allData: [],
       loading: false,
       docTypeMap: {
         agreement: '协议',
@@ -224,19 +225,30 @@ export default {
   mounted() {
     this.fetchList()
   },
+  computed: {
+    // 前端本地按文档类型过滤,不再每次筛选都请求后端
+    tableData() {
+      const t = this.searchForm.docType
+      if (!t) return this.allData
+      return this.allData.filter(r => r.doc_type === t)
+    }
+  },
   methods: {
+    // 仅全量加载一次(及写操作后刷新),不带筛选参数
     async fetchList() {
       this.loading = true
       try {
-        const res = await request.get('/document/list', {
-          doc_type: this.searchForm.docType
-        })
-        this.tableData = res.data || []
+        const res = await request.get('/document/list')
+        this.allData = res.data || []
       } catch (e) {
         ElMessage.error('加载失败')
       } finally {
         this.loading = false
       }
+    },
+    // 搜索:纯前端过滤,computed 自动响应,不调后端
+    handleSearch() {
+      // tableData 为 computed,searchForm 变化即自动更新
     },
 
     formatFileSize(bytes) {

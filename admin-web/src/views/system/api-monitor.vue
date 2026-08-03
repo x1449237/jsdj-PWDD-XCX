@@ -533,42 +533,9 @@ export default {
           limit: this.alertPagination.limit
         }
         const res = await request.get('/api_monitor/alert/list', { params })
-        this.alertList = res.data?.list || [
-          {
-            id: 1,
-            trigger_time: new Date(Date.now() - 3600000 * 2).toLocaleString(),
-            level: 'critical',
-            api_type: 'wx_pay',
-            success_rate: 87.5,
-            threshold: 95,
-            fail_count: 15,
-            message: '微信支付回调连续失败，成功率降至阈值以下，请及时排查',
-            status: 'unresolved'
-          },
-          {
-            id: 2,
-            trigger_time: new Date(Date.now() - 3600000 * 5).toLocaleString(),
-            level: 'warning',
-            api_type: 'mail',
-            success_rate: 93.2,
-            threshold: 95,
-            fail_count: 8,
-            message: '邮件服务异常率上升，SMTP连接超时增加',
-            status: 'unresolved'
-          },
-          {
-            id: 3,
-            trigger_time: new Date(Date.now() - 3600000 * 24).toLocaleString(),
-            level: 'info',
-            api_type: 'sms',
-            success_rate: 94.8,
-            threshold: 95,
-            fail_count: 3,
-            message: '短信渠道1延迟增加，已自动切换至渠道2',
-            status: 'resolved'
-          }
-        ]
-        this.alertPagination.total = res.data?.total || this.alertList.length
+        // 告警数据由后端权威返回,失败/为空时显示空列表,前端不伪造 mock 数据
+        this.alertList = res.data?.list || []
+        this.alertPagination.total = res.data?.total || 0
       } catch (err) {
         console.error('获取告警列表失败:', err)
         ElMessage.error('获取告警列表失败')
