@@ -9,13 +9,21 @@ App({
     isLogin: false,
     systemInfo: null,
     baseURL: 'https://your-domain.com/api/v1',
-    wsConnected: false
+    wsConnected: false,
+    // ---- 99~582 需求配套全局缓存 ----
+    clubJoinEnabled: true,                  // 入驻总开关 (216/433/650)
+    badgeRenderConfigs: {},                 // V标渲染配置(196~215,212 禁止前端伪造)
+    imUserPreference: null,                 // 用户 IM 个性化偏好
+    shortPhraseList: [],                    // 快捷短语
+    pendingSessionScrollPos: {}             // 会话列表位置记忆
   },
 
   onLaunch(options) {
     const that = this;
     this.getSystemInfo();
     this.checkUpdate();
+    // ---- 99~582 初始化:公开接口,无需登录 ----
+    this.preloadOpenConfigs();
 
     const token = auth.getToken();
     if (token) {
@@ -24,6 +32,21 @@ App({
       websocket.connect();
       this.checkAgreementVersions();
     }
+  },
+
+  // 99~582 全局预加载(入驻开关 + V标配置)
+  async preloadOpenConfigs() {
+    const that = this;
+    // 入驻总开关
+    request.get('/platform/join-switch').then(r => {
+      that.globalData.clubJoinEnabled = !!r.enabled;
+    }).catch(() => {});
+    // V标渲染配置(禁止前端伪造 212,只按后端返回渲染)
+    request.get('/badge-configs').then(r => {
+      const cfg = {};
+      (r.list || []).forEach(b => { cfg[b.badge_key] = b; });
+      that.globalData.badgeRenderConfigs = cfg;
+    }).catch(() => {});
   },
 
   onShow(options) {

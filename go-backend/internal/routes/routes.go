@@ -58,7 +58,7 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	guardianH := handler.NewGuardianHandler()
 	marketingH := handler.NewMarketingHandler()
 
-	// 平台管理员 handler
+	// 平台方管理人员 handler
 	adminH := handler.NewAdminHandler()
 	adminAuditH := handler.NewAdminAuditHandler()
 	adminFinanceH := handler.NewAdminFinanceHandler()
@@ -76,6 +76,9 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 
 	// 平台方管理人员 IM 会话归类清单 handler
 	platformIMH := handler.NewPlatformIMHandler()
+
+	// 99~582 需求扩展 handler
+	platform99H := handler.NewPlatform99582Handler()
 
 	// WebSocket 升级处理器
 	wsHandler := websocket.NewHandler(deps.Hub, deps.Logger)
@@ -664,4 +667,43 @@ func RegisterRoutes(r *gin.Engine, deps *Deps) {
 	admin.POST("/promo-channels", extH.CreatePromoChannel)
 	admin.GET("/chat-reports", extH.ListChatReports)
 	admin.PUT("/chat-reports/:id/handle", extH.HandleChatReport)
+
+	// ===== 99~582 需求配套 HTTP 接口 =====
+	// 公开接口
+	pub := api.Group("")
+	{
+		pub.GET("/platform/join-switch", platform99H.GetClubJoinSwitch)
+		pub.GET("/public/abbr-help", platform99H.GetAbbrHelpPage)
+		pub.GET("/badge-configs", platform99H.GetAllBadgeRenderConfigs)
+	}
+	// 登录态: 用户侧 99~582 配套
+	userAPI.POST("/orders/gen-club-order-no", platform99H.GenerateClubOrderNo)
+	userAPI.POST("/registrations/personal/files", platform99H.UpsertPersonalRegFiles)
+	userAPI.POST("/registrations/enterprise/files", platform99H.UpsertEnterpriseRegFiles)
+	userAPI.POST("/im/typing", platform99H.UpsertTypingStatus)
+	userAPI.GET("/im/:session_id/typing", platform99H.GetTypingUsers)
+	userAPI.GET("/im/preference", platform99H.GetUserIMPreference)
+	userAPI.POST("/im/preference", platform99H.SaveUserIMPreference)
+	userAPI.POST("/favorites", platform99H.ToggleFavorite)
+	userAPI.GET("/favorites", platform99H.ListFavorites)
+	userAPI.GET("/announcements", platform99H.ListAnnouncements)
+	userAPI.POST("/announcements/:id/read", platform99H.MarkAnnouncementRead)
+	userAPI.GET("/global-group/:group_id/config", platform99H.GetGlobalGroupConfig)
+	userAPI.POST("/global-group/:group_id/at-all-consume", platform99H.IncrementAtAllUsed)
+	userAPI.POST("/after-sale/:session_id/marks", platform99H.MarkAfterSaleMessage)
+	userAPI.GET("/after-sale/:session_id/marks", platform99H.ListAfterSaleMarks)
+	// 公告创建(俱乐部管理员/平台超管)
+	userAPI.POST("/announcements", platform99H.CreateAnnouncement)
+	userAPI.POST("/export/watermark-log", platform99H.CreateExportWatermarkLog)
+	userAPI.GET("/export/watermark-log/:export_no", platform99H.QueryExportWatermark)
+	userAPI.POST("/watermark/detect-log", platform99H.InsertDetectLog)
+
+	// Web 超管侧
+	admin.POST("/platform/join-switch", platform99H.SetClubJoinSwitch)
+	admin.GET("/admin/enterprise/verify-amount/random", platform99H.GenerateRandomVerifyAmount)
+	admin.GET("/admin/global-param", platform99H.GetGlobalParam)
+	admin.POST("/admin/global-param", platform99H.SetGlobalParam)
+	admin.POST("/admin/global-group/config", platform99H.UpsertGlobalGroupConfig)
+	admin.POST("/admin/badge-config", platform99H.UpdateBadgeRenderConfig)
+	admin.POST("/admin/announcements/:id/status", platform99H.UpdateAnnouncementStatus)
 }

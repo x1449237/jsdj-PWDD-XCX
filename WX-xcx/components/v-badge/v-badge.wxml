@@ -1,11 +1,11 @@
-<view class="v-badge-wrapper">
+<view class="v-badge-wrapper" wx:if="{{!hideBadge}}">
   <!-- V标样式（圆角矩形） -->
-  <view class="v-badge {{badgeClass}}" wx:if="{{!isUpMaster}}">
-    <text class="v-badge-text">V</text>
+  <view class="v-badge {{badgeClass}}" wx:if="{{!isUpMaster}}" style="{{badgeStyleStr}}" bindtap="onClickBadge">
+    <text class="v-badge-text">{{badgeLabel}}</text>
   </view>
   
   <!-- UP主徽标样式（圆形） -->
-  <view class="up-badge {{badgeClass}}" wx:else>
+  <view class="up-badge {{badgeClass}}" wx:else style="{{badgeStyleStr}}">
     <text class="up-badge-text">{{badgeLabel}}</text>
   </view>
 </view>

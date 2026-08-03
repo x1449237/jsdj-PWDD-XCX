@@ -36,7 +36,12 @@ Page({
     interveneBannerText: '',
     // 飞单风控警告弹窗
     showAntiFraudModal: false,
-    antiFraudModalContent: ''
+    antiFraudModalContent: '',
+    // ---- 99~582 聊天窗口交互增强 ----
+    targetTyping: false,              // 对方正在输入 (需求340, 341 仅文字触发,语音不触发)
+    autoContVoice: false,             // 自动连读语音开关 (需求117)
+    showShortPhrase: false,           // 快捷短语面板开关 (需求121)
+    shortPhraseList: []               // 最多10条
   },
 
   onLoad(options) {
@@ -61,6 +66,9 @@ Page({
     this.initWebSocket();
     this.markAsRead();
     this.loadQuickCards();
+    // 99~582 增强
+    this.loadIMPreference();
+    this.startTypingPolling();
   },
 
   onUnload() {
@@ -69,6 +77,7 @@ Page({
     websocket.off('chat_message', this.onReceiveMessage);
     websocket.off('platform_intervene', this.onPlatformIntervene);
     websocket.off('message_recall', this.onMessageRecalled);
+    if (this._typingTimer) { clearInterval(this._typingTimer); this._typingTimer = null; }
   },
 
   loadConversationInfo() {
@@ -230,7 +239,16 @@ Page({
   },
 
   onTextInput(e) {
-    this.setData({ inputText: e.detail.value });
+    const val = e.detail.value || '';
+    this.setData({ inputText: val });
+    // 99~582: 文字输入时上报正在输入状态 (语音录制不上报 需求340/341)
+    this._throttledTypingReport = this._throttledTypingReport || throttle(() => {
+      request.post('/im/typing', {
+        session_id: parseInt(this.data.conversationId || '0', 10),
+        typing_type: 'text'
+      }).catch(() => {});
+    }, 3000);
+    if (val) this._throttledTypingReport();
   },
 
   onSendText() {
@@ -765,5 +783,58 @@ Page({
       return item;
     });
     this.setData({ messageList: list });
+  },
+
+  // ===== 99~582: 个性化偏好 + 正在输入轮询 + 快捷短语 =====
+  async loadIMPreference() {
+    try {
+      const pref = await request.get('/im/preference');
+      const list = pref.short_phrase || (pref && pref.shortPhrase) || [];
+      this.setData({
+        autoContVoice: !!(pref.auto_cont_voice || (pref && pref.autoContVoice)),
+        shortPhraseList: Array.isArray(list) ? list.slice(0, 10) : []
+      });
+    } catch (e) {}
+  },
+
+  // 正在输入轮询(10秒一次, 切后台停掉 340~358)
+  startTypingPolling() {
+    this.refreshTyping();
+    this._typingTimer = setInterval(() => this.refreshTyping(), 4000);
+  },
+
+  async refreshTyping() {
+    try {
+      const r = await request.get('/im/' + this.data.conversationId + '/typing');
+      const uids = (r && r.uids) || [];
+      this.setData({ targetTyping: uids.length > 0 });
+    } catch (e) {}
+  },
+
+  onToggleShortPhrase() {
+    this.setData({ showShortPhrase: !this.data.showShortPhrase, showMorePanel: false });
+  },
+
+  onPasteShortPhrase(e) {
+    const text = e.currentTarget.dataset.text;
+    if (text == null) return;
+    this.setData({ inputText: String(text), showShortPhrase: false });
+  },
+
+  onToggleAutoContVoice() {
+    this.setData({ autoContVoice: !this.data.autoContVoice });
+    request.post('/im/preference', { auto_cont_voice: this.data.autoContVoice ? 1 : 0 }).catch(() => {});
   }
 });
+
+// ====== 通用工具:节流 ======
+function throttle(fn, wait) {
+  let last = 0;
+  return function() {
+    const now = Date.now();
+    if (now - last >= wait) {
+      last = now;
+      fn.apply(this, arguments);
+    }
+  };
+}

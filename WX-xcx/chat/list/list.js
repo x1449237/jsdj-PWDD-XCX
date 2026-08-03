@@ -2,6 +2,8 @@ const request = require('../../utils/request');
 const util = require('../../utils/util');
 const websocket = require('../../utils/websocket');
 
+const APP = getApp();
+
 Page({
   data: {
     currentTab: 'chat', // chat | group | after_sale
@@ -10,16 +12,86 @@ Page({
     loading: false,
     page: 1,
     pageSize: 20,
-    hasMore: true
+    hasMore: true,
+    // ---- 99~582 个性化会话列表增强 ----
+    sortMode: 0,               // 0=默认最新消息优先,1=星标置顶优先 (需求103)
+    listPreviewRows: 1,        // 1行/2行 预览 (需求99)
+    savedScrollTop: 0,         // 退出返回列表后浏览位置记忆 (需求110)
+    listScrollViewId: 'chat-sess-scroll'
   },
 
   onLoad() {
+    this.loadIMPreference();
     this.loadConversations();
     this.initWebSocket();
   },
 
   onShow() {
     this.loadConversations();
+    // 返回列表后恢复浏览位置 (需求110)
+    const saved = APP.globalData.pendingSessionScrollPos['chat-list'] || 0;
+    if (saved > 0) {
+      this.setData({ savedScrollTop: saved });
+      wx.nextTick(() => {
+        wx.pageScrollTo ? wx.pageScrollTo({ scrollTop: saved, duration: 0 }) : null;
+      });
+    }
+  },
+
+  onHide() {
+    // 保存位置
+    APP.globalData.pendingSessionScrollPos['chat-list'] = this.data.savedScrollTop || 0;
+  },
+
+  onPageScroll(e) {
+    this.setData({ savedScrollTop: e.scrollTop || 0 });
+  },
+
+  onUnload() {
+    APP.globalData.pendingSessionScrollPos['chat-list'] = this.data.savedScrollTop || 0;
+    websocket.off('new_message', this.onNewMessage);
+  },
+
+  // ---- 99~582: 拉取 IM 个性化偏好 ----
+  async loadIMPreference() {
+    try {
+      const pref = await request.get('/im/preference');
+      this.setData({
+        sortMode: parseInt(pref.sort_mode || 0, 10),
+        listPreviewRows: parseInt(pref.list_preview_rows || 1, 10)
+      });
+      APP.globalData.imUserPreference = pref;
+    } catch (e) {}
+  },
+
+  // ---- 99~582: 一键标全部已读 (需求100) ----
+  async onMarkAllRead() {
+    wx.showModal({
+      title: '确认',
+      content: '将当前所有会话标记为已读？',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await request.post('/platform-im/sessions/mark-all-read', {});
+          wx.showToast({ title: '全部已读', icon: 'success' });
+          this.loadConversations();
+        } catch (e) {
+          wx.showToast({ title: '操作失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  // ---- 99~582: 切换排序模式 ----
+  async onToggleSortMode() {
+    const next = this.data.sortMode === 0 ? 1 : 0;
+    try {
+      await request.post('/im/preference', { sort_mode: next });
+      this.setData({ sortMode: next });
+      this.loadConversations();
+    } catch (e) {
+      wx.showToast({ title: '保存失败', icon: 'none' });
+    }
   },
 
   onPullDownRefresh() {

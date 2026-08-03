@@ -3957,4 +3957,342 @@ ALTER TABLE `group_chat_messages`
   ADD COLUMN `is_key_message` TINYINT NOT NULL DEFAULT 0 COMMENT '是否关键消息',
   ADD COLUMN `is_important_directive` TINYINT NOT NULL DEFAULT 0 COMMENT '是否重要指令';
 
+-- ============================================================
+-- 【需求99~582 配套新增 Schema】
+-- 模块: 总群配置/售后介入/V标渲染/入驻流程/订单号/隐形水印/公告链路/底层数据规则
+-- ============================================================
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 15) 全域官方总群配置表 (需求141~170)
+DROP TABLE IF EXISTS `global_group_config`;
+CREATE TABLE `global_group_config` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `group_chat_id` BIGINT NOT NULL DEFAULT 0 COMMENT '绑定的全域总群 group_chats.id',
+  `enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `nickname_lock` TINYINT NOT NULL DEFAULT 1 COMMENT '禁止普通成员修改群昵称(141)',
+  `at_all_daily_limit` INT NOT NULL DEFAULT 3 COMMENT '每日@全体上限(143)',
+  `at_all_used_today` INT NOT NULL DEFAULT 0 COMMENT '今日已用@全体次数',
+  `at_all_reset_date` DATE NULL COMMENT '计数重置日期',
+  `mute_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '0正常 1全员禁言 2仅禁俱乐部发言(155)',
+  `single_page_load_count` INT NOT NULL DEFAULT 60 COMMENT '分页加载条数(162,比私聊多)',
+  `mute_mode_allows_only_transfer_push` TINYINT NOT NULL DEFAULT 1 COMMENT '免打扰模式仅转单消息推送(163)',
+  `only_transfer_card_forwarding` TINYINT NOT NULL DEFAULT 1 COMMENT '仅允许转发转单卡片(167)',
+  `auto_fold_silent_minutes` INT NOT NULL DEFAULT 30 COMMENT '长时间无消息自动折叠(168,30分钟)',
+  `top_notice_html` LONGTEXT NULL COMMENT '顶部公告图文HTML(142)',
+  `auto_created_system_session_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '自动创建系统会话分组(112)',
+  `transfer_card_prefix_name` VARCHAR(64) NOT NULL DEFAULT '转单' COMMENT '转单气泡前缀',
+  `official_bubble_bg_override` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '官方消息气泡底色(覆盖总群内官方消息底色)(147)',
+  `transfer_bubble_bg_override` VARCHAR(64) NOT NULL DEFAULT '#FFF7E6' COMMENT '转单消息气泡底色(147)',
+  `admin_shield_list_json` JSON NULL COMMENT '屏蔽指定管理员发言列表[uid](146)',
+  `notice_reads_json` JSON NULL COMMENT '公告已读[uid]',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_group_id` (`group_chat_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='全域官方总群基础配置(需求141~170)';
+
+-- 16) 售后介入消息标记 (需求171~195)
+DROP TABLE IF EXISTS `after_sale_message_marks`;
+CREATE TABLE `after_sale_message_marks` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `after_sale_session_id` BIGINT NOT NULL DEFAULT 0 COMMENT '售后三方会话ID',
+  `message_id` BIGINT NOT NULL DEFAULT 0 COMMENT '消息ID',
+  `mark_type` VARCHAR(32) NOT NULL DEFAULT 'evidence' COMMENT 'evidence举证/valid有效凭证/mediation调解/节点(396)',
+  `marker_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '打标人',
+  `mark_time` DATETIME NULL DEFAULT NULL,
+  `remark` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '备注',
+  PRIMARY KEY (`id`),
+  KEY `idx_session` (`after_sale_session_id`),
+  KEY `idx_msg` (`message_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='售后会话消息举证标记(需求171~195)';
+
+-- 17) 售后会话介入模式与状态扩展 (需求171/189/192/195)
+ALTER TABLE `after_sale_sessions`
+  ADD COLUMN `intervene_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '介入模式 0未介入 1敏感词强制介入 2玩家手动申请(391)',
+  ADD COLUMN `intervene_trigger_uid` BIGINT NOT NULL DEFAULT 0 COMMENT '触发介入的消息/申请人UID',
+  ADD COLUMN `intervene_notice_player_sent` TINYINT NOT NULL DEFAULT 0 COMMENT '392/394 玩家端介入提示已发',
+  ADD COLUMN `intervene_notice_club_sent` TINYINT NOT NULL DEFAULT 0 COMMENT '393/395 俱乐部端介入提示已发',
+  ADD COLUMN `input_locked` TINYINT NOT NULL DEFAULT 0 COMMENT '消息输入框锁定(399 售后已完结)',
+  ADD COLUMN `official_bubble_on_all_platform` TINYINT NOT NULL DEFAULT 1 COMMENT '平台介入全部消息用官方气泡(409)',
+  ADD COLUMN `timeout_warn_6h_sent` TINYINT NOT NULL DEFAULT 0 COMMENT '6小时超时预警已推送(406)',
+  ADD COLUMN `close_reason` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关闭原因:和解/判责(412)',
+  ADD COLUMN `close_time` DATETIME NULL DEFAULT NULL COMMENT '关闭时间';
+
+-- 18) 入驻总开关 (需求216)
+DROP TABLE IF EXISTS `global_club_join_switch`;
+CREATE TABLE `global_club_join_switch` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `switch_key` VARCHAR(32) NOT NULL DEFAULT 'club_join' COMMENT 'switch 标识',
+  `enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '1=开启 0=关闭(433)',
+  `updated_by` BIGINT NOT NULL DEFAULT 0,
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_switch_key` (`switch_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='俱乐部入驻全局总开关(需求216)';
+
+-- 19) 个人入驻二进制资料档案 (需求220~235, 233, 551~552)
+DROP TABLE IF EXISTS `personal_club_registration_files`;
+CREATE TABLE `personal_club_registration_files` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `personal_reg_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'personal_registrations.id',
+  `applicant_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '真实姓名(220)',
+  `id_card_no` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '身份证号(220)',
+  `contact_address` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '省市区县街道楼栋户号(221)',
+  `id_card_front_bin` LONGBLOB NULL COMMENT '身份证正面影像(222) BLOB存MySQL',
+  `id_card_back_bin` LONGBLOB NULL COMMENT '身份证反面影像',
+  `contract_signed_pdf_bin` LONGBLOB NULL COMMENT '签约合同PDF(223)',
+  `applicant_age_check` TINYINT NOT NULL DEFAULT 0 COMMENT '年龄≥16岁硬性门槛校验结果(218)',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_personal_reg` (`personal_reg_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='个人入驻二进制档案(身份证/PDF 均存MySQL,禁用OSS)';
+
+-- 20) 企业入驻二进制资料档案 + 对公打款验证 (需求236~255, 551~552)
+DROP TABLE IF EXISTS `enterprise_club_registration_files`;
+CREATE TABLE `enterprise_club_registration_files` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `enterprise_reg_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'enterprise_registrations.id',
+  `business_license_bin` LONGBLOB NULL COMMENT '营业执照影像(236) MySQL BLOB',
+  `legal_person_face_verified` TINYINT NOT NULL DEFAULT 0 COMMENT '法人活体一致(237)',
+  `agent_auth_contract_pdf_bin` LONGBLOB NULL COMMENT '法人+代办授权合同PDF(238)',
+  `enterprise_contract_signed_pdf_bin` LONGBLOB NULL COMMENT '企业入驻合同PDF带公章(244)',
+  `bank_account_name` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '对公户银行名(239)',
+  `bank_card_no` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '对公银行卡号(239)',
+  `random_amount` DECIMAL(4,1) NOT NULL DEFAULT 0.0 COMMENT '随机打款金额 0.1~2.0 一位小数(240)',
+  `amount_verify_status` TINYINT NOT NULL DEFAULT 0 COMMENT '0未验证 1成功 2失败备注错 3金额错(242)',
+  `verify_remark` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '验证备注',
+  `verify_expire_at` DATETIME NULL COMMENT '对公打款验证7天有效期截止(252)',
+  `verify_created_at` DATETIME NULL DEFAULT NULL,
+  `refunded_at` DATETIME NULL COMMENT '原路退回打款时间(243)',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ent_reg` (`enterprise_reg_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='企业入驻二进制档案+对公打款验证(全存MySQL,禁用OSS)';
+
+-- 21) 订单号生成规则 - 俱乐部内部自增序号 (需求262~263, 479~480, 557, 560, 777)
+DROP TABLE IF EXISTS `order_seq_club`;
+CREATE TABLE `order_seq_club` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部ID',
+  `order_date` VARCHAR(8) NOT NULL DEFAULT '' COMMENT '260721 = 年月日(yy mm dd)',
+  `daily_seq` BIGINT NOT NULL DEFAULT 0 COMMENT '俱乐部内部当日自增序号(479)',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_club_date` (`club_id`,`order_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单号自增序列:缩写-年月日时分-当日序号 唯一';
+
+-- 22) 订单号统一生成日志 (溯源审计)
+DROP TABLE IF EXISTS `order_no_generate_logs`;
+CREATE TABLE `order_no_generate_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `order_no` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'BCYL-260721222138 示例',
+  `club_id` BIGINT NOT NULL DEFAULT 0,
+  `club_abbr` VARCHAR(16) NOT NULL DEFAULT '',
+  `yyyymmddhhmi` VARCHAR(12) NOT NULL DEFAULT '' COMMENT '2607212221 补时分',
+  `daily_seq` BIGINT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_no` (`order_no`) COMMENT '订单号绝对唯一索引(560)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单号生成唯一日志';
+
+-- 23) 转单卡片独立表 (需求144/145/151/152/157/164/165/170/484)
+DROP TABLE IF EXISTS `order_transfer_cards`;
+CREATE TABLE `order_transfer_cards` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `card_batch_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '批量转单ID(581) 单条时为单值',
+  `card_type` VARCHAR(16) NOT NULL DEFAULT 'public' COMMENT 'public公开抢单/directed定向(484)',
+  `from_club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '转出俱乐部',
+  `to_club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '定向目标俱乐部ID',
+  `order_ids_json` JSON NOT NULL COMMENT '内部订单ID列表(批量合并151)',
+  `service_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '服务类型',
+  `price_total` DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '总价格(526)',
+  `price_hide_after_taken` TINYINT NOT NULL DEFAULT 1 COMMENT '抢单成功后公示隐藏价格(170/527)',
+  `card_status` TINYINT NOT NULL DEFAULT 0 COMMENT '0有效 1已接单 2已拒绝 3过期(152)',
+  `valid_hours` INT NOT NULL DEFAULT 24 COMMENT '有效期24小时(484)',
+  `expire_at` DATETIME NULL DEFAULT NULL,
+  `created_at` DATETIME NULL DEFAULT NULL,
+  `taken_by_club_id` BIGINT NOT NULL DEFAULT 0,
+  `taken_at` DATETIME NULL DEFAULT NULL,
+  `gray_out_after_expire` TINYINT NOT NULL DEFAULT 1 COMMENT '过期灰化按钮失效(157)',
+  `sender_receipt_sent` TINYINT NOT NULL DEFAULT 0 COMMENT '定向卡片对发送人简易回执(145)',
+  `handled_by_group_chat_id` BIGINT NOT NULL DEFAULT 0 COMMENT '发布所在全域总群',
+  `handled_msg_id` BIGINT NOT NULL DEFAULT 0 COMMENT '群内消息ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_from_club` (`from_club_id`),
+  KEY `idx_to_club` (`to_club_id`),
+  KEY `idx_status_expire` (`card_status`,`expire_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='跨俱乐部转单卡片(统一发全域总群,不再创建两两私聊)';
+
+-- 24) 隐形水印导出与区块链存证 (需求461~485)
+DROP TABLE IF EXISTS `export_watermark_logs`;
+CREATE TABLE `export_watermark_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `export_no` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '导出流水号',
+  `exporter_uid` BIGINT NOT NULL DEFAULT 0,
+  `exporter_name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '导出人账号名(463)',
+  `exporter_role` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '角色职位(463)',
+  `exporter_device_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '设备唯一标识(463)',
+  `exporter_device_model` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '设备品牌型号(463)',
+  `export_milli_utc` BIGINT NOT NULL DEFAULT 0 COMMENT '精确毫秒北京时间(463)',
+  `export_location` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '省市县街道地址(463)',
+  `export_filter_summary` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '筛选条件摘要(463,精简后嵌入水印)',
+  `export_scope` VARCHAR(32) NOT NULL DEFAULT 'admin' COMMENT 'admin超管 或 shop内置管理(473/474)',
+  `encrypted_level` TINYINT NOT NULL DEFAULT 0 COMMENT '0预览无加密 1加密溯源 2加密完整明文报表需二次授权(466)',
+  `authorized_reason` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '二次授权正当理由(466)',
+  `authorized_otp_verified` TINYINT NOT NULL DEFAULT 0 COMMENT '动态验证码校验通过(466)',
+  `origin_hash_sha256` VARCHAR(128) NOT NULL DEFAULT '' COMMENT 'Hash值(467)',
+  `blockchain_txid` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '法院联盟链存证交易ID(467)',
+  `blockchain_timestamp` BIGINT NOT NULL DEFAULT 0 COMMENT '链上时间戳',
+  `file_name_suffix_ts` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '导出文件名附时间戳(475)',
+  `watermark_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '隐形水印总开关(476)',
+  `watermark_template_json` JSON NULL COMMENT '水印内容模板(477)',
+  `decrypt_log_id` BIGINT NOT NULL DEFAULT 0 COMMENT '最近一次解密日志ID(478)',
+  `batch_zip_generated` TINYINT NOT NULL DEFAULT 0 COMMENT '批量导出是否打压缩包(479)',
+  `export_status` TINYINT NOT NULL DEFAULT 0 COMMENT '0成功 1失败不生成空文件(485)',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_exporter` (`exporter_uid`),
+  KEY `idx_export_no` (`export_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='导出隐形水印日志 + Hash区块链存证(需求461~485)';
+
+-- 25) 水印检测记录 (470/483)
+DROP TABLE IF EXISTS `watermark_detect_logs`;
+CREATE TABLE `watermark_detect_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `operator_uid` BIGINT NOT NULL DEFAULT 0,
+  `source_type` VARCHAR(16) NOT NULL DEFAULT 'image' COMMENT 'image截图/file上传',
+  `detected_info_json` JSON NULL COMMENT '提取的溯源字段(482)',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_op` (`operator_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='隐形水印检测记录(470/483)';
+
+-- 26) 身份标识 V 标渲染配置 (需求196~215, 413~432)
+DROP TABLE IF EXISTS `badge_render_config`;
+CREATE TABLE `badge_render_config` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `badge_key` VARCHAR(32) NOT NULL DEFAULT '' COMMENT 'gold_v/blue_v/green_v',
+  `badge_name` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '金色大V/蓝V/绿V',
+  `size_ratio_vs_font` DECIMAL(4,2) NOT NULL DEFAULT 1.00 COMMENT 'V标大小跟随字体比例(423)',
+  `tooltip_text` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '点击悬浮提示文字(421)',
+  `display_priority` INT NOT NULL DEFAULT 0 COMMENT '搜索优先展示(430):大V>蓝V>绿V',
+  `platform_only_creation` TINYINT NOT NULL DEFAULT 1 COMMENT '平台金V仅Web超管可创建(196)',
+  `allow_club_admin_visible` TINYINT NOT NULL DEFAULT 1 COMMENT '俱乐部管理员/创始人拥有',
+  `disable_frontend_forgery_protect` TINYINT NOT NULL DEFAULT 1 COMMENT '禁止前端伪造(212)=后端下发身份+样式',
+  `hide_on_blacklist` TINYINT NOT NULL DEFAULT 1 COMMENT '黑名单隐藏V标(431)',
+  `gray_on_club_suspend` TINYINT NOT NULL DEFAULT 1 COMMENT '俱乐部临时封禁置灰(419)',
+  `preserve_in_history_orders` TINYINT NOT NULL DEFAULT 1 COMMENT '历史订单存档保留(425)',
+  `attach_to_club_entity_only` TINYINT NOT NULL DEFAULT 1 COMMENT '仅绑定俱乐部主体,不绑个人账号(426)',
+  `render_in_session` TINYINT NOT NULL DEFAULT 1 COMMENT '会话列表渲染',
+  `render_in_chat_window` TINYINT NOT NULL DEFAULT 1 COMMENT '聊天窗口渲染',
+  `render_in_member_list` TINYINT NOT NULL DEFAULT 1 COMMENT '成员列表渲染',
+  `transfer_card_display` TINYINT NOT NULL DEFAULT 1 COMMENT '转单卡片顶部展示(432)',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_badge_key` (`badge_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='身份V标可视化渲染配置(196~215)+禁止前端伪造控制';
+
+-- 27) 平台全局基础阈值/参数配置 (需求406~460 配套)
+DROP TABLE IF EXISTS `platform_global_params`;
+CREATE TABLE `platform_global_params` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `param_key` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '参数Key',
+  `param_value` TEXT NULL COMMENT '参数值(JSON/字符串/数字)',
+  `param_type` VARCHAR(16) NOT NULL DEFAULT 'string' COMMENT 'bool/int/string/json',
+  `module` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '所属模块:入驻/IM/订单/打手市场/营销/后台/导出',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '描述',
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_key` (`param_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台全局参数阈值(406~460) 包含入驻总开关/保证金/分页/折叠/轮询/@全体/过期/冷热归档/评价草稿/图片张数';
+
+-- 28) 聊天消息扩展表 (需求113~140, 115/收藏, 342/分页, 343/本地删云端保留, 355/长文本展开收)
+ALTER TABLE `chat_messages`
+  ADD COLUMN `favorited_by_json` JSON NULL COMMENT '消息收藏(344): [uid]',
+  ADD COLUMN `send_status` TINYINT NOT NULL DEFAULT 1 COMMENT '0发送中 1成功 2失败(341)',
+  ADD COLUMN `resend_token` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '失败一键重发(341)',
+  ADD COLUMN `deleted_locally_by_json` JSON NULL COMMENT '本地删除不删云端(343): [uid]',
+  ADD COLUMN `long_text_collapsed` TINYINT NOT NULL DEFAULT 0 COMMENT '长文本是否折叠(355)',
+  ADD COLUMN `is_typing_trigger` TINYINT NOT NULL DEFAULT 0 COMMENT '文字编辑触发正在输入(340 语音不触发)';
+
+ALTER TABLE `group_chat_messages`
+  ADD COLUMN `favorited_by_json` JSON NULL COMMENT '收藏(344) 包含群内转单卡片(165)',
+  ADD COLUMN `msg_bucket_type` VARCHAR(32) NOT NULL DEFAULT 'normal' COMMENT 'official官方/transfer转单/normal普通(147,分类底色)',
+  ADD COLUMN `related_transfer_card_id` BIGINT NOT NULL DEFAULT 0 COMMENT '关联转单卡片(144,152)',
+  ADD COLUMN `deleted_locally_by_json` JSON NULL,
+  ADD COLUMN `send_status` TINYINT NOT NULL DEFAULT 1,
+  ADD COLUMN `resend_token` VARCHAR(64) NOT NULL DEFAULT '';
+
+-- 29) 正在输入状态表 (需求340)
+DROP TABLE IF EXISTS `chat_typing_status`;
+CREATE TABLE `chat_typing_status` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `session_id` BIGINT NOT NULL DEFAULT 0,
+  `uid` BIGINT NOT NULL DEFAULT 0,
+  `typing_type` VARCHAR(16) NOT NULL DEFAULT 'text' COMMENT 'text文字/voice语音不触发',
+  `started_at` DATETIME NULL DEFAULT NULL,
+  `expire_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sess_uid` (`session_id`,`uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对方正在输入状态(340)';
+
+-- 30) 用户个人 IM 偏好配置 (需求99/103/105/107/110/316~328)
+DROP TABLE IF EXISTS `im_user_preferences`;
+CREATE TABLE `im_user_preferences` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `uid` BIGINT NOT NULL DEFAULT 0,
+  `list_preview_rows` TINYINT NOT NULL DEFAULT 1 COMMENT '会话列表预览行数(99):1/2',
+  `sort_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '0最新优先 1星标置顶优先(103)',
+  `mute_level_all_session` TINYINT NOT NULL DEFAULT 0 COMMENT '全局免打扰 0关 1关红点 2关推送(105)',
+  `idle_session_days` INT NOT NULL DEFAULT 30 COMMENT '闲置会话阈值天数(30天自动折叠)(102)',
+  `custom_groups_json` JSON NULL COMMENT '自定义会话分组(107):[{name,ids}]+持久化',
+  `scroll_pos_map_json` JSON NULL COMMENT '列表浏览位置记忆(110):[{页面:位置}]',
+  `auto_cont_voice` TINYINT NOT NULL DEFAULT 0 COMMENT '语音连续自动播放开关(117)',
+  `short_phrase_json` JSON NULL COMMENT '常用10条快捷短语(121)',
+  `last_read_tip_style` TINYINT NOT NULL DEFAULT 0 COMMENT '未读红点样式(111):0仅点 1数字/99+',
+  `starred_forever_top` TINYINT NOT NULL DEFAULT 1 COMMENT '星标永久置顶不受闲置折叠(104)',
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uid` (`uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户IM个性化偏好(需求99/103/105/107/110/316~328)';
+
+-- 31) 收藏夹统一表 (需求127/344/165, 782)
+DROP TABLE IF EXISTS `user_favorites`;
+CREATE TABLE `user_favorites` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `uid` BIGINT NOT NULL DEFAULT 0 COMMENT '用户',
+  `fav_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT 'club/player/message_text/message_image/message_card/transfer_card(782)',
+  `target_id` BIGINT NOT NULL DEFAULT 0 COMMENT '目标ID',
+  `extra_data_json` JSON NULL COMMENT '额外信息(卡片截图/文字快照)',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_uid_type` (`uid`,`fav_type`),
+  UNIQUE KEY `uk_uid_type_target` (`uid`,`fav_type`,`target_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='统一收藏表(127/344/165/782)';
+
+-- 32) 全链路公告表 (需求531~550, 258~261, 748~767)
+DROP TABLE IF EXISTS `announcements`;
+CREATE TABLE `announcements` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `ann_type` VARCHAR(16) NOT NULL DEFAULT 'platform' COMMENT 'platform平台公告/club_internal对内/club_external对外(259/748)',
+  `publisher_uid` BIGINT NOT NULL DEFAULT 0,
+  `club_id` BIGINT NOT NULL DEFAULT 0 COMMENT '公告归属俱乐部(平台=0)',
+  `push_scope` VARCHAR(32) NOT NULL DEFAULT 'all' COMMENT '仅成员/仅客户/成员+客户(260/751)',
+  `title` VARCHAR(255) NOT NULL DEFAULT '',
+  `content_html` LONGTEXT NULL COMMENT '图文混排(755/538)',
+  `cover_images_json` JSON NULL,
+  `effective_from` DATETIME NULL COMMENT '生效起(753)',
+  `effective_to` DATETIME NULL COMMENT '自动失效(753)',
+  `pinned` TINYINT NOT NULL DEFAULT 0 COMMENT '置顶(765)',
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1有效 0撤回 2过期只读(754)',
+  `max_char_fold` INT NOT NULL DEFAULT 300 COMMENT '上限超长折叠(763)',
+  `reads_json` JSON NULL COMMENT '已读UID[]',
+  `created_at` DATETIME NULL DEFAULT NULL,
+  `updated_at` DATETIME NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_type_club` (`ann_type`,`club_id`),
+  KEY `idx_status_time` (`status`,`effective_from`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='全链路公告表(531~550+258~261)';
+
 SET FOREIGN_KEY_CHECKS = 1;
